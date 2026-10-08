@@ -93,8 +93,8 @@ export const createReferenceXR=(() => {
     /* ---------- floating panels drawn on canvases ---------- */
     function panel(w,h,px,py){
       const canvas=document.createElement('canvas');canvas.width=px;canvas.height=py;
-      const tex=new T.CanvasTexture(canvas);
-      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:tex,transparent:true,depthTest:false}));
+      const tex=new T.CanvasTexture(canvas);tex.colorSpace=T.SRGBColorSpace;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false,fog:false,toneMapped:false}));
       mesh.renderOrder=3;return {canvas,ctx:canvas.getContext('2d'),tex,mesh,key:''};
     }
     function round(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
@@ -273,10 +273,10 @@ export const createReferenceXR=(() => {
     const STYLE_DOTS=DAHROOJ_SWATCHES;
     // The menus' glass: a soft paper tint, brighter at the top, a white rim and a faint diagonal sheen (W x H, corner R).
     function glassPane(c,W,H,R){
-      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(255,252,246,.78)');gr.addColorStop(1,'rgba(240,234,224,.62)');
+      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(255,252,246,.98)');gr.addColorStop(1,'rgba(240,234,224,.97)');
       c.fillStyle=gr;round(c,6,6,W-12,H-12,R);c.fill();
       c.save();round(c,6,6,W-12,H-12,R);c.clip();
-      gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(255,255,255,.55)');gr.addColorStop(.35,'rgba(255,255,255,0)');gr.addColorStop(.62,'rgba(255,255,255,0)');gr.addColorStop(.7,'rgba(255,255,255,.18)');gr.addColorStop(.78,'rgba(255,255,255,0)');
+      gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(255,255,255,.12)');gr.addColorStop(.35,'rgba(255,255,255,0)');gr.addColorStop(.62,'rgba(255,255,255,0)');gr.addColorStop(.7,'rgba(255,255,255,.04)');gr.addColorStop(.78,'rgba(255,255,255,0)');
       c.fillStyle=gr;c.fillRect(0,0,W,H);c.restore();
       c.lineWidth=4;c.strokeStyle='rgba(255,255,255,.85)';round(c,8,8,W-16,H-16,R-2);c.stroke();
       c.lineWidth=2;c.strokeStyle='rgba(44,45,61,.16)';round(c,4,4,W-8,H-8,R+2);c.stroke();
@@ -296,7 +296,7 @@ export const createReferenceXR=(() => {
       if(chOpen){
         // The challenges, with progress, in place of the options.
         const done=chs.filter(x=>x.value>=x.goal).length;
-        c.font=font(700,30);c.fillStyle='rgba(44,45,61,.62)';c.fillText(tr(`التحديات · ${done} من ${chs.length}`,`Challenges · ${done} of ${chs.length}`),MW/2,164);
+        c.font=font(700,30);c.fillStyle='rgba(44,45,61,.85)';c.fillText(tr(`التحديات · ${done} من ${chs.length}`,`Challenges · ${done} of ${chs.length}`),MW/2,164);
         // Reset, on the far side of the heading.
         {const b=resetBtn,hot=hover.includes(2000),armed=resetArm>0;
           c.fillStyle=armed?'#c8442f':hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,b.h/2);c.fill();
@@ -312,7 +312,7 @@ export const createReferenceXR=(() => {
           c.textAlign='center';
         });
         // The rewards, under the list.
-        c.textAlign='center';c.font=font(700,26);c.fillStyle='rgba(44,45,61,.62)';
+        c.textAlign='center';c.font=font(700,26);c.fillStyle='rgba(44,45,61,.85)';
         c.fillText(tr('إكسسوارات دحروج · تنفتح بالتحديات','Dahrooj\'s rewards · unlocked by challenges'),MW/2,950);
         const worn=wornNow();
         accButtons.forEach((b,k)=>{
@@ -324,7 +324,7 @@ export const createReferenceXR=(() => {
           c.fillStyle=on?PAPER:INK;c.font=font(700,open?21:20);c.fillText(open?tr(b.ar,b.en):tr(`يحتاج ${b.need}`,`needs ${b.need}`),b.x+b.w/2,b.y+106);
         });
       }else{
-      c.font=font(700,30);c.fillStyle='rgba(44,45,61,.62)';
+      c.font=font(700,30);c.fillStyle='rgba(44,45,61,.85)';
       for(const [t,y] of [[tr('الستايل','Style'),164],[tr('الرمي','Throw'),378],[tr('الطلقات','Shots'),544],...(kind==='immersive-ar'?[]:[[tr('العالم','World'),720]])])c.fillText(t,MW/2,y);
       }
       buttons.forEach((b,i)=>{
@@ -437,7 +437,7 @@ export const createReferenceXR=(() => {
       if(hot){c.lineWidth=4;c.strokeStyle='rgba(242,193,78,.9)';round(c,226,206,572,162,81);c.stroke();}
       c.fillStyle=PAPER;c.font=font(800,62);c.fillText(tr('بدء اللعبة','Play'),540,306);
       c.beginPath();c.moveTo(316,252);c.lineTo(316,322);c.lineTo(368,287);c.closePath();c.fill();
-      c.fillStyle='rgba(44,45,61,.62)';c.font=font(700,32);c.fillText(popped?tr(`فجّرت ${popped}`,`Popped ${popped}`):tr('وجّه يدك واضغط الزناد لتفجير الكور','Aim and pull the trigger to pop the balls'),512,430);
+      c.fillStyle='rgba(44,45,61,.85)';c.font=font(700,32);c.fillText(popped?tr(`فجّرت ${popped}`,`Popped ${popped}`):tr('وجّه يدك واضغط الزناد لتفجير الكور','Aim and pull the trigger to pop the balls'),512,430);
       start.tex.needsUpdate=true;
     }
     function beginIntro(rain=false){const st=g.stage();if(st&&st.grp)st.grp.visible=false;intro={t:0,frames:0,balls:[],shots:[],sparks:[],ready:false,leaving:0,popped:0,spawned:false,gap:0,rain,centre:null};}
@@ -1006,7 +1006,7 @@ export const createReferenceXR=(() => {
       s.addEventListener('end',onEnd);
       // IWSDK owns the XR session.
       // Fixed foveation: the headset draws the edges of the view at lower resolution, where the eye doesn't notice.
-      try{const bl=s.renderState.baseLayer;if(bl&&'fixedFoveation' in bl)bl.fixedFoveation=1;}catch(_){}
+      renderer.xr.setFoveation(.6);
       lastTime=0;frames=0;
       g.respawn();
       if(opening){placing=false;beginIntro();}
@@ -1160,17 +1160,17 @@ export const createReferenceXR=(() => {
     const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
       // Drawn in a fixed order (ring, pane, label) and the see-through ones don't write depth: otherwise, looking
       // down at a card, the label's clear edges could hide the pane behind them.
-      const root=new T.Group(),pane=new T.Mesh(cardShape,new T.MeshBasicMaterial({color:0xfffaf2,transparent:true,opacity:.86,depthWrite:false}));pane.renderOrder=6;root.add(pane);
+      const root=new T.Group(),pane=new T.Mesh(cardShape,new T.MeshBasicMaterial({color:0xfffaf2,transparent:true,opacity:.98,depthWrite:false,fog:false,toneMapped:false}));pane.renderOrder=6;root.add(pane);
       const ring=new T.Mesh(cardShape,new T.MeshBasicMaterial({color:0xf2c14e,transparent:true,opacity:0,depthWrite:false}));ring.scale.setScalar(1.06);ring.position.z=-.002;ring.renderOrder=5;root.add(ring);
       const m=mini(id);m.g.position.set(0,-.012,.05);m.g.scale.setScalar(1.22);root.add(m.g);
-      const lc=document.createElement('canvas');lc.width=256;lc.height=96;const lt=new T.CanvasTexture(lc);
-      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),new T.MeshBasicMaterial({map:lt,transparent:true,depthWrite:false}));label.position.set(0,-CARD_H/2+.045,.003);label.renderOrder=7;root.add(label);
+      const lc=document.createElement('canvas');lc.width=512;lc.height=192;const lt=new T.CanvasTexture(lc);lt.colorSpace=T.SRGBColorSpace;lt.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
+      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),new T.MeshBasicMaterial({map:lt,transparent:true,depthWrite:false,fog:false,toneMapped:false}));label.position.set(0,-CARD_H/2+.045,.003);label.renderOrder=7;root.add(label);
       plaza.add(root);
       return {id,ar,en,subAr,subEn,root,pane,ring,mini:m,lc,lt,key:'',hot:0,i};
     });
     function drawLabel(c){
-      const key=lang;if(c.key===key)return;c.key=key;const x=c.lc.getContext('2d');x.clearRect(0,0,256,96);x.textAlign='center';x.direction=tr('rtl','ltr');
-      x.fillStyle=INK;x.font=font(800,44);x.fillText(tr(c.ar,c.en),128,48);x.fillStyle='rgba(44,45,61,.62)';x.font=font(600,24);x.fillText(tr(c.subAr,c.subEn),128,82);c.lt.needsUpdate=true;
+      const key=lang;if(c.key===key)return;c.key=key;const x=c.lc.getContext('2d');x.setTransform(2,0,0,2,0,0);x.clearRect(0,0,256,96);x.textAlign='center';x.direction=tr('rtl','ltr');
+      x.fillStyle=INK;x.font=font(800,44);x.fillText(tr(c.ar,c.en),128,48);x.fillStyle='rgba(44,45,61,.85)';x.font=font(600,24);x.fillText(tr(c.subAr,c.subEn),128,82);c.lt.needsUpdate=true;
     }
     // Two arcs of four, a little over a metre away, centred on where you look when it opens.
     function placePlaza(){
@@ -1208,7 +1208,7 @@ export const createReferenceXR=(() => {
         // The pointed card comes toward you.
         c.root.position.multiplyScalar(1-.12*c.hot);
         c.root.scale.setScalar(Math.max(.001,e*(1+.14*c.hot)));
-        c.ring.material.opacity=.9*c.hot;c.pane.material.opacity=.86*e;
+        c.ring.material.opacity=.9*c.hot;c.pane.material.opacity=.98*e;
         if(hot||clock<1)c.mini.step(clock);c.mini.g.rotation.y=Math.sin(clock*.6+i)*.35+(hot?clock*.8:0);
       });
       if(plazaPick){plazaPick.t+=dt;const c=plazaPick.c;c.root.scale.multiplyScalar(1+plazaPick.t*2.5);c.pane.material.opacity*=Math.max(0,1-plazaPick.t*3);if(plazaPick.t>.35){setPlaza(false);plazaPick=null;}}

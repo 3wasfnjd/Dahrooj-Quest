@@ -1,3 +1,4 @@
+import {referenceShader} from './render-color.js';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 import * as Core from '@iwsdk/core';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
@@ -22,10 +23,10 @@ export const createReferenceNature=(() => {
 
   /* ---------- DayCycles.js presets and keyframes (4 minutes per day, on the real clock) ---------- */
   const DAY={
-    day:  {lightColor:C('#ffd2c2'),lightIntensity:1.2,shadowColor:C('#6d3fff'),fogColorA:C('#00ffff'),fogColorB:C('#9b89ff'),fogNearRatio:.315,fogFarRatio:1.25,temperature:5},
-    dusk: {lightColor:C('#ff8181'),lightIntensity:1.2,shadowColor:C('#4e009c'),fogColorA:C('#3e53ff'),fogColorB:C('#ff4ce4'),fogNearRatio:0,fogFarRatio:1.25,temperature:0},
-    night:{lightColor:C('#3240ff'),lightIntensity:3.8,shadowColor:C('#2f00db'),fogColorA:C('#10266f'),fogColorB:C('#490a42'),fogNearRatio:-.85,fogFarRatio:1,temperature:-7.5},
-    dawn: {lightColor:C('#ffa882'),lightIntensity:1.2,shadowColor:C('#db004f'),fogColorA:C('#f885ff'),fogColorB:C('#ff7d24'),fogNearRatio:.3,fogFarRatio:1.25,temperature:0}
+    day:{lightColor:C('#fff1dd'),lightIntensity:1.35,shadowColor:C('#8b9cae'),fogColorA:C('#dcebf4'),fogColorB:C('#83b7e0'),fogNearRatio:.5,fogFarRatio:2,temperature:5},
+    dusk:{lightColor:C('#ffd5b2'),lightIntensity:1.05,shadowColor:C('#7c7694'),fogColorA:C('#e1b8ad'),fogColorB:C('#7a8dab'),fogNearRatio:.5,fogFarRatio:2,temperature:0},
+    night:{lightColor:C('#c4d6ff'),lightIntensity:.9,shadowColor:C('#525f7a'),fogColorA:C('#384a69'),fogColorB:C('#172b4a'),fogNearRatio:.65,fogFarRatio:2.4,temperature:-7.5},
+    dawn:{lightColor:C('#ffe0c2'),lightIntensity:1.15,shadowColor:C('#8891a8'),fogColorA:C('#f2d4bd'),fogColorB:C('#9dbbda'),fogNearRatio:.5,fogFarRatio:2,temperature:0}
   };
   const DAY_KEYS=[[DAY.day,0],[DAY.day,.15],[DAY.dusk,.25],[DAY.night,.35],[DAY.night,.6],[DAY.dawn,.8],[DAY.day,.9]];
   const DAY_SECONDS=4*60;
@@ -96,7 +97,7 @@ export const createReferenceNature=(() => {
 
     /* ---------- sky: Motri's day colours as a dome, light at the horizon and rich overhead ---------- */
     // It follows the eyes and stays inside the camera's far plane (the game camera sees 120 m).
-    const sky=new T.Mesh(new T.SphereGeometry(100,32,16),new T.ShaderMaterial({uniforms:U,side:T.BackSide,depthWrite:false,fog:false,
+    const sky=new T.Mesh(new T.SphereGeometry(100,32,16),referenceShader(T,{uniforms:U,side:T.BackSide,depthWrite:false,fog:false,
       vertexShader:'varying vec3 vDir;void main(){vDir=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
       fragmentShader:[
         'uniform vec3 uHorizon,uZenith,uFogA,uSunDir,uLightColor;uniform float uStars;varying vec3 vDir;',
@@ -180,7 +181,7 @@ export const createReferenceNature=(() => {
 
     /* ---------- ground: Terrain.js grass colour, lit like everything else ---------- */
     const grassColor=C('#b8b62e');
-    const groundMat=new T.ShaderMaterial({uniforms:{...U,uColor:{value:grassColor},uDirt:{value:dirtColor}},
+    const groundMat=referenceShader(T,{uniforms:{...U,uColor:{value:grassColor},uDirt:{value:dirtColor}},
       vertexShader:'varying vec4 vClip;varying float vDist;varying vec2 vWorld;void main(){vec3 p=position;vWorld=(modelMatrix*vec4(p,1.)).xz;'+OUT+'}',
       // Marks: the ground shows dirt where balls rolled. Then the pond, then the drop shadows.
       fragmentShader:SHADE+TRACK+'uniform sampler2D uPerlin;'+SLAB+POND_GLSL+SHADOW+`
@@ -216,7 +217,7 @@ export const createReferenceNature=(() => {
       }
       const geo=new T.BufferGeometry();
       geo.setAttribute('position',new T.BufferAttribute(position,3));geo.setAttribute('heightRandomness',new T.BufferAttribute(heightRandomness,1));geo.setAttribute('corner',new T.BufferAttribute(corner,1));
-      const mat=new T.ShaderMaterial({uniforms:{...U,uColor:{value:grassColor},uDirt:{value:dirtColor},uPitch:{value:new T.Vector4(court.x,court.z+1,11,17)},bladeWidth:{value:.13},bladeHeight:{value:.6},bladeHeightRandomness:{value:.6}},side:T.DoubleSide,
+      const mat=referenceShader(T,{uniforms:{...U,uColor:{value:grassColor},uDirt:{value:dirtColor},uPitch:{value:new T.Vector4(court.x,court.z+1,11,17)},bladeWidth:{value:.13},bladeHeight:{value:.6},bladeHeightRandomness:{value:.6}},side:T.DoubleSide,
         vertexShader:WIND+`
           attribute float heightRandomness,corner;uniform float bladeWidth,bladeHeight,bladeHeightRandomness;uniform vec3 uCam;uniform vec4 uPitch;
           varying vec4 vClip;varying float vDist;varying float vTip;varying float vTrack;varying float vShadow;varying float vVar;`+TRACK+SLAB+POND_GLSL+SHADOW+`
@@ -266,7 +267,7 @@ export const createReferenceNature=(() => {
       return g;
     })();
     function foliage(matrices,colorA,colorB){
-      const mat=new T.ShaderMaterial({uniforms:{...U,uFoliage:{value:foliageTexture},uColorA:{value:C(colorA)},uColorB:{value:C(colorB)},threshold:{value:.3}},side:T.DoubleSide,
+      const mat=referenceShader(T,{uniforms:{...U,uFoliage:{value:foliageTexture},uColorA:{value:C(colorA)},uColorB:{value:C(colorB)},threshold:{value:.3}},side:T.DoubleSide,
         vertexShader:WIND+`
           varying vec4 vClip;varying float vDist;varying vec2 vUv;varying vec3 vNormal;varying float vTurn;
           void main(){vUv=uv;
@@ -302,7 +303,7 @@ export const createReferenceNature=(() => {
     }
     // A wood behind the target, beyond the stone.
     for(let i=0;i<24;i++)spots.push({x:court.x+(rng()-.5)*40,z:-28-rng()*18,rot:rng()*Math.PI*2,scale:.8+rng()*.5});
-    const bodyMat=map=>new T.ShaderMaterial({uniforms:{...U,uMap:{value:map}},
+    const bodyMat=map=>referenceShader(T,{uniforms:{...U,uMap:{value:map}},
       vertexShader:'varying vec4 vClip;varying float vDist;varying vec2 vUv;varying vec3 vNormal;void main(){vUv=uv;vNormal=normalize(mat3(modelMatrix*instanceMatrix)*normal);vec4 mv=viewMatrix*modelMatrix*instanceMatrix*vec4(position,1.);vDist=-mv.z;gl_Position=projectionMatrix*mv;vClip=gl_Position;}',
       fragmentShader:SHADE+'uniform sampler2D uMap;varying vec2 vUv;varying vec3 vNormal;void main(){vec3 base=texture2D(uMap,vUv).rgb;gl_FragColor=vec4(motriShade(base,normalize(vNormal),0.),1.);}'});
     const TREES=[['oakTreesVisual.glb','#b4b536','#d8cf3b'],['birchTreesVisual.glb','#ff4f2b','#ff903f'],['cherryTreesVisual.glb','#ff6d6d','#ff9990']];
@@ -369,7 +370,7 @@ export const createReferenceNature=(() => {
         }
       }
       geo.setAttribute('tint',new T.InstancedBufferAttribute(new Float32Array(tints),3));
-      const mat=new T.ShaderMaterial({uniforms:{...U,uPitch:{value:new T.Vector4(court.x,court.z+1,11,17)}},side:T.DoubleSide,
+      const mat=referenceShader(T,{uniforms:{...U,uPitch:{value:new T.Vector4(court.x,court.z+1,11,17)}},side:T.DoubleSide,
         vertexShader:WIND+SLAB+POND_GLSL+SHADOW+`
           attribute vec3 tint;uniform vec4 uPitch;varying vec4 vClip;varying float vDist;varying vec3 vNormal;varying vec3 vTint;varying float vShadow;
           void main(){vTint=tint;
@@ -399,7 +400,7 @@ export const createReferenceNature=(() => {
         const nn=V(0,1,0).applyAxisAngle(V(1,0,0),(rng()-.5)*1.2).applyAxisAngle(V(0,0,1),(rng()-.5)*1.2);nors.push(nn.x,nn.y,nn.z);
       }
       geo.setAttribute('tint',new T.InstancedBufferAttribute(new Float32Array(cols),3));geo.setAttribute('tilt',new T.InstancedBufferAttribute(new Float32Array(nors),3));
-      const mat=new T.ShaderMaterial({uniforms:U,side:T.DoubleSide,
+      const mat=referenceShader(T,{uniforms:U,side:T.DoubleSide,
         vertexShader:SHADOW+`attribute vec3 tint,tilt;varying vec4 vClip;varying float vDist;varying vec3 vTint,vNormal;varying float vShadow;
           void main(){vTint=tint;vNormal=tilt;vec4 w=modelMatrix*instanceMatrix*vec4(position,1.);vShadow=shadowAt(w.xz);
             vec4 mv=viewMatrix*w;vDist=-mv.z;gl_Position=projectionMatrix*mv;vClip=gl_Position;}`,
@@ -417,7 +418,7 @@ export const createReferenceNature=(() => {
       // Beside the stone, in twos and threes.
       for(let i=0;i<16;i++){const sd=rng()<.5?-1:1,x=court.x+sd*(10.2+rng()*6),z=court.z+(rng()-.5)*44;
         for(let j=0,n=1+Math.floor(rng()*3);j<n;j++)put(x+(rng()-.5)*.8,z+(rng()-.5)*.8,.08+rng()*.16);}
-      const mat=new T.ShaderMaterial({uniforms:{...U,uColor:{value:C('#f3eeff')}},
+      const mat=referenceShader(T,{uniforms:{...U,uColor:{value:C('#f3eeff')}},
         vertexShader:SHADOW+'varying vec4 vClip;varying float vDist;varying vec3 vNormal;varying float vShadow;void main(){vNormal=normalize(mat3(modelMatrix*instanceMatrix)*normal);vec4 w=modelMatrix*instanceMatrix*vec4(position,1.);vShadow=shadowAt(w.xz);vec4 mv=viewMatrix*w;vDist=-mv.z;gl_Position=projectionMatrix*mv;vClip=gl_Position;}',
         fragmentShader:SHADE+'uniform vec3 uColor;varying vec3 vNormal;varying float vShadow;void main(){gl_FragColor=vec4(motriShade(uColor,normalize(vNormal),vShadow*.7),1.);}'});
       const mesh=new T.InstancedMesh(geo,mat,mats.length);mats.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.frustumCulled=false;mesh.name='xr-pebbles';root.add(mesh);
@@ -431,7 +432,7 @@ export const createReferenceNature=(() => {
     const props=(()=>{
       const out={obstacles:[],crates:[],loaded:0,onExplode:null};
       const glowU={uColorA:{value:C('#ff8641')},uColorB:{value:C('#ff3e00')},uIntensity:{value:1.7},uOn:{value:1}};
-      const glowMat=new T.ShaderMaterial({uniforms:glowU,
+      const glowMat=referenceShader(T,{uniforms:glowU,
         vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*viewMatrix*modelMatrix*instanceMatrix*vec4(position,1.);}',
         fragmentShader:'uniform vec3 uColorA,uColorB;uniform float uIntensity,uOn;varying vec2 vUv;void main(){vec3 c=mix(uColorA,uColorB,length(vUv-.5)*2.);c/=dot(c,vec3(.2126,.7152,.0722));gl_FragColor=vec4(c*uIntensity*uOn,1.);}'});
       const poleGlowU={...glowU,uOn:{value:0}};
@@ -488,7 +489,7 @@ export const createReferenceNature=(() => {
         const n=poles.length*5,pos=new Float32Array(n*3),seed=new Float32Array(n);
         poles.forEach((p,i)=>{for(let j=0;j<5;j++){const k=i*5+j,a=Math.random()*Math.PI*2;pos.set([p.x+Math.cos(a),2.8,p.z+Math.sin(a)],k*3);seed[k]=Math.random()*999;}});
         const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(pos,3));geo.setAttribute('seed',new T.BufferAttribute(seed,1));
-        const mat=new T.ShaderMaterial({uniforms:{...glowU,uTime:U.uTime,uScale:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
+        const mat=referenceShader(T,{uniforms:{...glowU,uTime:U.uTime,uScale:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
           vertexShader:'attribute float seed;uniform float uTime,uScale;void main(){float t=uTime+seed;vec3 p=position+vec3(sin(t*.4)*.5,sin(t)*.2,sin(t*.3)*.5);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=clamp(90.*uScale/-mv.z,0.,14.);gl_Position=projectionMatrix*mv;}',
           fragmentShader:'uniform vec3 uColorA,uColorB;void main(){float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;vec3 c=mix(uColorA,uColorB,d);gl_FragColor=vec4(c*(1.-d*d),1.);}'});
         const pts=new T.Points(geo,mat);pts.frustumCulled=false;root.add(pts);return mat.uniforms.uScale;
@@ -500,7 +501,7 @@ export const createReferenceNature=(() => {
 
       /* Fireballs.js: a noisy ball of fire that swells and burns away into goo. */
       const fireGeo=new T.SphereGeometry(.5,12,6),fires=[];
-      const fireMat=()=>new T.ShaderMaterial({uniforms:{uPerlin:U.uPerlin,uHorizon:U.uHorizon,uFogNear:U.uFogNear,uFogFar:U.uFogFar,progress:{value:.15},colorA:{value:C('red')},colorB:{value:C('orange')},strength:{value:1.7}},
+      const fireMat=()=>referenceShader(T,{uniforms:{uPerlin:U.uPerlin,uHorizon:U.uHorizon,uFogNear:U.uFogNear,uFogFar:U.uFogFar,progress:{value:.15},colorA:{value:C('red')},colorB:{value:C('orange')},strength:{value:1.7}},
         vertexShader:'varying vec3 vPos,vNormal;varying float vY,vDist;void main(){vPos=position;vNormal=normal;vec4 w=modelMatrix*vec4(position,1.);vY=w.y;vec4 mv=viewMatrix*w;vDist=-mv.z;gl_Position=projectionMatrix*mv;}',
         fragmentShader:`uniform sampler2D uPerlin;uniform vec3 colorA,colorB,uHorizon;uniform float progress,strength,uFogNear,uFogFar;varying vec3 vPos,vNormal;varying float vY,vDist;
           void main(){
@@ -640,7 +641,7 @@ export const createReferenceNature=(() => {
         index.set([l*4,l*4+3,l*4+2,l*4+2,l*4+1,l*4],l*6);
       }
       const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(position,3));geo.setAttribute('offset',new T.BufferAttribute(offset,2));geo.setAttribute('random',new T.BufferAttribute(random,1));geo.setIndex(new T.BufferAttribute(index,1));
-      const mat=new T.ShaderMaterial({uniforms:rainU,transparent:true,side:T.DoubleSide,
+      const mat=referenceShader(T,{uniforms:rainU,transparent:true,side:T.DoubleSide,
         vertexShader:`
           attribute vec2 offset;attribute float random;uniform float thickness,elevation,incline,size,len,localTime,visibleRatio;uniform vec2 center;
           varying vec4 vClip;varying float vDist;
@@ -660,7 +661,7 @@ export const createReferenceNature=(() => {
     const snowU={...U,snowElevation:{value:-1},center:{value:new T.Vector2()}};
     const snowGround=(()=>{
       const geo=new T.PlaneGeometry(60,60,160,160).rotateX(-Math.PI/2);
-      const mat=new T.ShaderMaterial({uniforms:snowU,transparent:true,
+      const mat=referenceShader(T,{uniforms:snowU,transparent:true,
         vertexShader:`
           uniform sampler2D uPerlin;uniform float snowElevation;uniform vec2 center;varying vec4 vClip;varying float vDist;varying float vDelta;varying vec2 vWorld;
           float elev(vec2 p){return snowElevation+smoothstep(0.,1.,texture2D(uPerlin,p*.1).r*texture2D(uPerlin,p*.07).r);}
@@ -702,7 +703,7 @@ export const createReferenceNature=(() => {
       // A stone material lit like the slab floor (time of day, fog), with the slabs' own grain: for the brick wall.
       // It takes half of Motri's purple core shadow, so every stone keeps its own colour (grey stays grey).
       stoneMaterial(color){
-        return new T.ShaderMaterial({uniforms:{...U,uColor:{value:color.clone()}},
+        return referenceShader(T,{uniforms:{...U,uColor:{value:color.clone()}},
           vertexShader:'varying vec4 vClip;varying float vDist;varying vec3 vNormal;varying vec3 vWorld;void main(){vNormal=normalize(mat3(modelMatrix)*normal);vec4 w=modelMatrix*vec4(position,1.);vWorld=w.xyz;vec4 mv=viewMatrix*w;vDist=-mv.z;gl_Position=projectionMatrix*mv;vClip=gl_Position;}',
           fragmentShader:SHADE+'uniform sampler2D uSlabs;uniform vec3 uColor;varying vec3 vNormal;varying vec3 vWorld;void main(){float g=texture2D(uSlabs,(vWorld.xy+vWorld.zz)*.35).r;vec3 c=uColor*(.86+.28*g);gl_FragColor=vec4(mix(motriShade(c,normalize(vNormal),0.),motriShade(c,uLightDir,0.),.5),1.);}'});
       },

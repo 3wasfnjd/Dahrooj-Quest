@@ -6,6 +6,7 @@ test('original world, nine modes, five styles, throw controls, projectiles and f
  const errors:string[]=[],external:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,400));});page.on('request',r=>{if(/^https?:/.test(r.url())&&!r.url().startsWith('http://127.0.0.1:5173'))external.push(r.url());});
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
  await page.waitForTimeout(1200);expect(errors).toEqual([]);
+ for(const time of ['day','dusk','night','dawn']){await page.evaluate(time=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.nature.set({time,weather:'clear'}),time);await page.waitForTimeout(250);expect(errors,time).toEqual([]);await page.screenshot({path:info.outputPath('lighting-'+time+'.png')});}
  const action=async(kind:string,id:string)=>page.evaluate(({kind,id})=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;if(kind==='mode'){r.choosePlaza(r.plaza.ids.indexOf(id));return;}const i=r.menuLayout.buttons.findIndex((b:any)=>b.kind===kind&&b.id===id);if(i<0)throw Error('Missing menu item '+id);r.action(i);},{kind,id});
  for(const mode of ['goal','hoop','window','cans','bowling','bricks','fair','climb','rain']){await action('mode',mode);await page.waitForTimeout(350);expect(errors,mode).toEqual([]);}
  await action('mode','goal');

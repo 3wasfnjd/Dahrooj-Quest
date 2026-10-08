@@ -1,3 +1,4 @@
+import {referenceShader} from './render-color.js';
 import {DAHROOJ_COLORS} from './palette.js';
 /* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
 import {batchReferenceMeshes} from './mesh-batch';
@@ -35,7 +36,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       uAbsorb:{value:new T.Vector3(.08,1.15,.3)},uTint:{value:new T.Color(DAHROOJ_COLORS.jelly)},
       uLightDir:{value:V(.4,.8,.45).normalize()},uLightColor:{value:new T.Color(1,1,1)},
       uSky:{value:new T.Color(0xcfe3ff)},uGround:{value:new T.Color(0x8a7d6c)}};
-    const jellyMaterial=new T.ShaderMaterial({uniforms:jellyU,
+    const jellyMaterial=referenceShader(T,{uniforms:jellyU,
       vertexShader:`varying vec3 vW,vN,vC;varying float vS;
         void main(){vec4 w=modelMatrix*vec4(position,1.);vW=w.xyz;vN=normalize(mat3(modelMatrix)*normal);
           vC=(modelMatrix*vec4(0.,0.,0.,1.)).xyz;vS=length(modelMatrix[0].xyz);gl_Position=projectionMatrix*viewMatrix*w;}`,
@@ -82,7 +83,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       clay:()=>new T.MeshStandardMaterial({color:DAHROOJ_COLORS.clay,roughness:.72,envMap:env,envMapIntensity:.5}),
       // The skin is the colour of the hair roots and lit like them, so gaps between hairs read as deeper fur.
       fur:()=>new T.MeshStandardMaterial({map:furMap,roughness:.95,envMap:env,envMapIntensity:.35}),
-      bubble:()=>new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uTime:bubbleTime},
+      bubble:()=>referenceShader(T,{transparent:true,depthWrite:false,uniforms:{uTime:bubbleTime},
         vertexShader:'varying vec3 vN;varying vec3 vV;varying vec3 vP;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);vP=position;gl_Position=projectionMatrix*mv;}',
         fragmentShader:[
           'uniform float uTime;varying vec3 vN;varying vec3 vV;varying vec3 vP;',
