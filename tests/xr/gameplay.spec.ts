@@ -44,8 +44,10 @@ test('Quest VR session, nine modes, Havok, bounded pools, focus and controller i
     }
     await page.evaluate(() => window.__DAHROOJ_TEST__.context.modes.activate('cans'));
     await page.waitForTimeout(1800);
-    const gravity = await page.evaluate(async () => { const c = window.__DAHROOJ_TEST__.context; const p = c.input.head.clone().set(0.6, 2, -1); const b = c.balls.acquire(p, 'fabric')!; const before = b.root.position.y; await new Promise(r => setTimeout(r, 700)); return { before, after: b.root.position.y, velocity: b.velocity.y }; });
-    expect(gravity.after).toBeLessThan(gravity.before - 0.2);
+    const gravity = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; const p = c.input.head.clone().set(0.6, 2, -1); const b = c.balls.acquire(p, 'fabric')!; return { id: b.id, before: b.root.position.y }; });
+    // Software WebGL in cloud CI has variable render throughput. Observe an
+    // actual Havok fall; elapsed wall time is not a simulation-progress signal.
+    await expect.poll(() => page.evaluate(id => window.__DAHROOJ_TEST__.context.balls.slots.find(b => b.id === id)!.root.position.y, gravity.id), { timeout: 20000 }).toBeLessThan(gravity.before - 0.2);
     const limits = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.balls.clear(); for (let i = 0; i < 60; i++)
         c.balls.acquire(c.input.head, 'fabric', true); const balls = c.balls.active; for (let i = 0; i < 70; i++)
         c.projectiles.fire('bolt', c.input.left.position, c.input.left.direction); const shots = c.projectiles.active; c.balls.clear(); c.projectiles.clear(); return { balls, shots }; });
@@ -57,12 +59,9 @@ test('Quest VR session, nine modes, Havok, bounded pools, focus and controller i
     await page.evaluate(() => window.IWER_DEVICE.updateVisibilityState('visible'));
     await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.focused);
     await page.evaluate(() => { const d = window.IWER_DEVICE; d.controllers.right!.updateButtonValue('squeeze', 1); });
-    await page.waitForTimeout(200);
-    const held = await page.evaluate(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && b.held));
-    expect(held).toBe(true);
+    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && b.held));
     await page.evaluate(() => window.IWER_DEVICE.controllers.right!.updateButtonValue('squeeze', 0));
-    await page.waitForTimeout(250);
-    expect(await page.evaluate(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && !b.held))).toBe(true);
+    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && !b.held));
     for (const style of ['jelly', 'fabric', 'clay', 'fur', 'bubble'] as const) {
         await page.evaluate(style => { const c = window.__DAHROOJ_TEST__.context; c.balls.clear(); c.balls.acquire(c.input.head.clone().add(c.input.right.direction.clone().multiplyScalar(1)), style, true); }, style);
         await page.waitForTimeout(150);
