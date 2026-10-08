@@ -1,0 +1,95 @@
+name: Quest APK · بناء حزمة كويست
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'رقم إصدار أعلى من كل نسخة منشورة سابقًا'
+        required: true
+        type: number
+permissions:
+  contents: read
+concurrency:
+  group: quest-release-signing
+  cancel-in-progress: false
+jobs:
+  package:
+    if: github.repository == '3wasfnjd/Dahrooj-Quest' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: quest-release
+    env:
+      APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+      META_APP_ID: ${{ vars.META_APP_ID }}
+      ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
+      APK_VERSION_CODE: ${{ inputs.version_code }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          repository: 3wasfnjd/Dahrooj-Quest
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: '24', cache: npm}
+      - run: npm ci
+      - run: npm run check
+      - name: Validate permanent identity and deployed origin
+        run: |
+          node --input-type=module -e "import {config} from './scripts/deployment-config.mjs'; await config({signing:true})"
+          node scripts/assetlinks.mjs --verify
+      - name: Retrieve current official Meta requirements
+        run: node scripts/check-meta-policy.mjs
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with: {distribution: temurin, java-version: '17'}
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407
+      - run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'
+      - name: Install official Meta Quest Bubblewrap
+        run: npm install --prefix "$RUNNER_TEMP/bubblewrap" --no-audit --no-fund @meta-quest/bubblewrap-cli@1.24.1
+      - name: Restore permanent signing certificate
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          node scripts/restore-key.mjs
+          echo "SIGNING_KEY_PATH=$RUNNER_TEMP/dahrooj-release.keystore" >> "$GITHUB_ENV"
+          echo "BUBBLEWRAP_PACKAGE_JSON=$RUNNER_TEMP/bubblewrap/package.json" >> "$GITHUB_ENV"
+      - name: Generate immersive Android project
+        env: {ANDROID_KEY_ALIAS: '${{ secrets.ANDROID_KEY_ALIAS }}'}
+        run: node scripts/generate-quest-package.mjs
+      - name: Revalidate Digital Asset Links before build
+        run: node scripts/assetlinks.mjs --verify
+      - name: Build release APK
+        working-directory: quest-package/generated
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon dependencies > ../../reports/android-dependencies.txt
+          ./gradlew --no-daemon assembleRelease
+      - name: Align and sign with permanent certificate
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p release
+          "$ANDROID_HOME/build-tools/34.0.0/zipalign" -P 16 -f 4 quest-package/generated/app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/dahrooj-aligned.apk"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" sign --ks "$SIGNING_KEY_PATH" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --out release/dahrooj-quest.apk "$RUNNER_TEMP/dahrooj-aligned.apk"
+      - name: Verify actual APK and calculate SHA-256
+        run: python scripts/validate-apk.py release/dahrooj-quest.apk
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dahrooj-quest-signed-${{ inputs.version_code }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: quest-validation-${{ github.run_id }}
+          path: reports/
+          retention-days: 90
+      - name: Arabic build summary
+        if: always()
+        env: {BUILD_RESULT: '${{ job.status }}'}
+        run: node scripts/apk-summary.mjs
+      - name: Remove private signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/dahrooj-release.keystore" "$RUNNER_TEMP/dahrooj-aligned.apk"

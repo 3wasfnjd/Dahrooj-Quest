@@ -1,0 +1,35 @@
+Dahrooj — Aboden Games
+Copyright (c) 2026 Aboden Games (github.com/3wasfnjd). All rights reserved.
+
+This repository is published for viewing only. No license is granted to copy,
+modify, distribute, publish, sell, or create derivative works from this
+software, the Dahrooj character, its game modes, styles, artwork, models,
+textures, sounds or any other part of it, in whole or in part, without prior
+written permission from Aboden Games.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT
+SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM THE SOFTWARE OR ITS USE.
+
+Third-party parts keep their own licenses and are not covered by the notice
+above (full list in credits.html):
+- three.js r128 and GLTFLoader, MIT License (vendor/three/LICENSE).
+- Matter.js 0.20.0, MIT License (vendor/matter/LICENSE).
+- Parts ported from Motri / Folio 2025 by Bruno Simon, MIT License
+  (assets/xr/motri/LICENSE).
+- Baloo Bhaijaan 2 and Grandstander fonts, SIL Open Font License 1.1 (vendor/fonts).
+
+---
+
+دحروج — عبودين قيمز
+حقوق النشر (c) 2026 عبودين قيمز (Aboden Games). جميع الحقوق محفوظة.
+
+هذا المستودع منشور للاطلاع فقط. لا يُمنح أي ترخيص لنسخ هذا البرنامج أو تعديله
+أو توزيعه أو نشره أو بيعه أو إنشاء أعمال مشتقة منه، ولا لشخصية دحروج أو أنماطها
+أو ستايلاتها أو رسومها أو مجسّماتها أو خاماتها أو أصواتها أو أي جزء منها، كليًا
+أو جزئيًا، دون إذن كتابي مسبق من عبودين قيمز.
+
+يُقدَّم البرنامج "كما هو" بدون أي ضمان.
+
+الأجزاء المأخوذة من أطراف أخرى تحتفظ بتراخيصها الخاصة ولا يشملها هذا الإشعار،
+وقائمتها في credits.html.

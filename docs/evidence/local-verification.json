@@ -1,0 +1,27 @@
+{
+  "unit": {
+    "tests": 25,
+    "failures": 0,
+    "errors": 0
+  },
+  "xr": {
+    "tests": 3,
+    "failures": 0,
+    "errors": 0
+  },
+  "date": "2026-10-08",
+  "freshNpmCi": true,
+  "typescript": "passed",
+  "eslint": "passed",
+  "productionBuild": "passed",
+  "sizeGate": "passed",
+  "productionOffline": "passed",
+  "browser": "Chromium 153.0.8010.0, SwiftShader, Linux cloud container",
+  "iwer": "2.5.0",
+  "realQuestTest": false,
+  "githubActions": "pending remote verification",
+  "deployment": "blocked: Vercel scope 403 and permanent origin missing",
+  "apk": "not generated",
+  "signing": "not configured",
+  "digitalAssetLinks": "not verified"
+}

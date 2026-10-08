@@ -1,0 +1,50 @@
+name: Deploy HTTPS
+on:
+  push: {branches: [main]}
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-web
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      APP_ORIGIN: ${{ vars.APP_ORIGIN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VERCEL_TELEMETRY_DISABLED: '1'
+      ANDROID_CERT_SHA256: ${{ vars.ANDROID_CERT_SHA256 }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with: {node-version: '24', cache: npm}
+      - name: Validate destination
+        run: |
+          node --input-type=module -e "import {config} from './scripts/deployment-config.mjs'; await config()"
+          test -n "$VERCEL_ORG_ID" && test -n "$VERCEL_PROJECT_ID"
+      - run: npm ci
+      - name: Generate certificate association when configured
+        if: env.ANDROID_CERT_SHA256 != ''
+        run: node scripts/assetlinks.mjs
+      - run: npm run check
+      - run: npm install -g vercel@63.1.0
+      - run: vercel pull --yes --environment=production
+        env: {VERCEL_TOKEN: '${{ secrets.VERCEL_TOKEN }}'}
+      - run: vercel build --prod
+      - name: Stage tested production build
+        run: vercel deploy --prebuilt --prod --skip-domain > reports/staged-deployment-url.txt
+        env: {VERCEL_TOKEN: '${{ secrets.VERCEL_TOKEN }}'}
+      - name: Verify and promote exact deployment
+        run: node scripts/promote-deployment.mjs
+        env: {VERCEL_TOKEN: '${{ secrets.VERCEL_TOKEN }}'}
+      - name: Validate Digital Asset Links
+        if: env.ANDROID_CERT_SHA256 != ''
+        run: node scripts/assetlinks.mjs --verify
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with: {name: deployment-reports, path: reports/, retention-days: 30}

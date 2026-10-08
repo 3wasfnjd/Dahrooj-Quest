@@ -1,0 +1,10 @@
+<testsuites id="" name="" tests="3" failures="0" skipped="0" errors="0" time="56.706127">
+<testsuite name="gameplay.spec.ts" timestamp="2026-10-08T15:08:19.161Z" hostname="" tests="3" failures="0" skipped="0" time="52.156" errors="0">
+<testcase name="Quest VR session, nine modes, Havok, bounded pools, focus and controller input" classname="gameplay.spec.ts" time="31.845">
+</testcase>
+<testcase name="immersive-ar preserves passthrough and requires confirmed placement" classname="gameplay.spec.ts" time="5.882">
+</testcase>
+<testcase name="charged and slingshot release, blaster variants and Rain pop interaction" classname="gameplay.spec.ts" time="14.429">
+</testcase>
+</testsuite>
+</testsuites>

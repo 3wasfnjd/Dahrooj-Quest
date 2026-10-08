@@ -1,0 +1,30 @@
+name: Create permanent signing key · للمرة الأولى فقط
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bootstrap:
+    if: github.repository == '3wasfnjd/Dahrooj-Quest' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: quest-release
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with: {persist-credentials: false}
+      - uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00
+        with: {distribution: temurin, java-version: '17'}
+      - name: Generate, back up and store key without printing secrets
+        env:
+          GH_TOKEN: ${{ secrets.SIGNING_ADMIN_TOKEN }}
+          GH_REPO: 3wasfnjd/Dahrooj-Quest
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_BACKUP_PASSWORD: ${{ secrets.KEY_BACKUP_PASSWORD }}
+        run: node scripts/bootstrap-signing.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with: {name: permanent-signing-backup-encrypted, path: release/signing-backup.gpg, if-no-files-found: error, retention-days: 90}
+      - name: Cleanup
+        if: always()
+        run: rm -f "$RUNNER_TEMP/bootstrap.keystore"

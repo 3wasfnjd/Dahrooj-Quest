@@ -1,0 +1,392 @@
+[
+  {
+    "name": "@babylonjs/havok",
+    "version": "1.3.14",
+    "license": "MIT",
+    "notice": "babylonjs_havok1.3.14.txt"
+  },
+  {
+    "name": "@dimforge/rapier3d-compat",
+    "version": "0.12.0",
+    "license": "Apache-2.0",
+    "notice": "dimforge_rapier3d-compat0.12.0.txt"
+  },
+  {
+    "name": "@drawcall/uikitml",
+    "version": "0.1.8",
+    "license": "UNRESOLVED",
+    "notice": null
+  },
+  {
+    "name": "@iwsdk/core",
+    "version": "1.0.1",
+    "license": "MIT",
+    "notice": "iwsdk_core1.0.1.txt"
+  },
+  {
+    "name": "@iwsdk/locomotor",
+    "version": "1.0.1",
+    "license": "MIT",
+    "notice": "iwsdk_locomotor1.0.1.txt"
+  },
+  {
+    "name": "@iwsdk/scene-composition",
+    "version": "1.0.1",
+    "license": "MIT",
+    "notice": "iwsdk_scene-composition1.0.1.txt"
+  },
+  {
+    "name": "@iwsdk/xr-input",
+    "version": "1.0.1",
+    "license": "MIT",
+    "notice": "iwsdk_xr-input1.0.1.txt"
+  },
+  {
+    "name": "@opentelemetry/api",
+    "version": "1.9.1",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_api1.9.1.txt"
+  },
+  {
+    "name": "@opentelemetry/api-logs",
+    "version": "0.220.0",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_api-logs0.220.0.txt"
+  },
+  {
+    "name": "@opentelemetry/core",
+    "version": "2.12.0",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_core2.12.0.txt"
+  },
+  {
+    "name": "@opentelemetry/instrumentation",
+    "version": "0.220.0",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_instrumentation0.220.0.txt"
+  },
+  {
+    "name": "@opentelemetry/resources",
+    "version": "2.12.0",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_resources2.12.0.txt"
+  },
+  {
+    "name": "@opentelemetry/sdk-trace",
+    "version": "2.12.0",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_sdk-trace2.12.0.txt"
+  },
+  {
+    "name": "@opentelemetry/sdk-trace-base",
+    "version": "2.12.0",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_sdk-trace-base2.12.0.txt"
+  },
+  {
+    "name": "@opentelemetry/semantic-conventions",
+    "version": "1.43.0",
+    "license": "Apache-2.0",
+    "notice": "opentelemetry_semantic-conventions1.43.0.txt"
+  },
+  {
+    "name": "@pmndrs/handle",
+    "version": "6.6.31",
+    "license": "SEE LICENSE IN LICENSE",
+    "notice": "pmndrs_handle6.6.31.txt"
+  },
+  {
+    "name": "zustand",
+    "version": "4.5.7",
+    "license": "MIT",
+    "notice": "zustand4.5.7.txt"
+  },
+  {
+    "name": "@pmndrs/msdfonts",
+    "version": "1.0.76",
+    "license": "SEE LICENSE IN LICENSE",
+    "notice": "pmndrs_msdfonts1.0.76.txt"
+  },
+  {
+    "name": "@pmndrs/pointer-events",
+    "version": "6.6.31",
+    "license": "SEE LICENSE IN LICENSE",
+    "notice": "pmndrs_pointer-events6.6.31.txt"
+  },
+  {
+    "name": "@pmndrs/uikit",
+    "version": "1.0.76",
+    "license": "SEE LICENSE IN LICENSE",
+    "notice": "pmndrs_uikit1.0.76.txt"
+  },
+  {
+    "name": "@pmndrs/uikit-horizon",
+    "version": "1.0.76",
+    "license": "SEE LICENSE IN LICENSE",
+    "notice": "pmndrs_uikit-horizon1.0.76.txt"
+  },
+  {
+    "name": "@pmndrs/uikit-lucide",
+    "version": "1.0.76",
+    "license": "SEE LICENSE IN LICENSE",
+    "notice": "pmndrs_uikit-lucide1.0.76.txt"
+  },
+  {
+    "name": "@pmndrs/uikit-pub-sub",
+    "version": "1.0.76",
+    "license": "MIT",
+    "notice": "pmndrs_uikit-pub-sub1.0.76.txt"
+  },
+  {
+    "name": "@preact/signals-core",
+    "version": "1.14.4",
+    "license": "MIT",
+    "notice": "preact_signals-core1.14.4.txt"
+  },
+  {
+    "name": "@sentry/conventions",
+    "version": "0.16.0",
+    "license": "MIT",
+    "notice": "sentry_conventions0.16.0.txt"
+  },
+  {
+    "name": "@sentry/core",
+    "version": "10.76.1",
+    "license": "MIT",
+    "notice": "sentry_core10.76.1.txt"
+  },
+  {
+    "name": "@sentry/node",
+    "version": "10.76.1",
+    "license": "MIT",
+    "notice": "sentry_node10.76.1.txt"
+  },
+  {
+    "name": "@sentry/node-core",
+    "version": "10.76.1",
+    "license": "MIT",
+    "notice": "sentry_node-core10.76.1.txt"
+  },
+  {
+    "name": "@sentry/opentelemetry",
+    "version": "10.76.1",
+    "license": "MIT",
+    "notice": "sentry_opentelemetry10.76.1.txt"
+  },
+  {
+    "name": "@sentry/server-utils",
+    "version": "10.76.1",
+    "license": "MIT",
+    "notice": "sentry_server-utils10.76.1.txt"
+  },
+  {
+    "name": "@tweenjs/tween.js",
+    "version": "23.1.3",
+    "license": "MIT",
+    "notice": "tweenjs_tween.js23.1.3.txt"
+  },
+  {
+    "name": "@types/emscripten",
+    "version": "1.41.6",
+    "license": "MIT",
+    "notice": "types_emscripten1.41.6.txt"
+  },
+  {
+    "name": "@types/stats.js",
+    "version": "0.17.4",
+    "license": "MIT",
+    "notice": "types_stats.js0.17.4.txt"
+  },
+  {
+    "name": "@types/three",
+    "version": "0.181.0",
+    "license": "MIT",
+    "notice": "types_three0.181.0.txt"
+  },
+  {
+    "name": "@types/webxr",
+    "version": "0.5.24",
+    "license": "MIT",
+    "notice": "types_webxr0.5.24.txt"
+  },
+  {
+    "name": "@webgpu/types",
+    "version": "0.1.74",
+    "license": "BSD-3-Clause",
+    "notice": "webgpu_types0.1.74.txt"
+  },
+  {
+    "name": "@zappar/msdf-generator",
+    "version": "1.2.4",
+    "license": "MIT",
+    "notice": "zappar_msdf-generator1.2.4.txt"
+  },
+  {
+    "name": "cjs-module-lexer",
+    "version": "2.3.0",
+    "license": "MIT",
+    "notice": "cjs-module-lexer2.3.0.txt"
+  },
+  {
+    "name": "comlink",
+    "version": "4.4.2",
+    "license": "Apache-2.0",
+    "notice": "comlink4.4.2.txt"
+  },
+  {
+    "name": "commander",
+    "version": "14.0.3",
+    "license": "MIT",
+    "notice": "commander14.0.3.txt"
+  },
+  {
+    "name": "debug",
+    "version": "4.4.3",
+    "license": "MIT",
+    "notice": "debug4.4.3.txt"
+  },
+  {
+    "name": "discontinuous-range",
+    "version": "1.0.0",
+    "license": "MIT",
+    "notice": "discontinuous-range1.0.0.txt"
+  },
+  {
+    "name": "elics",
+    "version": "3.4.2",
+    "license": "MIT",
+    "notice": "elics3.4.2.txt"
+  },
+  {
+    "name": "entities",
+    "version": "6.0.1",
+    "license": "BSD-2-Clause",
+    "notice": "entities6.0.1.txt"
+  },
+  {
+    "name": "es-module-lexer",
+    "version": "3.0.3",
+    "license": "MIT",
+    "notice": "es-module-lexer3.0.3.txt"
+  },
+  {
+    "name": "fflate",
+    "version": "0.8.3",
+    "license": "MIT",
+    "notice": "fflate0.8.3.txt"
+  },
+  {
+    "name": "import-in-the-middle",
+    "version": "3.5.2",
+    "license": "Apache-2.0",
+    "notice": "import-in-the-middle3.5.2.txt"
+  },
+  {
+    "name": "meshoptimizer",
+    "version": "0.22.0",
+    "license": "MIT",
+    "notice": "meshoptimizer0.22.0.txt"
+  },
+  {
+    "name": "module-details-from-path",
+    "version": "1.0.4",
+    "license": "MIT",
+    "notice": "module-details-from-path1.0.4.txt"
+  },
+  {
+    "name": "moo",
+    "version": "0.5.3",
+    "license": "BSD-3-Clause",
+    "notice": "moo0.5.3.txt"
+  },
+  {
+    "name": "ms",
+    "version": "2.1.3",
+    "license": "MIT",
+    "notice": "ms2.1.3.txt"
+  },
+  {
+    "name": "nearley",
+    "version": "2.20.1",
+    "license": "MIT",
+    "notice": "nearley2.20.1.txt"
+  },
+  {
+    "name": "commander",
+    "version": "2.20.3",
+    "license": "MIT",
+    "notice": "commander2.20.3.txt"
+  },
+  {
+    "name": "playwright",
+    "version": "1.64.0",
+    "license": "Apache-2.0",
+    "notice": "playwright1.64.0.txt"
+  },
+  {
+    "name": "playwright-core",
+    "version": "1.64.0",
+    "license": "Apache-2.0",
+    "notice": "playwright-core1.64.0.txt"
+  },
+  {
+    "name": "railroad-diagrams",
+    "version": "1.0.0",
+    "license": "CC0-1.0",
+    "notice": "railroad-diagrams1.0.0.txt"
+  },
+  {
+    "name": "randexp",
+    "version": "0.4.6",
+    "license": "MIT",
+    "notice": "randexp0.4.6.txt"
+  },
+  {
+    "name": "react",
+    "version": "19.3.0",
+    "license": "MIT",
+    "notice": "react19.3.0.txt"
+  },
+  {
+    "name": "require-in-the-middle",
+    "version": "8.0.1",
+    "license": "MIT",
+    "notice": "require-in-the-middle8.0.1.txt"
+  },
+  {
+    "name": "ret",
+    "version": "0.1.15",
+    "license": "MIT",
+    "notice": "ret0.1.15.txt"
+  },
+  {
+    "name": "super-three",
+    "version": "0.181.0",
+    "license": "MIT",
+    "notice": "super-three0.181.0.txt"
+  },
+  {
+    "name": "three-mesh-bvh",
+    "version": "0.9.16",
+    "license": "MIT",
+    "notice": "three-mesh-bvh0.9.16.txt"
+  },
+  {
+    "name": "use-sync-external-store",
+    "version": "1.7.0",
+    "license": "MIT",
+    "notice": "use-sync-external-store1.7.0.txt"
+  },
+  {
+    "name": "yoga-layout",
+    "version": "3.2.1",
+    "license": "MIT",
+    "notice": "yoga-layout3.2.1.txt"
+  },
+  {
+    "name": "zod",
+    "version": "4.6.5",
+    "license": "MIT",
+    "notice": "zod4.6.5.txt"
+  }
+]
