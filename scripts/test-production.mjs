@@ -24,7 +24,7 @@ try {
     const response = await page.goto('http://127.0.0.1:4173/');
     check(response.headers()['content-security-policy'] === headers['Content-Security-Policy'], 'Production CSP is served');
     await page.waitForFunction(() => navigator.serviceWorker.controller, { timeout: 30000 });
-    check(await page.evaluate(() => !window.IWER_DEVICE && !window.__DAHROOJ_TEST__), 'No IWER runtime or development bridge');
+    check(await page.evaluate(() => !window.IWER_DEVICE && !window.__DAHROOJ_TEST__ && !window.__DAHROOJ_REFERENCE__), 'No IWER runtime or development bridge');
     check(await page.locator('#enter-vr').isDisabled(), 'No desktop gameplay fallback');
     await page.screenshot({ path: 'reports/production/entry.png' });
     await context.setOffline(true);

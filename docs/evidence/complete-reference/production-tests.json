@@ -1,0 +1,18 @@
+{
+  "runtime": "Chromium production WebGL2 entry/offline test; not Quest hardware",
+  "browser": "153.0.8010.0",
+  "assertions": [
+    "Production CSP is served",
+    "No IWER runtime or development bridge",
+    "No desktop gameplay fallback",
+    "Offline reload renders the entry page",
+    "Core application assets were precached",
+    "Privacy policy remains accessible offline",
+    "No browser errors under production CSP",
+    "No external runtime requests"
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "cachedFiles": 116,
+  "status": "passed"
+}

@@ -1,0 +1,80 @@
+{
+  "commit": "c7925b7cd7371b6bb87c44a0743721ad55f177dd",
+  "files": [
+    {
+      "path": "src/reference/nature.js",
+      "origin": "assets/xr/nature.js",
+      "sha256": "fecf4c0cfe18f887de6af8799c61db9ab9186f014eb69722cb70f7b51f350860"
+    },
+    {
+      "path": "src/reference/ambience.js",
+      "origin": "assets/xr/ambience.js",
+      "sha256": "8a8c282d6e1aad8abcabc9f1745f078990b713b6818fa463976ac8335d4d1e68"
+    },
+    {
+      "path": "src/reference/music.js",
+      "origin": "assets/audio/background-music.js: original synthesis without DOM player",
+      "sha256": "13cad45d61efeba7a86c72bdaeeb08879e86e1af9ed361ad5fe9972e53bf13fc"
+    },
+    {
+      "path": "src/reference/sounds.js",
+      "origin": "index.html:original sound functions",
+      "sha256": "a0f001432cdb08cbbb165e5c259c2b37096dc7538dd49ab960feb5997f840ad2"
+    },
+    {
+      "path": "src/reference/xr-runtime.js",
+      "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
+      "sha256": "ae71d55f805a20b1418cb53b0f56c5c72f079c4ec4de3e272ea02ab4ccf2999c"
+    },
+    {
+      "path": "src/reference/game-state.js",
+      "origin": "index.html:headset main ball / volleys / scoring",
+      "sha256": "0753ca7677f8a5f9d162332c7b9e98da9fd57b02aa51fc535dce663db0a55392"
+    },
+    {
+      "path": "src/reference/stages/goal.js",
+      "origin": "index.html:buildGoal",
+      "sha256": "b250c42db527f485f5b26e94df579fa26c337325849cfecca44250e07f628765"
+    },
+    {
+      "path": "src/reference/stages/hoop.js",
+      "origin": "index.html:buildHoop",
+      "sha256": "3127f6814174c47f316cd364c8eb4362f333d8f3675b237c3e5c0275751cc866"
+    },
+    {
+      "path": "src/reference/stages/window.js",
+      "origin": "index.html:buildWindow",
+      "sha256": "61364b9540c479228e78cf288330f39dbe27ff81b85e6140436f849eb1ce1c7e"
+    },
+    {
+      "path": "src/reference/stages/cans.js",
+      "origin": "index.html:buildCans",
+      "sha256": "a892d10b2dd2dad5313e92f155d277d2d4c5a8bea1b3ff5763906f792a3d66d3"
+    },
+    {
+      "path": "src/reference/stages/bowling.js",
+      "origin": "index.html:buildBowling",
+      "sha256": "cbf39874fd42e244cd9973dc9204f2370337104c87618f8931a33b08699948d0"
+    },
+    {
+      "path": "src/reference/stages/bricks.js",
+      "origin": "index.html:buildBricks",
+      "sha256": "d51a8155f8b9a332ff1cf26ff37ca22748b4ccedea021eedd5f0fa4f947dad19"
+    },
+    {
+      "path": "src/reference/stages/fair.js",
+      "origin": "index.html:buildFair",
+      "sha256": "525c615a3067e66ec7e26097936cd5030054d1a3244beecc179a0a6cbb28925b"
+    },
+    {
+      "path": "src/reference/mountain-complete.js",
+      "origin": "assets/xr/climb3d.js",
+      "sha256": "ae4e5ed27ee161606bb25714c8d8275f68cc082d09513931871f89a7f499e020"
+    },
+    {
+      "path": "src/reference/celebration.js",
+      "origin": "index.html:confetti/CHALLENGES",
+      "sha256": "cb378cb9c9238cc37a7096b93d775e3b2009d244aeddec2f50e6f7172ebd9cd0"
+    }
+  ]
+}

@@ -1,7 +1,5 @@
-/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export default function create(ctx){
-const {T,scene,V,S,audio,sfxOut,bodyOf,shove,BR,hit,miss,react,GRAV,UP,addCount,success,toast,xrOnNow,chProgress}=ctx;
-let {time,xrLang}=ctx;
+/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+export default function create(ctx){const {T,scene,V,S,audio,sfxOut,bodyOf,shove,BR,hit,miss,react,GRAV,UP,addCount,success,toast,xrOnNow,chProgress}=ctx;let {time,xrLang}=ctx;
 function buildBowling(){
     const grp=new T.Group(); scene.add(grp);
     const S_PIN=0.34, PH=2.967*S_PIN, CR=0.15, CH=PH, HEAD=-16, LANE_W=1.9, BACK=-19.4;
@@ -34,10 +32,10 @@ function buildBowling(){
       const g=new T.Group(), mesh=new T.Mesh(pinGeo,pinMat); mesh.position.y=-CH/2; mesh.castShadow=true; g.add(mesh); grp.add(g);
       pins.push({mesh:g,body:mesh,x:V(0,0,0),v:V(0,0,0),q:new T.Quaternion(),w:V(0,0,0),invM:1/m,invI,sleep:true,down:false,gone:false});
     }
-    ctx.loadPin(gltf=>{
+    if(T.GLTFLoader) new T.GLTFLoader().load('/assets/models/bowlingPin.glb',gltf=>{
       let src=null; gltf.scene.traverse(o=>{if(o.isMesh&&!src)src=o;}); if(!src) return;
       const geo=src.geometry.clone(); geo.scale(S_PIN,S_PIN,S_PIN);
-      const mat=src.material; if(mat.map)mat.map.colorSpace=T.SRGBColorSpace;
+      const mat=src.material; if(mat.map) mat.map.colorSpace=T.SRGBColorSpace;
       for(const p of pins){ p.body.geometry=geo; p.body.material=mat; }
       pinGeo=geo; pinMat=mat;
     });
@@ -99,7 +97,7 @@ function buildBowling(){
     }
     const live=()=>pins.filter(p=>!p.gone);
     return {
-      grp, bridge:{bodies:pins,radius:CR,height:CH}, aimZ:-9, farZ:BACK+.5, friction:0.97, shotTime:10,
+      grp, aimZ:-9, farZ:BACK+.5, friction:0.97, shotTime:10,
       shoot(obj,point,dir){ const p=bodyOf(pins,obj); if(!p) return false; for(const q of pins) q.sleep=false; shove(p,dir,point,4); return true; },
       pins:()=>pins.map(p=>({down:p.down,gone:p.gone,x:p.x.x,y:p.x.y,z:p.x.z})),
       frame:()=>({roll,knocked}),
@@ -173,5 +171,4 @@ function buildBowling(){
       }
     };
   }
-const stage=buildBowling(),update=stage.update;stage.update=function(dt){time=ctx.time;xrLang=ctx.xrLang;update.call(stage,dt);};return stage;
-}
+const stage=buildBowling(),update=stage.update;stage.update=function(dt){time=ctx.time;xrLang=ctx.xrLang;update.call(stage,dt);};return stage;}

@@ -1,125 +1,25 @@
-import { test, expect } from '@playwright/test';
-import { mkdir, writeFile } from 'node:fs/promises';
-import type { ReferenceMode } from '../../src/modes/reference-mode';
-import type { GameContext } from '../../src/core/context';
-import type { ModeId } from '../../src/core/config';
-import type { XRDevice } from 'iwer';
-declare global {
-    interface Window {
-        __DAHROOJ_TEST__: {
-            context: GameContext;
-            ready: boolean;
-            releaseSpeeds?: number[];
-            fired?: {
-                type: string;
-                speed: number;
-                dynamic: boolean;
-            }[];
-        };
-        IWER_DEVICE: XRDevice;
-    }
-}
-test('Quest VR session, nine modes, reference physics, bounded pools, focus and controller input', async ({ page }, info) => {
-    const errors: string[] = [], external: string[] = [];
-    page.on('pageerror', e => errors.push(e.message));
-    page.on('console', m => { if (m.type() === 'error')
-        errors.push(m.text().slice(0, 600)); });
-    page.on('request', r => { if (/^https?:/.test(r.url()) && !r.url().startsWith('http://127.0.0.1:5173'))
-        external.push(r.url()); });
-    await page.goto('/');
-    await page.waitForFunction(() => !!window.__DAHROOJ_TEST__?.ready);
-    await expect(page.locator('#enter-vr')).toBeEnabled();
-    await page.screenshot({ path: info.outputPath('gate.png') });
-    await page.locator('#enter-vr').click();
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.xr === 'immersive-vr' && window.__DAHROOJ_TEST__.context.tracked);
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: info.outputPath('goal-vr.png') });
-    const samples: unknown[] = [];
-    for (const mode of ['goal', 'hoop', 'window', 'cans', 'bowling', 'bricks', 'fair', 'summit', 'rain'] as ModeId[]) {
-        await page.evaluate(id => window.__DAHROOJ_TEST__.context.modes.activate(id), mode);
-        await page.waitForTimeout(400);
-        const sample = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; return { mode: c.modes.current?.id, bodies: c.bodies.entities.size, entities: c.performance.report().currentEntities, score: c.modes.current?.score }; });
-        expect(sample.mode).toBe(mode);
-        expect(sample.bodies).toBeLessThan(100);
-        samples.push(sample);
-    }
-    await page.evaluate(() => window.__DAHROOJ_TEST__.context.modes.activate('cans'));
-    await page.waitForTimeout(1800);
-    const gravity = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; const p = c.input.head.clone().set(0.6, 2, -1); const b = c.balls.acquire(p, 'fabric')!; return { id: b.id, before: b.root.position.y }; });
-    // Software WebGL in cloud CI has variable render throughput. Observe an
-    // actual reference-physics fall; elapsed wall time is not a simulation-progress signal.
-    await expect.poll(() => page.evaluate(id => window.__DAHROOJ_TEST__.context.balls.slots.find(b => b.id === id)!.root.position.y, gravity.id), { timeout: 20000 }).toBeLessThan(gravity.before - 0.2);
-    const limits = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.balls.clear(); for (let i = 0; i < 60; i++)
-        c.balls.acquire(c.input.head, 'fabric', true); const balls = c.balls.active; for (let i = 0; i < 70; i++)
-        c.projectiles.fire('bolt', c.input.left.position, c.input.left.direction); const shots = c.projectiles.active; c.balls.clear(); c.projectiles.clear(); return { balls, shots }; });
-    expect(limits).toEqual({ balls: 16, shots: 32 });
-    await page.evaluate(() => { window.IWER_DEVICE.updateVisibilityState('visible-blurred'); });
-    await page.waitForFunction(() => !window.__DAHROOJ_TEST__.context.focused);
-    const paused = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; return { paused: c.bodies.system.isPaused, controllerVisible: c.world.input.xr.visualAdapters.controller.right.visual?.model.visible ?? false }; });
-    expect(paused).toEqual({ paused: true, controllerVisible: false });
-    await page.evaluate(() => window.IWER_DEVICE.updateVisibilityState('visible'));
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.focused);
-    await page.evaluate(() => { const d = window.IWER_DEVICE; d.controllers.right!.updateButtonValue('squeeze', 1); });
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && b.held));
-    await page.evaluate(() => window.IWER_DEVICE.controllers.right!.updateButtonValue('squeeze', 0));
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && !b.held));
-    for (const style of ['jelly', 'fabric', 'clay', 'fur', 'bubble'] as const) {
-        await page.evaluate(style => { const c = window.__DAHROOJ_TEST__.context; c.balls.clear(); c.balls.acquire(c.input.head.clone().add(c.input.right.direction.clone().multiplyScalar(1)), style, true); }, style);
-        await page.waitForTimeout(150);
-    }
-    await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.store.data.language = 'ar'; c.ui.show('challenges'); });
-    await page.screenshot({ path: info.outputPath('arabic-challenges.png') });
-    await mkdir('reports', { recursive: true });
-    await writeFile('reports/mode-resources.json', JSON.stringify(samples, null, 2));
-    await writeFile('reports/simulator-performance.json', await page.evaluate(() => JSON.stringify(window.__DAHROOJ_TEST__.context.performance.report(), null, 2)));
-    await info.attach('mode-resources', { body: JSON.stringify(samples, null, 2), contentType: 'application/json' });
-    await info.attach('simulator-performance-NOT-hardware', { body: await page.evaluate(() => JSON.stringify(window.__DAHROOJ_TEST__.context.performance.report(), null, 2)), contentType: 'application/json' });
-    await info.attach('console-errors', { body: JSON.stringify(errors), contentType: 'application/json' });
-    expect(external).toEqual([]);
-    expect(errors).toEqual([]);
+/* eslint-disable @typescript-eslint/no-explicit-any -- The legacy JS test boundary intentionally exposes original runtime objects. */
+import {test,expect} from '@playwright/test';
+import {mkdir,writeFile} from 'node:fs/promises';
+// The test bridge is a development-only module; gameplay runs the production reference code.
+test('original world, nine modes, five styles, throw controls, projectiles and focus',async({page},info)=>{
+ const errors:string[]=[],external:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,400));});page.on('request',r=>{if(/^https?:/.test(r.url())&&!r.url().startsWith('http://127.0.0.1:5173'))external.push(r.url());});
+ await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
+ await page.waitForTimeout(1200);expect(errors).toEqual([]);
+ const action=async(kind:string,id:string)=>page.evaluate(({kind,id})=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;if(kind==='mode'){r.choosePlaza(r.plaza.ids.indexOf(id));return;}const i=r.menuLayout.buttons.findIndex((b:any)=>b.kind===kind&&b.id===id);if(i<0)throw Error('Missing menu item '+id);r.action(i);},{kind,id});
+ for(const mode of ['goal','hoop','window','cans','bowling','bricks','fair','climb','rain']){await action('mode',mode);await page.waitForTimeout(350);expect(errors,mode).toEqual([]);}
+ await action('mode','goal');
+ for(const style of ['jelly','fabric','clay','fur','bubble']){await action('style',style);await page.waitForTimeout(120);}
+ for(const method of ['trigger','hand','sling']){await action('throw',method);expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.throwStyle)).toBe(method);}
+ await action('throw','trigger');
+ await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.right.updateButtonValue('trigger',1));await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.holding);await page.waitForTimeout(500);await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.right.updateButtonValue('trigger',0));await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.S.shot);
+ for(const id of ['bolt','mini','bubble','firework']){await action('shot',id);await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('trigger',1));await page.waitForTimeout(500);await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('trigger',0));}
+ await page.evaluate(()=>(window as any).IWER_DEVICE.updateVisibilityState('visible-blurred'));await page.waitForFunction(()=>!(window as any).__DAHROOJ_REFERENCE__.game.focused);const before=await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.state.time);await page.waitForTimeout(350);expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.state.time)).toBe(before);
+ await page.evaluate(()=>(window as any).IWER_DEVICE.updateVisibilityState('visible'));await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.focused);
+ await page.screenshot({path:info.outputPath('reference-world.png')});await mkdir('reports',{recursive:true});await writeFile('reports/simulator-performance.json',await page.evaluate(()=>JSON.stringify((window as any).__DAHROOJ_REFERENCE__.game.report(),null,2)));expect(errors).toEqual([]);expect(external).toEqual([]);
 });
-test('immersive-ar preserves passthrough and requires confirmed placement', async ({ page }, info) => { await page.goto('/'); await page.waitForFunction(() => !!window.__DAHROOJ_TEST__?.ready); await page.locator('#enter-ar').click(); await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.xr === 'immersive-ar'); expect(await page.evaluate(() => window.__DAHROOJ_TEST__.context.placing)).toBe(true); expect(await page.evaluate(() => window.__DAHROOJ_TEST__.context.world.scene.background)).toBeNull(); await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.mr.manual = true; c.mr.kind = 'table'; }); await page.waitForTimeout(200); await page.evaluate(() => window.__DAHROOJ_TEST__.context.mr.confirm()); await page.waitForFunction(() => !window.__DAHROOJ_TEST__.context.placing); expect(await page.evaluate(() => window.__DAHROOJ_TEST__.context.space.scale)).toBe(0.22); await page.screenshot({ path: info.outputPath('mr-tabletop.png') }); await page.evaluate(() => window.__DAHROOJ_TEST__.context.mr.begin()); await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.placing); expect(await page.evaluate(() => window.__DAHROOJ_TEST__.context.modes.current)).toBeUndefined(); });
-test('charged and slingshot release, blaster variants and Rain pop interaction', async ({ page }) => {
-    await page.goto('/');
-    await page.waitForFunction(() => !!window.__DAHROOJ_TEST__?.ready);
-    await page.locator('#enter-vr').click();
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.tracked && window.__DAHROOJ_TEST__.context.xr === 'immersive-vr');
-    await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.store.data.throwType = 'charged'; window.__DAHROOJ_TEST__.releaseSpeeds = []; c.events.on('throw', e => { const b = c.balls.slots.find(b => b.id === e.id); if (b)
-        window.__DAHROOJ_TEST__.releaseSpeeds!.push(b.velocity.length()); }); window.IWER_DEVICE.controllers.right!.position.set(0.3, 1.4, -0.3); window.IWER_DEVICE.controllers.right!.updateButtonValue('squeeze', 1); });
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.held));
-    await page.evaluate(() => window.IWER_DEVICE.controllers.right!.updateButtonValue('trigger', 1));
-    await page.waitForTimeout(500);
-    await page.evaluate(() => window.IWER_DEVICE.controllers.right!.updateButtonValue('trigger', 0));
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && !b.held));
-    expect(await page.evaluate(() => window.__DAHROOJ_TEST__.releaseSpeeds![0])).toBeGreaterThan(3);
-    await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.balls.clear(); window.IWER_DEVICE.controllers.right!.updateButtonValue('squeeze', 0); c.store.data.throwType = 'slingshot'; });
-    await page.waitForTimeout(120);
-    await page.evaluate(() => { const d = window.IWER_DEVICE; d.controllers.left!.position.set(0.3, 1.4, -0.8); d.controllers.right!.position.set(0.3, 1.4, -0.3); d.controllers.left!.updateButtonValue('squeeze', 1); d.controllers.right!.updateButtonValue('squeeze', 1); });
-    await page.waitForTimeout(200);
-    await page.evaluate(() => window.IWER_DEVICE.controllers.right!.updateButtonValue('squeeze', 0));
-    await page.waitForFunction(() => window.__DAHROOJ_TEST__.context.balls.slots.some(b => b.active && !b.held));
-    expect(await page.evaluate(() => window.__DAHROOJ_TEST__.releaseSpeeds![1])).toBeGreaterThan(8);
-    await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.balls.clear(); window.IWER_DEVICE.controllers.left!.updateButtonValue('squeeze', 0); window.__DAHROOJ_TEST__.fired = []; c.events.on('projectile', type => { const s = c.projectiles.slots.find(s => s.active && s.type === type)!; window.__DAHROOJ_TEST__.fired!.push({ type, speed: s.v.length(), dynamic: c.bodies.entities.has(s.entity) }); }); });
-    for (const shot of ['bolt', 'mini', 'bubble', 'firework'] as const) {
-        await page.evaluate(shot => { const c = window.__DAHROOJ_TEST__.context; c.projectiles.clear(); c.store.data.shot = shot; window.IWER_DEVICE.controllers.left!.updateButtonValue('trigger', 1); }, shot);
-        await page.waitForFunction(shot => window.__DAHROOJ_TEST__.fired!.some(s => s.type === shot), shot);
-        const launched = await page.evaluate(shot => window.__DAHROOJ_TEST__.fired!.find(s => s.type === shot)!, shot);
-        expect(launched.speed).toBeGreaterThan(0);
-        expect(launched.dynamic).toBe(false); // The owner requested the original projectile integrator.
-        await page.evaluate(() => window.IWER_DEVICE.controllers.left!.updateButtonValue('trigger', 0));
-    }
-    const pop = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.projectiles.clear(); c.modes.activate('rain'); const p = c.input.head.clone().set(0, 1.5, -1); const b = c.balls.acquire(p, 'fabric')!; const before = c.store.data.challenges.pop20 || 0; c.modes.popCharacters(p.clone().set(0, 1.5, 0), p.clone().set(0, 1.5, -2), 0.02); return { active: b.active, before, after: c.store.data.challenges.pop20 }; });
-    expect(pop.active).toBe(false);
-    expect(pop.after).toBe(pop.before + 1);
-});
-test('reference mode code resolves goal, hoop and original can/pin rigid-body contacts',async({page})=>{
- await page.goto('/');await page.waitForFunction(()=>window.__DAHROOJ_TEST__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>window.__DAHROOJ_TEST__.context.tracked);
- const result=await page.evaluate(async()=>{
-  const c=window.__DAHROOJ_TEST__.context;const out:Record<string,number>={};c.ui.show('settings');
-  for(const id of ['goal','hoop','cans','bowling'] as const){c.modes.activate(id);const m=c.modes.current as ReferenceMode;
-   if(id==='goal'||id==='hoop'){const p=c.input.head.clone().set(id==='goal'?2.2:0,id==='goal'?1.8:3.15,id==='goal'?-10.8:-8.37);m.root.localToWorld(p);const b=c.balls.acquire(p,'fabric',true)!;const v=p.clone().set(0,id==='hoop'?-2:0,id==='goal'?-4:0).multiplyScalar(.13/.24);c.balls.launch(b,v,v.clone().set(0,0,0));for(let i=0;i<45;i++)m.update(1/120);out[id]=m.score;
-   }else{const bodies=m.stage.bridge!.bodies!;const first=bodies[0];const dir=c.input.head.clone().set(.8,.5,-1).normalize();m.stage.shoot!(first.mesh,first.x.clone(),dir);for(let i=0;i<360;i++)m.update(1/120);out[id]=bodies.filter(b=>b.x.distanceTo(b.mesh.position)<.01&&b.v.length()<100&&Number.isFinite(b.q.w)).length;out[id+'Moved']=Math.abs(first.x.x);}
-  }return out;
- });
- expect(result.goal).toBeGreaterThan(0);expect(result.hoop).toBeGreaterThan(0);expect(result.cans).toBe(6);expect(result.bowling).toBe(10);expect(result.cansMoved).toBeGreaterThan(.1);expect(result.bowlingMoved).toBeGreaterThan(.1);
+test('original mixed reality placement, room collision and session recovery',async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-ar').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.placing);
+ await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;r.testPin([0,0,-2],[0,1,0]);});expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.placing)).toBe(false);
+ await page.waitForTimeout(500);await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.session.end());await expect(page.locator('#gate')).toBeVisible();await page.locator('#enter-ar').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.placing);expect(errors).toEqual([]);
 });

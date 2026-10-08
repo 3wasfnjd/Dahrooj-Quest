@@ -1,7 +1,5 @@
-/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export default function create(ctx){
-const {T,scene,V,groundLine,groundArc,bar,INK,postMat,netMat,S,BR,hit,pointCollide,ooh,segCollide,miss,success,swish}=ctx;
-
+/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+export default function create(ctx){const {T,scene,V,groundLine,groundArc,bar,INK,postMat,netMat,S,BR,hit,pointCollide,ooh,segCollide,miss,success,swish}=ctx;
 function buildHoop(){
     const grp=new T.Group(); scene.add(grp);
     const BBZ=-9, BBW=1.8, BBB=2.9, BBT=3.95, RY=3.05, RR=0.48, TUBE=0.035, RZ=BBZ+0.15+RR;
@@ -70,5 +68,4 @@ function buildHoop(){
       }
     };
   }
-const stage=buildHoop(),update=stage.update;stage.update=function(dt){update.call(stage,dt);};return stage;
-}
+const stage=buildHoop(),update=stage.update;stage.update=function(dt){update.call(stage,dt);};return stage;}

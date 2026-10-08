@@ -184,20 +184,6 @@
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
     "source_commit": "c7925b7cd7371b6bb87c44a0743721ad55f177dd",
-    "source": "index.html original Aboden melody note data; re-rendered by new scripts/render-music.mjs",
-    "destination": "assets/audio/dahrooj-theme.ogg",
-    "license": "Aboden Games proprietary, owner-authorized for this rebuild",
-    "owner": "Aboden Games",
-    "commercial_use": true,
-    "redistribution": true,
-    "attribution": "Aboden Games — public/credits.html",
-    "verification": "Owner directive establishes ownership/permission for current original music identity. No external recording or soundfont.",
-    "sha256": "beefc0b04589e28a944e820323ccf3860890b67b1fad35cff0d7cff72e94b947",
-    "optimization": "60-second mono OGG pre-render; no runtime composition scheduler"
-  },
-  {
-    "source_repository": "https://github.com/3wasfnjd/quest",
-    "source_commit": "c7925b7cd7371b6bb87c44a0743721ad55f177dd",
     "source": "assets/xr/motri/bowlingPin.glb",
     "destination": "assets/models/bowlingPin.glb",
     "license": "MIT",
@@ -207,6 +193,20 @@
     "attribution": "public/licenses/motri-MIT.txt",
     "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
     "sha256": "4b9977d9a4d3144334a1578944d408f9e1af2a988b42eefd10102844cfac0eb5",
+    "optimization": "Original compact binary, no conversion; selected production asset only"
+  },
+  {
+    "source_repository": "https://github.com/3wasfnjd/quest",
+    "source_commit": "c7925b7cd7371b6bb87c44a0743721ad55f177dd",
+    "source": "assets/xr/motri/foliageSDF.png",
+    "destination": "assets/textures/foliageSDF.png",
+    "license": "MIT",
+    "owner": "Bruno Simon, 2025",
+    "commercial_use": true,
+    "redistribution": true,
+    "attribution": "public/licenses/motri-MIT.txt",
+    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "sha256": "b73a07a219d1ecd284dedbea65d729b4fa68457947555f07fbdf6bfcc85f3fc3",
     "optimization": "Original compact binary, no conversion; selected production asset only"
   }
 ]

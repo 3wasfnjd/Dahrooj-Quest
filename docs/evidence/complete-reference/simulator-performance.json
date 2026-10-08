@@ -1,0 +1,12 @@
+{
+  "hardwareTested": false,
+  "renderer": "WebGL2",
+  "physics": "Original reference solvers",
+  "samples": 215,
+  "meanFrameMs": 220.3353488371989,
+  "p95FrameMs": 437.69999999925494,
+  "fps": 4.538536395895688,
+  "drawCalls": 156,
+  "triangles": 378480,
+  "memory": 109000000
+}

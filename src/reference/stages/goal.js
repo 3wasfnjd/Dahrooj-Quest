@@ -1,7 +1,5 @@
-/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export default function create(ctx){
-const {T,scene,groundLine,bar,V,S,GRAV,segCollide,pointCollide,ooh,netGrid,BR,swish,success,miss}=ctx;
-let {time}=ctx;
+/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+export default function create(ctx){const {T,scene,groundLine,bar,V,S,GRAV,segCollide,pointCollide,ooh,netGrid,BR,swish,success,miss}=ctx;let {time}=ctx;
 function buildGoal(){
     const grp=new T.Group(); scene.add(grp);
     const GW=6, GH=2.3, GD=1.8, GZ=-11, PR=0.07;
@@ -95,7 +93,7 @@ function buildGoal(){
       }
     }
     return {
-      grp, bridge:{kinematics:[kBall,...kHands.map(h=>h.h)]}, aimZ:GZ-0.3,
+      grp, aimZ:GZ-0.3,
       ft:sp=>Math.max(0.5,Math.min(1.25,1.35-sp/2600)),
       behind:P=>P.z<GZ-0.05,
       onRespawn(){ keeperReset(); },
@@ -130,5 +128,4 @@ function buildGoal(){
       }
     };
   }
-const stage=buildGoal(),update=stage.update;stage.update=function(dt){time=ctx.time;update.call(stage,dt);};return stage;
-}
+const stage=buildGoal(),update=stage.update;stage.update=function(dt){time=ctx.time;update.call(stage,dt);};return stage;}

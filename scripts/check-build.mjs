@@ -9,7 +9,7 @@ async function walk(dir) { const out = []; for (const d of await readdir(dir, { 
         out.push(p);
 } return out; }
 const modules = JSON.parse(await readFile('reports/bundled-modules.json', 'utf8'));
-if (modules.some(p => /^iwer\/|@iwsdk\/devtools|src\/platform\/(emulator|development)\.ts/.test(p)))
+if (modules.some(p => /^iwer\/|@iwsdk\/devtools|src\/platform\/(emulator|development|reference-development)\.ts/.test(p)))
     throw new Error('Development runtime entered the production bundle');
 if (modules.some(p => p.startsWith('@drawcall/uikitml/')))
     throw new Error('Unlicensed UIKitML fork must not enter the shipped bundle');
@@ -24,7 +24,7 @@ for (const f of files) {
         report.errors.push('Development artifact: ' + f);
     if (f.endsWith('.js')) {
         const text = data.toString();
-        if (text.includes('__DAHROOJ_TEST__') || text.includes('new XRDevice('))
+        if ((text.includes('__DAHROOJ_TEST__') || text.includes('__DAHROOJ_REFERENCE__') || text.includes('testPin(') || text.includes('testDrop(')) || text.includes('new XRDevice('))
             report.errors.push('Development code: ' + f);
     }
     report.assets.push({ file: f, bytes });

@@ -1,0 +1,8 @@
+<testsuites id="" name="" tests="2" failures="0" skipped="0" errors="0" time="66.304217">
+<testsuite name="gameplay.spec.ts" timestamp="2026-10-08T21:42:37.252Z" hostname="" tests="2" failures="0" skipped="0" time="63.484" errors="0">
+<testcase name="original world, nine modes, five styles, throw controls, projectiles and focus" classname="gameplay.spec.ts" time="56.382">
+</testcase>
+<testcase name="original mixed reality placement, room collision and session recovery" classname="gameplay.spec.ts" time="7.102">
+</testcase>
+</testsuite>
+</testsuites>

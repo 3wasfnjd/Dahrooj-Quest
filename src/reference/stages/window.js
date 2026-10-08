@@ -1,7 +1,5 @@
-/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export default function create(ctx){
-const {T,scene,groundLine,BR,V,bar,postMat,chProgress,S,segCollide,ooh,success,miss}=ctx;
-
+/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+export default function create(ctx){const {T,scene,groundLine,BR,V,bar,postMat,chProgress,S,segCollide,ooh,success,miss}=ctx;
 function buildWindow(){
     const grp=new T.Group(); scene.add(grp);
     const WZ=-11, FR=0.05;
@@ -18,7 +16,7 @@ function buildWindow(){
       W.frame.position.set(W.x,W.y,WZ);
       W.pole=bar(W.frame,V(0,-W.y,0),V(0,-h,0),0.035);
       W.bars=[0,1,2,3].map(i=>[c[i],c[(i+1)%4]]);
-      W.pop=0;ctx.changed();
+      W.pop=0;
     }
     function relocate(){
       W.size=Math.max(MIN,W.size*SHRINK);
@@ -52,5 +50,4 @@ function buildWindow(){
       }
     };
   }
-const stage=buildWindow(),update=stage.update;stage.update=function(dt){update.call(stage,dt);};return stage;
-}
+const stage=buildWindow(),update=stage.update;stage.update=function(dt){update.call(stage,dt);};return stage;}

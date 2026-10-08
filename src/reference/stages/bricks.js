@@ -1,7 +1,5 @@
-/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export default function create(ctx){
-const {T,scene,groundLine,rbox,V,audio,sfxOut,thump,addCount,chProgress,chState,S,success,confetti,chime,toast,xrOnNow,BR,hit}=ctx;
-let {xrLang}=ctx;
+/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+export default function create(ctx){const {T,scene,groundLine,rbox,V,audio,sfxOut,thump,addCount,chProgress,chState,S,success,confetti,chime,toast,xrOnNow,BR,hit}=ctx;let {xrLang}=ctx;
 function buildBricks(){
     const grp=new T.Group(); scene.add(grp);
     // Big, so the bricks read clearly, and Dahrooj comes back to you off the wall. In the headset it stands
@@ -41,7 +39,7 @@ function buildBricks(){
         B.bricks.push({mesh:m,mi,alive:true,grow:-(r*8+c)*0.025,half:V(BW/2,BH/2,BD/2)});
       }});
       B.cleared=false;
-      buildTowers(B.level);ctx.changed();
+      buildTowers(B.level);
     }
     /* The castle front: a tower each side of the wall, of the same bricks, in a new design every level (a square
        keep, round towers with a roof, tall towers with a jutting crown, stepped towers, round towers with
@@ -123,7 +121,8 @@ function buildBricks(){
     }
     function breakBrick(b,n,speed){
       b.alive=false; B.brokeShot=true; tink(Math.random()); thump(Math.min(1,speed/14)*0.6);
-      ctx.breakBrick(b,n,speed);
+      const star=new T.Mesh(starGeo,starMat); star.position.copy(b.mesh.position).add(V(0,0,BD)); grp.add(star);
+      B.fx.push({brick:b.mesh,star,t:0,dir:V((Math.random()-.5)*1.2,1.4,1.2)});
       addCount('bricks'); chProgress('bricks20',(chState.bricks20||0)+1);
       // Smashed by a throw: Dahrooj cheers. Smashed by shots while he's in your hand: the wall celebrates on its own
       // (a scored state on a Dahrooj who isn't flying would never run out and he couldn't be thrown again).
@@ -151,7 +150,7 @@ function buildBricks(){
       const vn=S.vel.dot(n); if(vn<0){ hit(n,-vn,cp.clone()); S.vel.addScaledVector(n,-1.7*vn); S.side.set(0,0,0); }
     }
     return {
-      grp, bridge:{get bricks(){return B.bricks;}}, aimZ:FACE+BD, farZ:BZ-0.5, reachZ:-18.5,
+      grp, aimZ:FACE+BD, farZ:BZ-0.5, reachZ:-18.5,
       shoot(obj,point,dir){ const b=B.bricks.find(x=>x.alive&&x.mesh===obj); if(!b) return false; breakBrick(b,dir.clone().negate(),12); return true; },
       ft:sp=>Math.max(0.5,Math.min(1.25,1.35-sp/2600)),
       behind:P=>P.z<BZ-0.05,
@@ -185,5 +184,4 @@ function buildBricks(){
       smashAll(){ for(const b of B.bricks) if(b.alive) breakBrick(b,V(0,0,1),12); },
     };
   }
-const stage=buildBricks(),update=stage.update;stage.update=function(dt){xrLang=ctx.xrLang;update.call(stage,dt);};return stage;
-}
+const stage=buildBricks(),update=stage.update;stage.update=function(dt){xrLang=ctx.xrLang;update.call(stage,dt);};return stage;}

@@ -1,7 +1,5 @@
-/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export default function create(ctx){
-const {T,scene,groundLine,rbox,xrOnNow,COL,ar,audio,sfxOut,S,addCount,chProgress,toast,V,GRAV,thump,BR,hit,squeak,startPopSound,confetti,chState,counts,UP,chime}=ctx;
-let {xrLang,time}=ctx;
+/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+export default function create(ctx){const {T,scene,groundLine,rbox,xrOnNow,COL,ar,audio,sfxOut,S,addCount,chProgress,toast,V,GRAV,thump,BR,hit,squeak,startPopSound,confetti,chState,counts,UP,chime}=ctx;let {xrLang,time}=ctx;
 function buildFair(){
     const grp=new T.Group(); scene.add(grp);
     const FZ=-9.5, CY=1.05, ROUND=60;
@@ -48,7 +46,7 @@ function buildFair(){
     const clap=new T.Mesh(new T.SphereGeometry(0.06,12,10),woodDark); clap.position.y=-0.38; bell.add(clap);
     add(new T.Mesh(new T.CylinderGeometry(0.03,0.03,0.5,8),woodDark),2.6,2.8,FZ-0.3);
     const F={time:ROUND,on:false,score:0,best:0,swing:0,bellHits:0,shownKey:'',over:0};
-    F.best=ctx.best();
+    try{ F.best=+localStorage.getItem('dahrooj-fair-best')||0; }catch(_){}
     function drawSign(){
       const en=xrOnNow()&&xrLang==='en', key=[Math.ceil(F.time),F.score,F.best,F.on,en].join('|'); if(key===F.shownKey) return; F.shownKey=key;
       sg.clearRect(0,0,512,128); sg.fillStyle=COL.ink; sg.textAlign='center'; sg.font='800 64px "Dahrooj",Tahoma,sans-serif';
@@ -119,9 +117,9 @@ function buildFair(){
     }
     const wp=V(0,0,0);
     return {
-      grp, bridge:{ducks,balloons,bell:bellM,stall}, aimZ:FZ, farZ:FZ-1.5, reachZ:-18.5,
+      grp, aimZ:FZ, farZ:FZ-1.5, reachZ:-18.5,
       shoot(obj,point,dir){
-        if(!F.on) return false; const owns=root=>{ for(let x=obj;x;x=x.parent) if(x===root) return true; return false; };
+        const owns=root=>{ for(let x=obj;x;x=x.parent) if(x===root) return true; return false; };
         for(const d of ducks) if(d.down<=0&&owns(d.g)){ launchDuck(d,dir||V(0,0,-1),6.5); squeak(1.35); score(1); return true; }
         for(const b of balloons) if(b.popT<=0&&owns(b.m)){ b.popT=2.2; startPopSound(); confetti.celebrate(b.m.position.clone()); score(2); return true; }
         if(owns(bell)&&F.swing<0.3){ F.swing=1; ding(); F.bellHits++; chProgress('bell3',(chState.bell3||0)+1); score(5); return true; }
@@ -137,10 +135,10 @@ function buildFair(){
         const P=S.pos;
         if(!S.shot) return;
         if(!F.on&&F.over<=0){ F.on=true; F.time=ROUND; F.score=0; counts.fair=0; }
-        for(const d of ducks){ if(d.down>0) continue; grp.worldToLocal(d.g.getWorldPosition(wp)); wp.y+=0.08;
+        for(const d of ducks){ if(d.down>0) continue; d.g.getWorldPosition(wp); wp.y+=0.08;
           if(sphereHit(wp,d.r,true)){ launchDuck(d,S.vel.clone().normalize(),Math.min(9,S.vel.length()*.55)+3); F.touched=true; squeak(1.35); thump(0.4); score(1); } }
         for(const b of balloons){ if(b.popT>0) continue; if(sphereHit(b.m.position,b.r,false)){ b.popT=2.2; F.touched=true; startPopSound(); confetti.celebrate(b.m.position.clone()); score(2); } }
-        grp.worldToLocal(bellM.getWorldPosition(wp)); if(F.swing<0.3&&sphereHit(wp,0.3,true)){ F.swing=1; F.touched=true; ding(); F.bellHits++; chProgress('bell3',(chState.bell3||0)+1); score(5); }
+        bellM.getWorldPosition(wp); if(F.swing<0.3&&sphereHit(wp,0.3,true)){ F.swing=1; F.touched=true; ding(); F.bellHits++; chProgress('bell3',(chState.bell3||0)+1); score(5); }
         // The stall: the back panel and the counter bounce him back.
         if(P.z-BR<FZ-0.97&&P.z>FZ-1.6&&Math.abs(P.x)<3.2&&P.y<2.6){ P.z=FZ-0.97+BR; if(S.vel.z<0){ hit(V(0,0,1),-S.vel.z,V(P.x,P.y,FZ-0.97)); S.vel.z=-S.vel.z*0.5; S.side.set(0,0,0); } }
         if(Math.abs(P.x)<3.3&&P.z>FZ-0.3&&P.z<FZ+0.7&&P.y-BR<CY+0.08&&P.y>CY-0.3){ P.y=CY+0.08+BR; if(S.vel.y<0){ hit(UP,-S.vel.y,V(P.x,CY+0.08,P.z)); S.vel.y=-S.vel.y*0.45; } }
@@ -148,7 +146,7 @@ function buildFair(){
       update(dt){
         // The round clock.
         if(F.on){ F.time-=dt; if(F.time<=0){ F.on=false; F.time=0; F.over=2.5;
-          const best=F.score>F.best; if(best){ F.best=F.score; ctx.best(F.best); }
+          const best=F.score>F.best; if(best){ F.best=F.score; try{ localStorage.setItem('dahrooj-fair-best',String(F.best)); }catch(_){} }
           toast(xrOnNow()&&xrLang==='en'?`Time! ${F.score} points${best?' — best yet':''}`:`انتهى الوقت! ${ar(F.score)} نقطة${best?' · أفضل نتيجة':''}`); chime(); } }
         else if(F.over>0){ F.over-=dt; if(F.over<=0) F.time=ROUND; }
         // Ducks glide along the rail and wrap round; a hit one tips back, then pops up again.
@@ -165,5 +163,4 @@ function buildFair(){
       knockDuck(i){ const d=ducks[i]; if(d&&!d.fly){ launchDuck(d,V(0.3,0.2,-1),7); return true; } return false; },
     };
   }
-const stage=buildFair(),update=stage.update;stage.update=function(dt){xrLang=ctx.xrLang;time=ctx.time;update.call(stage,dt);};return stage;
-}
+const stage=buildFair(),update=stage.update;stage.update=function(dt){xrLang=ctx.xrLang;time=ctx.time;update.call(stage,dt);};return stage;}

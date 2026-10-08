@@ -1,7 +1,5 @@
-/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export default function create(ctx){
-const {T,scene,INK,bar,V,S,audio,sfxOut,bodyOf,shove,miss,pointCollide,BR,hit,react,GRAV,UP,addCount,chProgress,success}=ctx;
-let {time}=ctx;
+/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+export default function create(ctx){const {T,scene,INK,bar,V,S,audio,sfxOut,bodyOf,shove,miss,pointCollide,BR,hit,react,GRAV,UP,addCount,chProgress,success}=ctx;let {time}=ctx;
 function buildCans(){
     const grp=new T.Group(); scene.add(grp);
     const TY=0.9, TW=2.2, TD=0.9, TZ=-20, CR=0.22, CH=0.5;
@@ -87,7 +85,7 @@ function buildCans(){
     }
     const onTable=c=>c.x.y>TY-0.05 && Math.abs(c.x.x)<TW/2 && Math.abs(c.x.z-TZ)<TD/2;
     return {
-      grp, bridge:{bodies:cans,radius:CR,height:CH}, aimZ:TZ,
+      grp, aimZ:TZ,
       shoot(obj,point,dir){ const c=bodyOf(cans,obj); if(!c) return false; wakeAll(); shove(c,dir,point,4.5); clang(0.7); return true; },
       ft:sp=>Math.max(0.8,Math.min(1.6,1.75-sp/2400)),
       behind:P=>P.z<TZ-0.7,
@@ -148,5 +146,4 @@ function buildCans(){
       }
     };
   }
-const stage=buildCans(),update=stage.update;stage.update=function(dt){time=ctx.time;update.call(stage,dt);};return stage;
-}
+const stage=buildCans(),update=stage.update;stage.update=function(dt){time=ctx.time;update.call(stage,dt);};return stage;}
