@@ -37,18 +37,12 @@ export class PoseHistory {
         const last = this.samples[(this.index + 23) % 24];
         if (now - last.t > 0.1)
             return;
-        let weight = 0;
-        for (let i = 2; i <= this.count; i++) {
-            const a = this.samples[(this.index + 24 - i) % 24], dt = last.t - a.t;
-            if (dt < 0.02 || dt > 0.11)
-                continue;
-            const w = Math.exp(-dt * 9);
-            this.v.subVectors(last.p, a.p).divideScalar(dt);
-            velocity.addScaledVector(this.v, w);
-            weight += w;
+        for(let i=this.count-1,j=this.count-1;i>0;i--){
+            const at=(n:number)=>this.samples[(this.index+24-this.count+n)%24];
+            const end=at(i);if(last.t-end.t>.2)break;j=Math.min(j,i-1);while(j>0&&end.t-at(j).t<.04)j--;
+            const dt=end.t-at(j).t;if(dt<.008)continue;this.v.copy(end.p).sub(at(j).p).divideScalar(dt);if(this.v.lengthSq()>velocity.lengthSq())velocity.copy(this.v);
         }
-        if (weight)
-            velocity.divideScalar(weight).clampLength(0, PHYSICS.maxThrowSpeed);
+        velocity.clampLength(0,PHYSICS.maxThrowSpeed);
         const a = this.samples[(this.index + 24 - Math.min(this.count, 6)) % 24], dt = last.t - a.t;
         if (dt > 0.01) {
             this.dq.copy(a.q).invert().premultiply(last.q).normalize();

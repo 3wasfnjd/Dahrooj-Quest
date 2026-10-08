@@ -1,0 +1,12 @@
+<testsuites id="" name="" tests="4" failures="0" skipped="0" errors="0" time="69.026708">
+<testsuite name="gameplay.spec.ts" timestamp="2026-10-08T20:11:57.150Z" hostname="" tests="4" failures="0" skipped="0" time="64.506" errors="0">
+<testcase name="Quest VR session, nine modes, reference physics, bounded pools, focus and controller input" classname="gameplay.spec.ts" time="35.079">
+</testcase>
+<testcase name="immersive-ar preserves passthrough and requires confirmed placement" classname="gameplay.spec.ts" time="6.754">
+</testcase>
+<testcase name="charged and slingshot release, blaster variants and Rain pop interaction" classname="gameplay.spec.ts" time="15.741">
+</testcase>
+<testcase name="reference mode code resolves goal, hoop and original can/pin rigid-body contacts" classname="gameplay.spec.ts" time="6.932">
+</testcase>
+</testsuite>
+</testsuites>

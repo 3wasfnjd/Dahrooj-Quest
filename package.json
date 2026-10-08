@@ -10,7 +10,7 @@
     "dev": "vite --host 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src tests",
-    "test": "vitest run",
+    "test": "vitest run && node scripts/test-reference-summit.mjs",
     "test:xr": "playwright test",
     "build": "node scripts/prepare-assets.mjs && vite build && node scripts/finalize-build.mjs",
     "check:size": "node scripts/check-build.mjs",

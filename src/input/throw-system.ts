@@ -71,6 +71,7 @@ export class ThrowSystem extends createSystem({}) {
         }
         b.pet = Math.max(0, b.pet - dt);
         r.history.release(this.velocity, this.spin, c.input.time);
+        this.velocity.multiplyScalar(2);
         if (type === 'charged') {
             if (r.triggerDown)
                 this.charge = 0;
@@ -84,8 +85,8 @@ export class ThrowSystem extends createSystem({}) {
         if (type === 'slingshot' && l.tracked && l.grip) {
             this.sling = true;
             this.velocity.subVectors(l.position, r.position);
-            const pull = Math.min(0.7, this.velocity.length());
-            this.velocity.normalize().multiplyScalar(Math.min(16, 2 + pull * 23) * Math.sqrt(c.space.scale));
+            const pull = Math.min(0.65, this.velocity.length());
+            this.velocity.normalize().multiplyScalar(pull * 23 * Math.sqrt(c.space.scale));
             b.visual.expression = 'focus';
         }
         const release = r.gripUp || (type === 'charged' && r.triggerUp && this.charge >= 0);

@@ -194,5 +194,19 @@
     "verification": "Owner directive establishes ownership/permission for current original music identity. No external recording or soundfont.",
     "sha256": "beefc0b04589e28a944e820323ccf3860890b67b1fad35cff0d7cff72e94b947",
     "optimization": "60-second mono OGG pre-render; no runtime composition scheduler"
+  },
+  {
+    "source_repository": "https://github.com/3wasfnjd/quest",
+    "source_commit": "c7925b7cd7371b6bb87c44a0743721ad55f177dd",
+    "source": "assets/xr/motri/bowlingPin.glb",
+    "destination": "assets/models/bowlingPin.glb",
+    "license": "MIT",
+    "owner": "Bruno Simon, 2025",
+    "commercial_use": true,
+    "redistribution": true,
+    "attribution": "public/licenses/motri-MIT.txt",
+    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "sha256": "4b9977d9a4d3144334a1578944d408f9e1af2a988b42eefd10102844cfac0eb5",
+    "optimization": "Original compact binary, no conversion; selected production asset only"
   }
 ]

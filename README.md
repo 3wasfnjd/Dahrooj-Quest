@@ -1,6 +1,6 @@
 # دحروج Quest — Aboden Games
 
-إعادة بناء مستقلة باستخدام TypeScript وMeta IWSDK وHavok. المستودع الإنتاجي الوحيد هو [3wasfnjd/Dahrooj-Quest](https://github.com/3wasfnjd/Dahrooj-Quest). المستودع القديم `3wasfnjd/quest` مرجع للقراءة فقط، ولم يُعدّل.
+تطبيق Quest باستخدام TypeScript وMeta IWSDK، مع إعادة استخدام كود المرجع للأنماط والشخصية والطلقات والفيزياء بطلب المالك اللاحق. المستودع الإنتاجي الوحيد هو [3wasfnjd/Dahrooj-Quest](https://github.com/3wasfnjd/Dahrooj-Quest). المستودع القديم `3wasfnjd/quest` مرجع للقراءة فقط، ولم يُعدّل.
 
 **الحالة: نسخة هندسية تحت التحقق، وليست إصدارًا جاهزًا للمتجر.** يوجد تنفيذ للأنماط التسعة وVR وMR، مع اختبارات آلية. النشر الدائم، ربط Meta، التوقيع وDigital Asset Links تحتاج بيانات المالك الحقيقية. نجحت مسارات Check وXR Test وWeb Build فعليًا على GitHub؛ [الأدلة](docs/evidence/github/README.md). Deploy يتوقف حتى ضبط APP_ORIGIN. راجع [التقرير](docs/FINAL-REPORT-AR.md) و[المشكلات](docs/KNOWN-ISSUES-AR.md).
 
@@ -35,7 +35,7 @@
 
 ## البنية والإصدارات
 
-IWSDK **1.0.1**، Three.js **r181** عبر `super-three@0.181.0` المتوافق مع SDK، Havok **1.3.14**، Vite **7.3.7**. WebGL2 إلزامي؛ WebGPU غير مستخدم. فيزياء Havok داخل Worker عند **60 Hz** مع interpolation، مستقلة عن الرسم. طلب 72 Hz تفضيل مشروط بالدعم وليس قياسًا للأداء.
+IWSDK **1.0.1**، Three.js **r181** عبر `super-three@0.181.0` المتوافق مع SDK، Havok **1.3.14**، Vite **7.3.7**. WebGL2 إلزامي؛ WebGPU غير مستخدم. فيزياء أنماط الرمي الأصلية تعمل بخطوة ثابتة **120 Hz**؛ القمة والمطر يحتفظان بمحاكاة المرجع. Havok داخل Worker عند **60 Hz** متبقٍ للعالم والأجسام البيئية. راجع [تفاصيل إعادة الاستخدام](docs/REFERENCE-REUSE-AR.md). طلب 72 Hz تفضيل مشروط بالدعم وليس قياسًا للأداء.
 
 المصدر داخل `src/`، والأصول المرخصة داخل `assets/`. `public/assets` و`public/vendor` نواتج تجهيز تُولّد ولا تُكرر في Git. لا توجد مكتبات تشغيل من CDN. المحاكي IWER متاح للتطوير/الاختبار فقط ويُستبعد من الإنتاج. الحفظ IndexedDB بإصدار ومهاجرات؛ الواجهات عربية وإنجليزية وخطوط محلية.
 

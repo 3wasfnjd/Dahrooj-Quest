@@ -44,7 +44,7 @@ export class Water {
                 r.mesh.scale.setScalar(0.08 + (1 - r.life) * 0.75);
             }
         for (const b of this.c.balls.slots) {
-            if (!b.active || b.held)
+            if (!b.active || b.held || this.c.modes.current?.referencePhysics)
                 continue;
             const p = b.root.position;
             if (!this.contains(p) || p.y - b.radius > this.surface) {

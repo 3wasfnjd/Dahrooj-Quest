@@ -1,0 +1,82 @@
+{
+  "source": "3wasfnjd/quest",
+  "commit": "c7925b7cd7371b6bb87c44a0743721ad55f177dd",
+  "authorization": "Owner requested reference code, assets AND physics on 2026-10-08.",
+  "files": [
+    {
+      "file": "src/reference/face.js",
+      "origin": "index.html:drawEye/drawFace",
+      "sha256": "711f66c641c90c04fae1184ca25a6ac9e662f8e16b2f2bbfd54fe383bed8e85c"
+    },
+    {
+      "file": "src/reference/character.js",
+      "origin": "assets/xr/dahrooj3d.js",
+      "sha256": "dd99eeccc5828b3414f4b14a8ba5a9d793c188071001c6ec1c91f72ad0e33a08"
+    },
+    {
+      "file": "src/reference/summit-core.js",
+      "origin": "assets/climb/climb.js:core only, no mobile UI",
+      "sha256": "fd4b706450c93653a9b9ac941490ff2ceb3cd0159dd2c9463464a0fe86a81b74"
+    },
+    {
+      "file": "src/reference/summit-world.js",
+      "origin": "assets/xr/climb3d.js",
+      "sha256": "3eb0769df14a71ef70f9cd18fcd8334a0dc39a4af7c31d68e9c50728b90ec5ab"
+    },
+    {
+      "file": "src/reference/stages/goal.js",
+      "origin": "index.html:buildGoal",
+      "sha256": "47e288ecd2c76ea45cda538ffa5df108f5bf09369dacd9dfef262e517c4fa5c6"
+    },
+    {
+      "file": "src/reference/stages/hoop.js",
+      "origin": "index.html:buildHoop",
+      "sha256": "c1faee3cf9f746770715cd8267d2d9bb61a23bba9c6584fddf8e83231f635cfb"
+    },
+    {
+      "file": "src/reference/stages/window.js",
+      "origin": "index.html:buildWindow",
+      "sha256": "78913f2332e11add1c3c491b044bde39a3cc9664ec80aee1edc643c156028d54"
+    },
+    {
+      "file": "src/reference/stages/cans.js",
+      "origin": "index.html:buildCans",
+      "sha256": "da06d243bc87ac750551334239004ffcb1480a70e11111c3997b4b928232de40"
+    },
+    {
+      "file": "src/reference/stages/bowling.js",
+      "origin": "index.html:buildBowling",
+      "sha256": "c58d87c2550ec4cd1de3b2111ea7502b4dc396531f5265fa1c5a33a134bb2d39"
+    },
+    {
+      "file": "src/reference/stages/bricks.js",
+      "origin": "index.html:buildBricks",
+      "sha256": "da4f1e8fbae34cddcdd7c79251ea964366214e8cbdadfa7c5ff29f75b1f1da00"
+    },
+    {
+      "file": "src/reference/stages/fair.js",
+      "origin": "index.html:buildFair",
+      "sha256": "c1d33ea5a0cf9e1a3dd90103ce8d183df622ec8ca43d647331d03c3bfe5a61ba"
+    },
+    {
+      "file": "src/reference/stage-art.js",
+      "origin": "index.html:shared stage art helpers",
+      "sha256": "f9b81395fb031fa3383d6d1d4425de8823801315d90744119ba57ada86a8d077"
+    },
+    {
+      "file": "src/reference/ball-physics.js",
+      "origin": "index.html:ballStepAt",
+      "sha256": "09a990aabc6ee828e62c5ba5de3b69a181a326f6afe58df5db4b5376ad593f8b"
+    },
+    {
+      "file": "src/reference/rain-physics.js",
+      "origin": "assets/xr/xr.js:dropBall/stepIntro room physics",
+      "sha256": "9f868e82891021c324b3786cd8102dbb4854b840b468419c679196fcc7e2d800"
+    },
+    {
+      "file": "src/reference/projectile-spec.js",
+      "origin": "assets/xr/xr.js:SHOT_STYLE/stepBlast",
+      "sha256": "b670bfe29863b65d84517c19789a0cc540cd339792ed601c008ad654485554ad"
+    }
+  ]
+}

@@ -158,7 +158,7 @@ export class Environment {
             if (d < 2.5) {
                 this.impulse.normalize().multiplyScalar(Math.min(1.7, (2.5 - d) * 0.7));
                 this.impulse.y = Math.max(0.1, this.impulse.y);
-                c.bodies.manipulate(b.entity, undefined, undefined, this.impulse);
+                if(c.modes.current?.referencePhysics)b.velocity.addScaledVector(this.impulse,1/.38).clampLength(0,12);else c.bodies.manipulate(b.entity, undefined, undefined, this.impulse);
             }
         } for (const crate of this.crates)
         if (!crate.respawn && !crate.fuse && crate.mesh.position.distanceToSquared(position) < 1.7 ** 2)

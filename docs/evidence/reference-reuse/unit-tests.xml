@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="23" failures="0" errors="0" time="0.025013102">
+    <testsuite name="tests/unit/collision.test.ts" timestamp="2026-10-08T20:11:47.030Z" hostname="ffc8c12d8c51" tests="2" failures="0" errors="0" skipped="0" time="0.003889649">
+        <testcase classname="tests/unit/collision.test.ts" name="detects a fast projectile crossing a small target between frames" time="0.00205131">
+        </testcase>
+        <testcase classname="tests/unit/collision.test.ts" name="scores downward hoop crossing and forward goal crossing only" time="0.000483127">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/unit/reference-physics.test.ts" timestamp="2026-10-08T20:11:47.031Z" hostname="ffc8c12d8c51" tests="3" failures="0" errors="0" skipped="0" time="0.009793494">
+        <testcase classname="tests/unit/reference-physics.test.ts" name="Physics reused from quest c7925b7 &gt; retains the original 0.55 ground restitution and 0.85 horizontal impact damping" time="0.002111311">
+        </testcase>
+        <testcase classname="tests/unit/reference-physics.test.ts" name="Physics reused from quest c7925b7 &gt; keeps original projectile dimensions, gravity and mini bounce" time="0.000401906">
+        </testcase>
+        <testcase classname="tests/unit/reference-physics.test.ts" name="Physics reused from quest c7925b7 &gt; uses the original Summit rules, including three hearts and a three-projectile cap" time="0.005624223">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/unit/saves.test.ts" timestamp="2026-10-08T20:11:47.032Z" hostname="ffc8c12d8c51" tests="3" failures="0" errors="0" skipped="0" time="0.004768974">
+        <testcase classname="tests/unit/saves.test.ts" name="migrates version 1 and repairs corrupt fields" time="0.0023831">
+        </testcase>
+        <testcase classname="tests/unit/saves.test.ts" name="preserves legitimately unlocked accessories and highscores" time="0.000332761">
+        </testcase>
+        <testcase classname="tests/unit/saves.test.ts" name="uses safe defaults for unknown versions" time="0.000466623">
+        </testcase>
+    </testsuite>
+    <testsuite name="tests/unit/throwing.test.ts" timestamp="2026-10-08T20:11:47.033Z" hostname="ffc8c12d8c51" tests="15" failures="0" errors="0" skipped="0" time="0.006560985">
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 0.6 m/s at 60 Hz" time="0.002171412">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 4 m/s at 60 Hz" time="0.000255845">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 12 m/s at 60 Hz" time="0.000195395">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 0.6 m/s at 72 Hz" time="0.000331519">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 4 m/s at 72 Hz" time="0.00020565">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 12 m/s at 72 Hz" time="0.000153632">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 0.6 m/s at 90 Hz" time="0.000303788">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 4 m/s at 90 Hz" time="0.000248644">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 12 m/s at 90 Hz" time="0.000208354">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 0.6 m/s at 120 Hz" time="0.000231038">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 4 m/s at 120 Hz" time="0.000157728">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; estimates 12 m/s at 120 Hz" time="0.000091618">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; rejects tracking jumps and stale releases" time="0.000237277">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; bounds the curve and decays it with speed" time="0.000204117">
+        </testcase>
+        <testcase classname="tests/unit/throwing.test.ts" name="Physical release estimation &gt; retains the 3–15 m/s 1.1 second charge rhythm" time="0.000128994">
+        </testcase>
+    </testsuite>
+</testsuites>

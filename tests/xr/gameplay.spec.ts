@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
+import type { ReferenceMode } from '../../src/modes/reference-mode';
 import type { GameContext } from '../../src/core/context';
 import type { ModeId } from '../../src/core/config';
 import type { XRDevice } from 'iwer';
@@ -18,7 +19,7 @@ declare global {
         IWER_DEVICE: XRDevice;
     }
 }
-test('Quest VR session, nine modes, Havok, bounded pools, focus and controller input', async ({ page }, info) => {
+test('Quest VR session, nine modes, reference physics, bounded pools, focus and controller input', async ({ page }, info) => {
     const errors: string[] = [], external: string[] = [];
     page.on('pageerror', e => errors.push(e.message));
     page.on('console', m => { if (m.type() === 'error')
@@ -46,7 +47,7 @@ test('Quest VR session, nine modes, Havok, bounded pools, focus and controller i
     await page.waitForTimeout(1800);
     const gravity = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; const p = c.input.head.clone().set(0.6, 2, -1); const b = c.balls.acquire(p, 'fabric')!; return { id: b.id, before: b.root.position.y }; });
     // Software WebGL in cloud CI has variable render throughput. Observe an
-    // actual Havok fall; elapsed wall time is not a simulation-progress signal.
+    // actual reference-physics fall; elapsed wall time is not a simulation-progress signal.
     await expect.poll(() => page.evaluate(id => window.__DAHROOJ_TEST__.context.balls.slots.find(b => b.id === id)!.root.position.y, gravity.id), { timeout: 20000 }).toBeLessThan(gravity.before - 0.2);
     const limits = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.balls.clear(); for (let i = 0; i < 60; i++)
         c.balls.acquire(c.input.head, 'fabric', true); const balls = c.balls.active; for (let i = 0; i < 70; i++)
@@ -104,10 +105,21 @@ test('charged and slingshot release, blaster variants and Rain pop interaction',
         await page.waitForFunction(shot => window.__DAHROOJ_TEST__.fired!.some(s => s.type === shot), shot);
         const launched = await page.evaluate(shot => window.__DAHROOJ_TEST__.fired!.find(s => s.type === shot)!, shot);
         expect(launched.speed).toBeGreaterThan(0);
-        expect(launched.dynamic).toBe(shot === 'mini');
+        expect(launched.dynamic).toBe(false); // The owner requested the original projectile integrator.
         await page.evaluate(() => window.IWER_DEVICE.controllers.left!.updateButtonValue('trigger', 0));
     }
     const pop = await page.evaluate(() => { const c = window.__DAHROOJ_TEST__.context; c.projectiles.clear(); c.modes.activate('rain'); const p = c.input.head.clone().set(0, 1.5, -1); const b = c.balls.acquire(p, 'fabric')!; const before = c.store.data.challenges.pop20 || 0; c.modes.popCharacters(p.clone().set(0, 1.5, 0), p.clone().set(0, 1.5, -2), 0.02); return { active: b.active, before, after: c.store.data.challenges.pop20 }; });
     expect(pop.active).toBe(false);
     expect(pop.after).toBe(pop.before + 1);
+});
+test('reference mode code resolves goal, hoop and original can/pin rigid-body contacts',async({page})=>{
+ await page.goto('/');await page.waitForFunction(()=>window.__DAHROOJ_TEST__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>window.__DAHROOJ_TEST__.context.tracked);
+ const result=await page.evaluate(async()=>{
+  const c=window.__DAHROOJ_TEST__.context;const out:Record<string,number>={};c.ui.show('settings');
+  for(const id of ['goal','hoop','cans','bowling'] as const){c.modes.activate(id);const m=c.modes.current as ReferenceMode;
+   if(id==='goal'||id==='hoop'){const p=c.input.head.clone().set(id==='goal'?2.2:0,id==='goal'?1.8:3.15,id==='goal'?-10.8:-8.37);m.root.localToWorld(p);const b=c.balls.acquire(p,'fabric',true)!;const v=p.clone().set(0,id==='hoop'?-2:0,id==='goal'?-4:0).multiplyScalar(.13/.24);c.balls.launch(b,v,v.clone().set(0,0,0));for(let i=0;i<45;i++)m.update(1/120);out[id]=m.score;
+   }else{const bodies=m.stage.bridge!.bodies!;const first=bodies[0];const dir=c.input.head.clone().set(.8,.5,-1).normalize();m.stage.shoot!(first.mesh,first.x.clone(),dir);for(let i=0;i<360;i++)m.update(1/120);out[id]=bodies.filter(b=>b.x.distanceTo(b.mesh.position)<.01&&b.v.length()<100&&Number.isFinite(b.q.w)).length;out[id+'Moved']=Math.abs(first.x.x);}
+  }return out;
+ });
+ expect(result.goal).toBeGreaterThan(0);expect(result.hoop).toBeGreaterThan(0);expect(result.cans).toBe(6);expect(result.bowling).toBe(10);expect(result.cansMoved).toBeGreaterThan(.1);expect(result.bowlingMoved).toBeGreaterThan(.1);
 });

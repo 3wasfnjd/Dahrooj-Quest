@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "date": "2026-10-08T20:12:30.057Z",
+  "mode": "cans",
+  "session": "immersive-vr",
+  "samples": 229,
+  "measuredSeconds": 24.18119995498657,
+  "meanFPS": 9.470166924151187,
+  "frameMs": {
+    "mean": 105.59475962876232,
+    "p50": 97.5999984741211,
+    "p95": 208.8000030517578,
+    "p99": 340.70001220703125
+  },
+  "peakDrawCalls": 358,
+  "peakTriangles": 262372,
+  "currentEntities": 74,
+  "peakPhysicsBodies": 15,
+  "activeBalls": 1,
+  "activeProjectiles": 0,
+  "heapBytes": 91700000,
+  "textureCount": 26,
+  "geometryCount": 70,
+  "estimatedUITextureBytes": 7744000,
+  "framesOver25ms": 205,
+  "gcPauses": null,
+  "timeSinceAppStartMs": 29795.400000002235,
+  "renderer": "WebGL2",
+  "physicsHz": 60,
+  "qualityLevel": 2,
+  "initialLoadMs": 1375.3999999985099,
+  "evidence": "Development or IWER. Not hardware proof."
+}

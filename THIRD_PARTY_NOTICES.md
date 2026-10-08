@@ -6,12 +6,12 @@ Audit date: 2026-10-08. Game code, Dahrooj identity, icons and original score: A
 
 | Work | Source and owner | Terms | Included notice |
 |---|---|---|---|
-| Birch/cherry/oak GLBs, bench, lantern, pole light, explosive crate, slabs texture | Bruno Simon, Motri / [folio-2025](https://github.com/brunosimon/folio-2025), through audited legacy commit | MIT; commercial use and redistribution permitted with copyright/license | `public/licenses/motri-MIT.txt` |
+| Birch/cherry/oak GLBs, bench, lantern, pole light, explosive crate, bowling pin, slabs texture | Bruno Simon, Motri / [folio-2025](https://github.com/brunosimon/folio-2025), through audited legacy commit | MIT; commercial use and redistribution permitted with copyright/license | `public/licenses/motri-MIT.txt` |
 | Baloo Bhaijaan 2 Arabic and Latin WOFF2, unchanged | Ek Type, legacy font assets | SIL OFL 1.1; embedding/redistribution permitted, not sold alone | `public/licenses/baloo-OFL.txt` |
 | Touch controller GLBs | [WebXR Input Profiles assets](https://github.com/immersive-web/webxr-input-profiles) | MIT | `public/licenses/controller-profiles-MIT.txt` |
 | Dahrooj icons and original melody | Aboden Games; owner authorized reuse in rebuild directive | Proprietary; permission for this game, not a public asset grant | `LICENSE`; `docs/asset-ledger.json` |
 
-The ledger records each migrated file, source commit, SHA-256, ownership, commercial/redistribution rights, attribution and optimization decision. No legacy source tree was copied. Bowling pins and procedural geometry are newly authored. The new local OGG renders Aboden's existing F-major 96 BPM melody once using `scripts/render-music.mjs`; it contains no third-party recording or soundfont.
+The ledger records each migrated file, source commit, SHA-256, ownership, commercial/redistribution rights, attribution and optimization decision. Selected original character, mode, projectile and physics functions are reused under the owner’s explicit 2026-10-08 instruction. The source and hashes are recorded in `docs/reference-port-manifest.json`. The Motri bowling pin is included under the same audited MIT grant. No legacy vendor/runtime tree was copied. The new local OGG renders Aboden's existing F-major 96 BPM melody once using `scripts/render-music.mjs`; it contains no third-party recording or soundfont.
 
 ## Runtime software
 

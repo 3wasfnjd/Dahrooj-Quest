@@ -17,6 +17,7 @@ export interface Target {
 }
 export interface GameMode {
     readonly id: ModeId;
+    readonly referencePhysics?: boolean;
     update(dt: number): void;
     dispose(): void;
     onThrow?(id: number): void;

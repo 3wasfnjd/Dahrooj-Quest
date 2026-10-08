@@ -109,7 +109,7 @@ export class ModeLifecycle {
             // Complement Havok with a swept static-surface guard for exceptional fast/low-rate frames.
             this.direction.subVectors(b.root.position, b.prev);
             const distance = this.direction.length();
-            if (distance > b.radius * 1.2 && b.age > 0.04) {
+            if (!this.current.referencePhysics && distance > b.radius * 1.2 && b.age > 0.04) {
                 this.ray.set(b.prev, this.direction.divideScalar(distance));
                 this.ray.near = 0;
                 this.ray.far = distance + b.radius;

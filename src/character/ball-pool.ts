@@ -32,7 +32,7 @@ export class BallPool {
     private q = new Quaternion();
     private look = new Vector3();
     constructor(readonly c: GameContext) {
-        this.factory = new CharacterFactory(c.resources);
+        this.factory = new CharacterFactory(c.resources, c.world.renderer);
         this.slots = Array.from({ length: LIMITS.balls }, (_, slot) => { const root = new Group(), visual = this.factory.create(); root.name = `dahrooj-${slot}`; root.add(visual.root); root.visible = false; const entity = c.world.createTransformEntity(root).addComponent(Dahrooj, { slot }); return { entity, root, visual, active: false, held: false, age: 0, radius: PHYSICS.ballRadius, id: 0, prev: new Vector3(), velocity: new Vector3(), spin: new Vector3(), scored: false, curved: false, water: false, pet: 0 }; });
     }
     acquire(position: Vector3, style: StyleId, held = false) {
@@ -65,8 +65,8 @@ export class BallPool {
             this.activatePhysics(b);
         return b;
     }
-    activatePhysics(b: Ball) { this.c.bodies.add(b.root, { shape: 'Sphere', dimensions: [b.radius, 0, 0], dynamic: true, mass: PHYSICS.ballMass * (b.radius / PHYSICS.ballRadius) ** 3, restitution: PHYSICS.restitution, friction: PHYSICS.friction }, b.entity); }
-    launch(b: Ball, v: Vector3, w: Vector3) { b.held = false; b.velocity.copy(v).clampLength(0, PHYSICS.maxThrowSpeed); b.spin.copy(w).clampLength(0, PHYSICS.maxSpin); b.curved = Math.abs(w.y) > 5; this.activatePhysics(b); this.c.bodies.manipulate(b.entity, b.velocity, b.spin); this.c.events.emit('throw', { id: b.id, curved: b.curved }); }
+    activatePhysics(b: Ball) { if(this.c.modes.current?.referencePhysics)return; this.c.bodies.add(b.root, { shape: 'Sphere', dimensions: [b.radius, 0, 0], dynamic: true, mass: PHYSICS.ballMass * (b.radius / PHYSICS.ballRadius) ** 3, restitution: PHYSICS.restitution, friction: PHYSICS.friction }, b.entity); }
+    launch(b: Ball, v: Vector3, w: Vector3) { b.held = false; b.velocity.copy(v).clampLength(0, PHYSICS.maxThrowSpeed); b.spin.copy(w).clampLength(0, PHYSICS.maxSpin); b.curved = Math.abs(w.y) > 5; this.activatePhysics(b); if(!this.c.modes.current?.referencePhysics)this.c.bodies.manipulate(b.entity, b.velocity, b.spin); this.c.events.emit('throw', { id: b.id, curved: b.curved }); }
     release(b: Ball) { if (!b.active)
         return; this.c.bodies.detach(b.entity); b.active = false; b.held = false; b.root.visible = false; }
     clear() { for (const b of this.slots)
@@ -96,6 +96,7 @@ export class DahroojSystem extends createSystem({ balls: { required: [Dahrooj] }
                 continue;
             b.age += dt;
             b.pet = Math.max(0, b.pet - dt);
+            if(c.modes.current?.referencePhysics){if(b.age>24||b.root.position.y < -5)c.balls.release(b);continue;}
             this.last.copy(b.velocity);
             c.bodies.velocity(b.entity, b.velocity);
             c.bodies.angular(b.entity, b.spin);

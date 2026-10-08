@@ -1,0 +1,56 @@
+[
+  {
+    "mode": "goal",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "hoop",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "window",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "cans",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "bowling",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "bricks",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "fair",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "summit",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  },
+  {
+    "mode": "rain",
+    "bodies": 15,
+    "entities": 74,
+    "score": 0
+  }
+]
