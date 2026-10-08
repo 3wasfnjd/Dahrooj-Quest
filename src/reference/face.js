@@ -17,7 +17,6 @@ function drawEye(c,ex,ey,er,lx,ly,face,blinkOn){
   c.save(); c.translate(ex,ey); c.scale(1,open);
   c.fillStyle=ballStyle==='fabric'?'#f2ebdd':'#fffaf2';
   c.beginPath(); c.ellipse(0,0,er,er*1.12,0,0,Math.PI*2); c.fill();
-  if(ballStyle==='fabric'){ c.save(); c.setLineDash([er*0.28,er*0.22]); c.strokeStyle='rgba(44,45,61,.45)'; c.lineWidth=Math.max(0.6,er*0.12); c.beginPath(); c.ellipse(0,0,er*1.08,er*1.2,0,0,Math.PI*2); c.stroke(); c.restore(); }
   if(face==='dizzy'){
     c.strokeStyle=COL.ink; c.lineWidth=er*0.2; c.lineCap='round';
     c.beginPath();

@@ -6,12 +6,12 @@
     {
       "file": "src/reference/face.js",
       "origin": "index.html:drawEye/drawFace",
-      "sha256": "711f66c641c90c04fae1184ca25a6ac9e662f8e16b2f2bbfd54fe383bed8e85c"
+      "sha256": "df9e1481eed72d2d49eab5e36297a7164a6f5c8ad34e29f9c9eacb1406e693ec"
     },
     {
       "file": "src/reference/character.js",
       "origin": "assets/xr/dahrooj3d.js",
-      "sha256": "dd99eeccc5828b3414f4b14a8ba5a9d793c188071001c6ec1c91f72ad0e33a08"
+      "sha256": "17d04c36a8fd68251588b3773c3a4969d3b948f08ef7d34dee65b28fc7d1d490"
     },
     {
       "file": "src/reference/summit-core.js",
@@ -78,5 +78,6 @@
       "origin": "assets/xr/xr.js:SHOT_STYLE/stepBlast",
       "sha256": "b670bfe29863b65d84517c19789a0cc540cd339792ed601c008ad654485554ad"
     }
-  ]
+  ],
+  "styleOverride": "2026-10-09: owner requested pink jelly, purple fabric, orange clay; fabric and clay are plain color without woven or fingerprint maps. scripts/style-overrides.mjs"
 }

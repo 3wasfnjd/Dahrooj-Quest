@@ -1,3 +1,4 @@
+import {DAHROOJ_COLORS,DAHROOJ_SWATCHES} from './palette.js';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 import {createReferenceCharacter} from './character.js';
 import {createReferenceNature} from './nature.js';
@@ -269,7 +270,7 @@ export const createReferenceXR=(() => {
       else if(id==='crown'){c.fillStyle='#e5ad2e';c.beginPath();c.moveTo(cx-15,cy-14);c.lineTo(cx-15,cy-32);c.lineTo(cx-7,cy-22);c.lineTo(cx,cy-36);c.lineTo(cx+7,cy-22);c.lineTo(cx+15,cy-32);c.lineTo(cx+15,cy-14);c.closePath();c.fill();}
       c.restore();
     }
-    const STYLE_DOTS={jelly:['#6b6f7a','#3a3d45'],fabric:['#a8405e','#5e1d31'],clay:['#b07a52','#6b4429'],fur:['#fffaf2','#d9cfc0'],bubble:['#e9f6ff','#9fcbe8']};
+    const STYLE_DOTS=DAHROOJ_SWATCHES;
     // The menus' glass: a soft paper tint, brighter at the top, a white rim and a faint diagonal sheen (W x H, corner R).
     function glassPane(c,W,H,R){
       let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(255,252,246,.78)');gr.addColorStop(1,'rgba(240,234,224,.62)');
@@ -353,7 +354,7 @@ export const createReferenceXR=(() => {
           const cx=b.x+b.w/2,cy=b.y+46,ink=on?PAPER:INK;
           if(b.id==='bolt'){const gr=c.createLinearGradient(cx-44,cy+14,cx+40,cy-14);gr.addColorStop(0,'rgba(255,210,122,0)');gr.addColorStop(1,'#ffd27a');
             c.strokeStyle=gr;c.lineWidth=9;c.lineCap='round';c.beginPath();c.moveTo(cx-44,cy+14);c.lineTo(cx+34,cy-12);c.stroke();c.fillStyle='#fff4d6';c.beginPath();c.arc(cx+36,cy-12,8,0,7);c.fill();}
-          else if(b.id==='mini'){const bg=c.createRadialGradient(cx-6,cy-8,3,cx,cy,22);bg.addColorStop(0,'#6b6f7a');bg.addColorStop(1,'#3a3d45');c.fillStyle=bg;c.beginPath();c.arc(cx,cy,22,0,7);c.fill();
+          else if(b.id==='mini'){const bg=c.createRadialGradient(cx-6,cy-8,3,cx,cy,22);bg.addColorStop(0,DAHROOJ_SWATCHES.jelly[0]);bg.addColorStop(1,DAHROOJ_SWATCHES.jelly[1]);c.fillStyle=bg;c.beginPath();c.arc(cx,cy,22,0,7);c.fill();
             c.strokeStyle=ink;c.globalAlpha*=.35;c.lineWidth=3;c.setLineDash([3,7]);c.beginPath();c.moveTo(cx-48,cy+18);c.quadraticCurveTo(cx-34,cy-20,cx-24,cy);c.stroke();c.setLineDash([]);c.globalAlpha=1;}
           else if(b.id==='bubble'){const bg=c.createRadialGradient(cx-8,cy-8,4,cx,cy,26);bg.addColorStop(0,'rgba(255,255,255,.9)');bg.addColorStop(.6,'rgba(190,225,255,.35)');bg.addColorStop(1,'rgba(240,170,255,.55)');
             c.fillStyle=bg;c.beginPath();c.arc(cx,cy,26,0,7);c.fill();c.lineWidth=2.5;c.strokeStyle='rgba(120,160,220,.7)';c.stroke();c.fillStyle='#fff';c.beginPath();c.arc(cx-9,cy-10,5,0,7);c.fill();}
@@ -443,7 +444,7 @@ export const createReferenceXR=(() => {
     const SPARK=new T.SphereGeometry(1,8,6);let ballIds=0;
     // How many and how far: the room in mixed reality, a wider ring in the open VR world.
     const crowdSize=()=>kind==='immersive-ar'?{n:130,R:2.6}:{n:220,R:4.4};
-    const STYLE_COLORS={jelly:0x4b4e56,fabric:0x7c2941,clay:0x825637,fur:0xf1ebe1,bubble:0xcfe8ff};
+    const STYLE_COLORS=DAHROOJ_COLORS;
     // One ball dropping from above somewhere in the ring around you, at a random moment and size.
     function dropBall(delay){
       const I=intro,{R}=crowdSize(),c=I.centre,a=Math.random()*Math.PI*2,dist=.55+Math.sqrt(Math.random())*(R-.55);

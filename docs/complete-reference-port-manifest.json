@@ -24,7 +24,7 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "9d21190503b2bf8a4d3ba8f0565da890953a039ebdc8a7ac9f4264ff6fcb57d4"
+      "sha256": "9be1d0bf4c1380ed8ab61576a604e2e9d41691f7b9c20937d44b2914e56d2873"
     },
     {
       "path": "src/reference/game-state.js",
@@ -76,5 +76,6 @@
       "origin": "index.html:confetti/CHALLENGES",
       "sha256": "cb378cb9c9238cc37a7096b93d775e3b2009d244aeddec2f50e6f7172ebd9cd0"
     }
-  ]
+  ],
+  "styleOverride": "2026-10-09: owner requested pink jelly, purple fabric, orange clay; fabric and clay are plain color without woven or fingerprint maps. scripts/style-overrides.mjs"
 }

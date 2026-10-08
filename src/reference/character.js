@@ -1,20 +1,9 @@
+import {DAHROOJ_COLORS} from './palette.js';
 /* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
 import {batchReferenceMeshes} from './mesh-batch';
 export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     const r=radius,V=(x,y,z)=>new T.Vector3(x,y,z);
     const canvas=(w,h,draw)=>{const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new T.CanvasTexture(c);t.anisotropy=4;t.colorSpace=T.SRGBColorSpace;return t;};
-    let seed=7;const rand=()=>(seed=(seed*16807)%2147483647)/2147483647;
-    // A tangent-space normal map from a grey height drawing.
-    function normalMap(w,h,draw,strength){
-      const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');draw(x,w,h);
-      const src=x.getImageData(0,0,w,h).data,out=x.createImageData(w,h),H=(i,j)=>src[(((j+h)%h)*w+((i+w)%w))*4]/255;
-      for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-        const dx=(H(i+1,j)-H(i-1,j))*strength,dy=(H(i,j+1)-H(i,j-1))*strength,l=Math.hypot(dx,dy,1),k=(j*w+i)*4;
-        out.data[k]=(-dx/l*.5+.5)*255;out.data[k+1]=(dy/l*.5+.5)*255;out.data[k+2]=(1/l*.5+.5)*255;out.data[k+3]=255;
-      }
-      x.putImageData(out,0,0);const t=new T.CanvasTexture(c);t.anisotropy=4;return t;
-    }
-
     /* ---------- a soft room to reflect: bright window, warm walls, darker floor ---------- */
     let env=null;
     if(renderer&&T.PMREMGenerator){
@@ -28,12 +17,6 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
 
     /* ---------- shared surfaces ---------- */
     const sphere=new T.SphereGeometry(r,32,20),liteSphere=new T.SphereGeometry(r,24,16);
-    const feltMap=canvas(512,256,(c,w,h)=>{c.fillStyle='#7c2941';c.fillRect(0,0,w,h);
-      for(let i=0;i<14000;i++){c.strokeStyle=rand()<.5?'rgba(255,215,228,.07)':'rgba(40,0,15,.1)';c.lineWidth=1;
-        const x=rand()*w,y=rand()*h,a=rand()*Math.PI;c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.cos(a)*(2+rand()*5),y+Math.sin(a)*(2+rand()*5));c.stroke();}});
-    const clayMap=canvas(256,128,(c,w,h)=>{c.fillStyle='#825637';c.fillRect(0,0,w,h);
-      for(let i=0;i<40;i++){const x=rand()*w,y=rand()*h,s=10+rand()*30,gr=c.createRadialGradient(x,y,0,x,y,s);
-        gr.addColorStop(0,rand()<.5?'rgba(160,110,75,.35)':'rgba(95,60,38,.3)');gr.addColorStop(1,'rgba(130,86,55,0)');c.fillStyle=gr;c.fillRect(x-s,y-s,s*2,s*2);}});
     // The fur ball's coat: two colours, soft white with big tan patches. Seen from the front, one patch
     // wraps the right eye and that side, a smaller one sits on the left side; the top stays white for the bow.
     const furMap=canvas(512,256,(c,w,h)=>{c.fillStyle='#f1eeea';c.fillRect(0,0,w,h);
@@ -43,47 +26,13 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       c.fillStyle='#9c7352';c.filter='blur(4px)';
       for(const [x,y,rx,ry,a] of [[.35,.46,.125,.28,.1],[.075,.56,.06,.2,0],[.72,.5,.09,.22,-.2],[.88,.72,.06,.12,.3]])patch(x,y,rx,ry,a);
       c.filter='none';});
-    // Move the random sequence on past the old hair map, so felt and clay keep their patterns.
-    seed=Number(BigInt(seed)*612544882n%2147483647n);
-    // Surface detail drawn here, no outside files: knitted wool for fabric, finger presses for clay.
-    function surface(w,h,repeat,strength,draw){
-      const t=normalMap(w,h,draw,strength);t.wrapS=t.wrapT=T.RepeatWrapping;t.repeat.set(...repeat);
-      return {tex:t,mats:new Set()};
-    }
-    // Knit: rows of V stitches, each leg a soft raised loop leaning left or right.
-    const knit=surface(256,256,[6,3],4,(c,w,h)=>{
-      c.fillStyle='#000';c.fillRect(0,0,w,h);
-      const cw=16,ch=20;
-      for(let row=-1;row<=h/ch+1;row++)for(let col=0;col<w/cw;col++)for(const s of [-1,1]){
-        const x=col*cw+cw/2+s*cw*.24,y=row*ch+ch/2+(col%2?0:0);
-        c.save();c.translate(x,y);c.rotate(s*.5);
-        const gr=c.createRadialGradient(0,0,0,0,0,ch*.6);gr.addColorStop(0,'rgba(255,255,255,.95)');gr.addColorStop(.7,'rgba(160,160,160,.5)');gr.addColorStop(1,'rgba(0,0,0,0)');
-        c.fillStyle=gr;c.beginPath();c.ellipse(0,0,cw*.3,ch*.58,0,0,Math.PI*2);c.fill();c.restore();
-      }
-      // A little fuzz across the yarn.
-      for(let k=0;k<4000;k++){c.fillStyle=`rgba(${rand()<.5?255:0},${rand()<.5?255:0},${rand()<.5?255:0},.05)`;c.fillRect(rand()*w,rand()*h,1,1);}
-    });
-    // Clay: soft round presses of fingertips and thumbs, and a few smears.
-    const clayDents=surface(256,128,[3,1.5],3,(c,w,h)=>{
-      c.fillStyle='#909090';c.fillRect(0,0,w,h);
-      for(let k=0;k<26;k++){
-        const x=rand()*w,y=rand()*h,rx=6+rand()*14,ry=rx*(.6+rand()*.4),a=rand()*Math.PI;
-        for(const [dx,dy] of [[0,0],[w,0],[-w,0],[0,h],[0,-h]]){
-          c.save();c.translate(x+dx,y+dy);c.rotate(a);
-          const gr=c.createRadialGradient(0,0,0,0,0,rx);gr.addColorStop(0,'rgba(20,20,20,.55)');gr.addColorStop(.75,'rgba(60,60,60,.25)');gr.addColorStop(.92,'rgba(255,255,255,.18)');gr.addColorStop(1,'rgba(255,255,255,0)');
-          c.fillStyle=gr;c.scale(1,ry/rx);c.beginPath();c.arc(0,0,rx,0,Math.PI*2);c.fill();c.restore();
-        }
-      }
-      for(let k=0;k<10;k++){c.strokeStyle=`rgba(${rand()<.5?40:220},${rand()<.5?40:220},${rand()<.5?40:220},.12)`;c.lineWidth=2+rand()*4;c.beginPath();
-        const x=rand()*w,y=rand()*h;c.moveTo(x,y);c.quadraticCurveTo(x+rand()*30-15,y+rand()*20-10,x+rand()*40-20,y+rand()*24-12);c.stroke();}
-    });
     /* ---------- jelly: light refracted through the ball ---------- */
     // A soft sky (no capture of the world, which cost a render of the scene) is looked up along the path
     // light takes through a sphere of index 1.35: in through the near side, out through the far side, a
     // little apart per colour. The jelly absorbs more the longer that path (Beer-Lambert), takes a Fresnel
     // reflection of the same sky and a glossy highlight from the sun.
         const jellyU={uIor:{value:1.35},uRadius:{value:r},
-      uAbsorb:{value:new T.Vector3(.55,.5,.4)},uTint:{value:new T.Color(0x5d616e)},
+      uAbsorb:{value:new T.Vector3(.08,1.15,.3)},uTint:{value:new T.Color(DAHROOJ_COLORS.jelly)},
       uLightDir:{value:V(.4,.8,.45).normalize()},uLightColor:{value:new T.Color(1,1,1)},
       uSky:{value:new T.Color(0xcfe3ff)},uGround:{value:new T.Color(0x8a7d6c)}};
     const jellyMaterial=new T.ShaderMaterial({uniforms:jellyU,
@@ -129,9 +78,8 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     const MATERIALS={
       // Jelly: see jellyMaterial below. All jelly balls share it.
       jelly:()=>jellyMaterial,
-      fabric:()=>{const m=new T.MeshPhysicalMaterial({map:feltMap,normalMap:knit.tex,roughness:1,envMap:env,envMapIntensity:.35});
-        m.normalScale.set(.9,.9);m.sheen=.35;m.sheenColor.set(0xc77d93);return m;},
-      clay:()=>{const m=new T.MeshStandardMaterial({map:clayMap,normalMap:clayDents.tex,roughness:.72,envMap:env,envMapIntensity:.5});m.normalScale.set(1.1,1.1);return m;},
+      fabric:()=>new T.MeshStandardMaterial({color:DAHROOJ_COLORS.fabric,roughness:.82,envMap:env,envMapIntensity:.35}),
+      clay:()=>new T.MeshStandardMaterial({color:DAHROOJ_COLORS.clay,roughness:.72,envMap:env,envMapIntensity:.5}),
       // The skin is the colour of the hair roots and lit like them, so gaps between hairs read as deeper fur.
       fur:()=>new T.MeshStandardMaterial({map:furMap,roughness:.95,envMap:env,envMapIntensity:.35}),
       bubble:()=>new T.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uTime:bubbleTime},
@@ -149,7 +97,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
 
     const sharedMaterials=Object.fromEntries(Object.entries(MATERIALS).map(([id,make])=>[id,make()]));
     const decorations={};
-    function decoration(id){ if(!decorations[id])decorations[id]=batchReferenceMeshes(({bandaid,stitches,bow})[id]()); return decorations[id].clone(true); }
+    function decoration(id){ if(!decorations[id])decorations[id]=batchReferenceMeshes(({bandaid,bow})[id]()); return decorations[id].clone(true); }
     // Place a part on the surface at a direction, facing outward.
     function onSurface(obj,dir,lift=0){const n=dir.clone().normalize();obj.position.copy(n).multiplyScalar(r+lift);obj.lookAt(n.multiplyScalar(r*3));return obj;}
     function bandaid(){
@@ -158,19 +106,6 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       const gauze=new T.Mesh(new T.BoxGeometry(r*.22,r*.17,r*.04),new T.MeshStandardMaterial({color:0xf4ddc3,roughness:.95}));
       for(let i=0;i<6;i++){const hole=new T.Mesh(new T.CircleGeometry(r*.012,8),new T.MeshBasicMaterial({color:0xc9a07c}));hole.position.set((i%3-1)*r*.07+(i<3?-r*.23:r*.23),(i<3?1:-1)*r*.03,r*.016);g.add(hole);}
       g.add(pad,gauze);onSurface(g,V(.4,.62,.6),r*.005);g.rotateZ(-.55);return g;
-    }
-    function stitches(){
-      const g=new T.Group(),mat=new T.MeshStandardMaterial({color:0xefe6d2,roughness:.85}),geo=new T.CylinderGeometry(r*.016,r*.016,r*.11,6);
-      // A seam around the ball, tilted like the 2D seam, close to the silhouette so it clears the face.
-      const tilt=new T.Quaternion().setFromUnitVectors(V(0,1,0),V(.32,.28,1).normalize());
-      for(let i=0;i<34;i++){
-        const a=i/34*Math.PI*2,p=V(Math.cos(a),0,Math.sin(a)).applyQuaternion(tilt).multiplyScalar(r*1.003);
-        const t=V(-Math.sin(a),0,Math.cos(a)).applyQuaternion(tilt);
-        const m=new T.Mesh(geo,mat);m.position.copy(p);m.quaternion.setFromUnitVectors(V(0,1,0),t);g.add(m);
-      }
-      const x=new T.Group();
-      for(const s of [-1,1]){const m=new T.Mesh(new T.CylinderGeometry(r*.028,r*.028,r*.3,6),mat);m.rotation.z=s*Math.PI/4;x.add(m);}
-      onSurface(x,V(.4,.62,.6),r*.01);g.add(x);return g;
     }
     // The ribbon sits on top, a little to the left and forward, as in Aboden Games' drawing.
     // It stands up facing forward (tipped back a little and leaning), not flat on the curve.
@@ -289,7 +224,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       const body=new T.Mesh(lite?liteSphere:sphere,sharedMaterials[style]||sharedMaterials.jelly);
       body.castShadow=style!=='bubble';inner.add(body);
       if(style==='jelly'){inner.add(decoration('bandaid'));jellyModels.add(outer);}
-      if(style==='fabric')inner.add(decoration('stitches'));
+
       let bowMesh=null,acc=null,accId='';
       if(style==='fur'){body.name='dahrooj-fur';bowMesh=decoration('bow');inner.add(bowMesh);}
       let cap=null,eye=null;
