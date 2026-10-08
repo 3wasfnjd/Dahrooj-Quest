@@ -3,7 +3,7 @@ export function createReferenceState(ctx){const {T,V,UP,BR,GRAV,S,confetti,whoos
 function react(kind,dur,next){ S.mood=kind; S.moodT=dur; S.moodNext=next||null; }
 function success(){ if(S.scoredT>0||S.missT>0) return; S.scoredT=1.7; react('joy',1.7); confetti.celebrate(S.pos); if(stageName==='goal'||stageName==='hoop'||stageName==='window') addCount(stageName); }
 function miss(){
-    if(stageName==='hoop') hoopStreak=0;
+    if(stageName==='hoop'){hoopStreak=0;ctx.onHoopMiss?.();}
     if(S.scoredT>0||S.missT>0) return;
     if(stage.touched && stage.touched()){ S.missT=1.0; return; }
     S.missT=1.7;

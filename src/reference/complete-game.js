@@ -23,12 +23,13 @@ export function createCompleteGame(world,store){
  const state=createReferenceState(ctx);Object.assign(ctx,state,stageArt({...ctx,hit:state.hit}));const miss=state.miss;ctx.miss=()=>{if(mode==='hoop')hoopStreak=0;miss();};
  function setMode(id){if(!builders[id])return;state.clearVolley();if(stage)stage.grp.visible=false;mode=id;if(!cache.has(id)){ctx.audio=sound.context;cache.set(id,builders[id](ctx));}stage=cache.get(id);stage.grp.visible=true;state.setStage(stage,id);}
  function setStyle(id){if(!['jelly','fabric','clay','fur','bubble'].includes(id))return;style=id;store.data.style=id;if(!store.data.stylesUsed.includes(id))store.data.stylesUsed.push(id);chProgress('styles5',store.data.stylesUsed.length);store.touch();}
+ ctx.onHoopMiss=()=>{hoopStreak=0;};
  function focus(on){if(focused===on)return;focused=on;sound.focus(on);if(!on)void store.flush();}
  const g={T,scene,camera,renderer,player:world.player,getSession:()=>renderer.xr.getSession(),S,V,UP,BR,GRAV,ground,hemi,sun,lineMat:ctx.lineMat,...sound,...state,focus,
- stage:()=>stage,stageName:()=>mode,mode:()=>mode,style:()=>style,setMode,setStyle,drawFace:drawReferenceFace,
+ language:()=>store.data.language,stage:()=>stage,stageName:()=>mode,mode:()=>mode,style:()=>style,setMode,setStyle,drawFace:drawReferenceFace,
  step(dt){ctx.xrLang=store.data.language;state.step(dt);confetti.update(dt);},render(){},resize(){},bump:sound.thump,audio:()=>sound.context,
  shootStage:(o,p,d)=>!!stage?.shoot?.(o,p,d),toast,climbCore,
- climbEvent(e){if(['pop','stomp','kill'].includes(e.type))sound.startPopSound();if(['stomp','kill'].includes(e.type))chProgress('monsters15',(store.data.challenges.monsters15||0)+1);if(e.type==='checkpoint')sound.chime();if(e.type==='summit'){sound.chime();chProgress('summit1',1);}},
+ climbEvent(e){if(['pop','stomp','kill'].includes(e.type))sound.startPopSound();if(['stomp','kill'].includes(e.type))chProgress('monsters15',(store.data.challenges.monsters15||0)+1);if(e.type==='checkpoint'){sound.chime();toast('نقطة حفظ ✓');}if(e.type==='summit'){sound.chime();ctx.addCount('climb');chProgress('summit1',1);const m=Math.floor(e.time/60),s=Math.round(e.time%60);toast(`وصلت القمة في ${m?ctx.ar(m)+' د ':''}${ctx.ar(s)} ث`);}},
  recall(){if(S.shot&&S.scoredT<=0&&S.missT<=0&&mode==='hoop')hoopStreak=0;state.respawn();},canHold:()=>!S.shot&&!S.scoredT&&!S.missT,
  challenges:()=>challenges.map(c=>({...c,value:Math.min(c.goal,store.data.challenges[c.id]||0)})),chAdd:id=>chProgress(id,(store.data.challenges[id]||0)+1),
  resetChallenges(){for(const k of Object.keys(store.data.challenges))delete store.data.challenges[k];store.data.stylesUsed=[];hoopStreak=0;store.touch();},

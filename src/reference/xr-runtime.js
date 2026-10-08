@@ -985,7 +985,7 @@ export const createReferenceXR=(() => {
         ?{requiredFeatures:['local-floor'],optionalFeatures:['hand-tracking','hit-test','plane-detection']}
         :{optionalFeatures:['local-floor','bounded-floor','hand-tracking']};
       const s=g.getSession();if(!s)throw new Error('IWSDK session required');
-      session=s;kind=mode;layoutMenu();anchor=null;arScale=AR_SCALE;arZoom=1;placing=mode==='immersive-ar';menuToggled=false;
+      session=s;kind=mode;lang=g.language();layoutMenu();anchor=null;arScale=AR_SCALE;arZoom=1;placing=mode==='immersive-ar';menuToggled=false;
       renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
       place();
       if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});

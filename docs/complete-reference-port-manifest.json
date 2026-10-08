@@ -24,12 +24,12 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "ae71d55f805a20b1418cb53b0f56c5c72f079c4ec4de3e272ea02ab4ccf2999c"
+      "sha256": "9d21190503b2bf8a4d3ba8f0565da890953a039ebdc8a7ac9f4264ff6fcb57d4"
     },
     {
       "path": "src/reference/game-state.js",
       "origin": "index.html:headset main ball / volleys / scoring",
-      "sha256": "0753ca7677f8a5f9d162332c7b9e98da9fd57b02aa51fc535dce663db0a55392"
+      "sha256": "af87c186a5b2507d2457119a80ef35bca70793df7fae1d631fbc898de6410af8"
     },
     {
       "path": "src/reference/stages/goal.js",

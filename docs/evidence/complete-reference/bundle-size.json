@@ -1,7 +1,7 @@
 {
-  "bytes": 11590503,
-  "gzipBytes": 6416680,
-  "javascriptBytes": 3415614,
+  "bytes": 11590775,
+  "gzipBytes": 6416840,
+  "javascriptBytes": 3415886,
   "assets": [
     {
       "file": "dist/assets/HavokPhysics-BqNY-4N9.wasm",
@@ -20,8 +20,8 @@
       "bytes": 34704
     },
     {
-      "file": "dist/assets/index-C9fCWE_D.js",
-      "bytes": 2624860
+      "file": "dist/assets/index-BZ49Istm.js",
+      "bytes": 2625132
     },
     {
       "file": "dist/assets/index-DhUo-VjH.js",
@@ -68,7 +68,7 @@
       "bytes": 455987
     },
     {
-      "file": "dist/assets/physics-runtime-Bw0-_66m.js",
+      "file": "dist/assets/physics-runtime-BtCNCWgu.js",
       "bytes": 39852
     },
     {

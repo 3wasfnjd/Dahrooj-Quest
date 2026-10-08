@@ -12,6 +12,7 @@ write('src/reference/sounds.js',`import {createReferenceMusic} from './music.js'
 s=read('assets/xr/xr.js').replace('(() => {','export const createReferenceXR=(() => {').replace('window.createDahroojXR=','return ');
 s=s.replaceAll('window.createDahrooj3D','createReferenceCharacter').replaceAll('window.createDahroojNature','createReferenceNature').replaceAll('window.createDahroojAmbience','createReferenceAmbience').replaceAll('window.createDahroojClimb3D','createReferenceMountain');
 s=s.replace('const rig=new T.Group();','const rig=g.player;');
+s=s.replace('session=s;kind=mode;layoutMenu();','session=s;kind=mode;lang=g.language();layoutMenu();');
 s=s.replace("const s=await navigator.xr.requestSession(mode,options);","const s=g.getSession();if(!s)throw new Error('IWSDK session required');");
 s=s.replace('scene.add(rig);rig.add(camera);place();','place();').replace('await renderer.xr.setSession(s);','// IWSDK owns the XR session.').replace('lastTime=0;frames=0;renderer.setAnimationLoop(loop);','lastTime=0;frames=0;');
 s=s.replace('renderer.setAnimationLoop(null);','// IWSDK keeps its render loop.').replace('rig.remove(camera);scene.remove(rig);','rig.scale.setScalar(1);rig.position.set(0,0,0);rig.quaternion.identity();').replace('renderer.xr.enabled=false;','');
@@ -32,7 +33,7 @@ write('src/reference/xr-runtime.js',"import {createReferenceCharacter} from './c
 // Keep the original main/volley state evolution and exact gameplay bookkeeping.
 const coreNames=['react','success','miss','ooh','respawn','throwWith','ballFace','ballStepAt','snapBall','loadBall','another','stepVolley','update3'];
 let core=coreNames.map(n=>functions.get(n)).join('\n');core=core.replace('skin.reset();','').replace('ballStep(dt,false);','ballStepAt(dt,false);').replace('ballStep(dt,true);','ballStepAt(dt,true);');
-core=core.replace('skin.step(fdt);','');
+core=core.replace('skin.step(fdt);','').replace("if(stageName==='hoop') hoopStreak=0;","if(stageName==='hoop'){hoopStreak=0;ctx.onHoopMiss?.();}");
 
 write('src/reference/game-state.js',`export function createReferenceState(ctx){const {T,V,UP,BR,GRAV,S,confetti,whoosh,thump,splash,addCount}=ctx;let stage=ctx.stage,time=0,stageName='goal',hoopStreak=0,restHook=null,waterHook=null;const xrOn=()=>true,outsideView=()=>false,aim={down:false},splats3=[],fxDash=[],VOLLEY_KEYS=['zMax','xMax','shot','shotT','scoredT','missT','mood','moodT','moodNext','idle','restT','hitT','blink','nextBlink','grounded','lastHit','prevZ','prevY','d','dv','wet'],VOLLEY_VECS=['pos','vel','side','axis'],volley=[],VOLLEY_MAX=6;function hit(n,speed,contact){const s=Math.min(1,speed/14);if(s<.05)return;S.axis.copy(n);if(S.d<0)S.d*=.3;S.dv+=4+s*16;S.lastHit=time;thump(s);if(s>.55)S.hitT=.28;}\n${core}\nreturn {react,success,miss,ooh,respawn,throwWith,ballFace,hit,another,volley:()=>volley,clearVolley:()=>{volley.length=0;},setRestHook:fn=>{restHook=fn;},setWater:h=>{waterHook=h;},setStage(s,id){stage=s;stageName=id;volley.length=0;respawn();},step(dt){time+=dt;ctx.time=time;for(let i=0;i<3;i++)update3(dt/3);},get time(){return time;}};}`, 'index.html:headset main ball / volleys / scoring');
 // Restore full stage effects and original interaction/audio instead of the selective bridge.
