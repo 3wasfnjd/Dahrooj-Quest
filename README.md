@@ -2,7 +2,7 @@
 
 إعادة بناء مستقلة باستخدام TypeScript وMeta IWSDK وHavok. المستودع الإنتاجي الوحيد هو [3wasfnjd/Dahrooj-Quest](https://github.com/3wasfnjd/Dahrooj-Quest). المستودع القديم `3wasfnjd/quest` مرجع للقراءة فقط، ولم يُعدّل.
 
-**الحالة: نسخة هندسية تحت التحقق، وليست إصدارًا جاهزًا للمتجر.** يوجد تنفيذ للأنماط التسعة وVR وMR، مع اختبارات آلية. النشر الدائم، ربط Meta، التوقيع وDigital Asset Links تحتاج بيانات المالك الحقيقية. راجع [التقرير](docs/FINAL-REPORT-AR.md) و[المشكلات](docs/KNOWN-ISSUES-AR.md).
+**الحالة: نسخة هندسية تحت التحقق، وليست إصدارًا جاهزًا للمتجر.** يوجد تنفيذ للأنماط التسعة وVR وMR، مع اختبارات آلية. النشر الدائم، ربط Meta، التوقيع وDigital Asset Links تحتاج بيانات المالك الحقيقية. نجحت مسارات Check وXR Test وWeb Build فعليًا على GitHub؛ [الأدلة](docs/evidence/github/README.md). Deploy يتوقف حتى ضبط APP_ORIGIN. راجع [التقرير](docs/FINAL-REPORT-AR.md) و[المشكلات](docs/KNOWN-ISSUES-AR.md).
 
 > لم يتم اختبار هذه النسخة على جهاز Meta Quest حقيقي، لذلك لا يمكن اعتبارها جاهزة نهائيًا للنشر في المتجر.
 

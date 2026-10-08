@@ -1,0 +1,111 @@
+{
+  "recordedAt": "2026-10-08",
+  "repository": "3wasfnjd/Dahrooj-Quest",
+  "implementationCommit": "6c592f1f524983a6969b30d1079ecc633b078b20",
+  "legacyRepository": "3wasfnjd/quest",
+  "legacyUnchangedCommit": "c7925b7cd7371b6bb87c44a0743721ad55f177dd",
+  "environment": {
+    "runner": "GitHub Actions ubuntu-latest",
+    "browser": "Chromium 156.0.8078.4",
+    "renderer": "SwiftShader via WebGL2",
+    "xr": "IWER 2.5.0",
+    "physicalQuest": false
+  },
+  "workflows": [
+    {
+      "name": "Check",
+      "id": 37802348617,
+      "url": "https://github.com/3wasfnjd/Dahrooj-Quest/actions/runs/37802348617",
+      "headSha": "6c592f1f524983a6969b30d1079ecc633b078b20",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Web Build",
+      "id": 37802348589,
+      "url": "https://github.com/3wasfnjd/Dahrooj-Quest/actions/runs/37802348589",
+      "headSha": "6c592f1f524983a6969b30d1079ecc633b078b20",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Deploy HTTPS",
+      "id": 37802348614,
+      "url": "https://github.com/3wasfnjd/Dahrooj-Quest/actions/runs/37802348614",
+      "headSha": "6c592f1f524983a6969b30d1079ecc633b078b20",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "name": "XR Test",
+      "id": 37802348747,
+      "url": "https://github.com/3wasfnjd/Dahrooj-Quest/actions/runs/37802348747",
+      "headSha": "6c592f1f524983a6969b30d1079ecc633b078b20",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "web-reports",
+      "id": 11561786422,
+      "runId": 37802348589,
+      "bytes": 6222,
+      "sha256": "e03d81f096bfd8f6311840b4f91af23fdf16f5e48c3fda33686f13ea6d9c0696",
+      "url": "https://github.com/3wasfnjd/Dahrooj-Quest/actions/runs/37802348589/artifacts/11561786422",
+      "kind": "TEST REPORT ZIP"
+    },
+    {
+      "name": "dahrooj-web-6c592f1f524983a6969b30d1079ecc633b078b20",
+      "id": 11561452126,
+      "runId": 37802348589,
+      "bytes": 6299106,
+      "sha256": "7a995939f434077103c352f90bc0e552cdb7133cd3832d8bda9a360d4c663dbd",
+      "url": "https://github.com/3wasfnjd/Dahrooj-Quest/actions/runs/37802348589/artifacts/11561452126",
+      "kind": "WEB ZIP, NOT APK"
+    },
+    {
+      "name": "iwer-reports-not-hardware-evidence",
+      "id": 11560993541,
+      "runId": 37802348747,
+      "bytes": 1868001,
+      "sha256": "67196302c58210e0864a17c84ec9510e42cae7164bcd60292d17299ce9a06593",
+      "url": "https://github.com/3wasfnjd/Dahrooj-Quest/actions/runs/37802348747/artifacts/11560993541",
+      "kind": "TEST REPORT ZIP"
+    }
+  ],
+  "verification": {
+    "unitTests": {
+      "passed": 25,
+      "failed": 0
+    },
+    "xrTests": {
+      "passed": 3,
+      "failed": 0
+    },
+    "productionAssertions": {
+      "passed": 8,
+      "failed": 0,
+      "cachedFiles": 113,
+      "externalRequests": 0
+    },
+    "typecheck": "passed",
+    "lint": "passed",
+    "bundleBudget": "passed",
+    "downloadedReportArchiveDigests": "Both report ZIPs matched the SHA-256 reported by GitHub."
+  },
+  "deployment": {
+    "status": "blocked",
+    "failedStep": "Validate destination",
+    "error": "APP_ORIGIN is missing. Configure the permanent HTTPS origin in GitHub repository variables.",
+    "productionUrl": null
+  },
+  "apk": {
+    "status": "not_built",
+    "signed": false,
+    "artifact": null,
+    "sha256": null,
+    "digitalAssetLinks": "not_verified"
+  },
+  "physicalQuest": "لم يتم اختبار هذه النسخة على جهاز Meta Quest حقيقي، لذلك لا يمكن اعتبارها جاهزة نهائيًا للنشر في المتجر."
+}

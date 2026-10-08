@@ -1,0 +1,468 @@
+{
+  "bytes": 10857657,
+  "gzipBytes": 6281442,
+  "javascriptBytes": 2458597,
+  "assets": [
+    {
+      "file": "dist/assets/HavokPhysics-BqNY-4N9.wasm",
+      "bytes": 2094563
+    },
+    {
+      "file": "dist/assets/audio/dahrooj-theme.ogg",
+      "bytes": 244175
+    },
+    {
+      "file": "dist/assets/fonts/baloo-arabic.woff2",
+      "bytes": 38588
+    },
+    {
+      "file": "dist/assets/fonts/baloo-latin.woff2",
+      "bytes": 34704
+    },
+    {
+      "file": "dist/assets/index-DnZeZyKX.js",
+      "bytes": 2085886
+    },
+    {
+      "file": "dist/assets/index-Dr0Qlb-8.css",
+      "bytes": 2043
+    },
+    {
+      "file": "dist/assets/models/bench.glb",
+      "bytes": 12540
+    },
+    {
+      "file": "dist/assets/models/birchTreesVisual.glb",
+      "bytes": 13972
+    },
+    {
+      "file": "dist/assets/models/cherryTreesVisual.glb",
+      "bytes": 13840
+    },
+    {
+      "file": "dist/assets/models/explosiveCrate.glb",
+      "bytes": 23092
+    },
+    {
+      "file": "dist/assets/models/lantern.glb",
+      "bytes": 24128
+    },
+    {
+      "file": "dist/assets/models/oakTreesVisual.glb",
+      "bytes": 16172
+    },
+    {
+      "file": "dist/assets/models/poleLight.glb",
+      "bytes": 22940
+    },
+    {
+      "file": "dist/assets/physics-runtime-CZDQkXhk.js",
+      "bytes": 39852
+    },
+    {
+      "file": "dist/assets/physics-worker-CmX3CduM.js",
+      "bytes": 40678
+    },
+    {
+      "file": "dist/assets/textures/slabs.png",
+      "bytes": 45637
+    },
+    {
+      "file": "dist/assets/worker-BkRtSCqm.js",
+      "bytes": 198824
+    },
+    {
+      "file": "dist/assets/worker-_Lh8Vt-i.js",
+      "bytes": 41907
+    },
+    {
+      "file": "dist/assets/world-initializer-DNGrL7nT.js",
+      "bytes": 45353
+    },
+    {
+      "file": "dist/build.json",
+      "bytes": 203
+    },
+    {
+      "file": "dist/credits.html",
+      "bytes": 2001
+    },
+    {
+      "file": "dist/icons/icon-192.png",
+      "bytes": 44866
+    },
+    {
+      "file": "dist/icons/icon-512.png",
+      "bytes": 257906
+    },
+    {
+      "file": "dist/icons/maskable-512.png",
+      "bytes": 174931
+    },
+    {
+      "file": "dist/index.html",
+      "bytes": 1912
+    },
+    {
+      "file": "dist/legal.css",
+      "bytes": 474
+    },
+    {
+      "file": "dist/licenses/baloo-OFL.txt",
+      "bytes": 4384
+    },
+    {
+      "file": "dist/licenses/controller-profiles-MIT.txt",
+      "bytes": 1094
+    },
+    {
+      "file": "dist/licenses/dependencies/babylonjs_havok1.3.14.txt",
+      "bytes": 1069
+    },
+    {
+      "file": "dist/licenses/dependencies/cjs-module-lexer2.3.0.txt",
+      "bytes": 1085
+    },
+    {
+      "file": "dist/licenses/dependencies/comlink4.4.2.txt",
+      "bytes": 11341
+    },
+    {
+      "file": "dist/licenses/dependencies/commander14.0.3.txt",
+      "bytes": 1098
+    },
+    {
+      "file": "dist/licenses/dependencies/commander2.20.3.txt",
+      "bytes": 1098
+    },
+    {
+      "file": "dist/licenses/dependencies/debug4.4.3.txt",
+      "bytes": 1139
+    },
+    {
+      "file": "dist/licenses/dependencies/dimforge_rapier3d-compat0.12.0.txt",
+      "bytes": 11343
+    },
+    {
+      "file": "dist/licenses/dependencies/discontinuous-range1.0.0.txt",
+      "bytes": 1079
+    },
+    {
+      "file": "dist/licenses/dependencies/elics3.4.2.txt",
+      "bytes": 1078
+    },
+    {
+      "file": "dist/licenses/dependencies/entities6.0.1.txt",
+      "bytes": 1260
+    },
+    {
+      "file": "dist/licenses/dependencies/es-module-lexer3.0.3.txt",
+      "bytes": 1085
+    },
+    {
+      "file": "dist/licenses/dependencies/fflate0.8.3.txt",
+      "bytes": 1069
+    },
+    {
+      "file": "dist/licenses/dependencies/import-in-the-middle3.5.2.txt",
+      "bytes": 13055
+    },
+    {
+      "file": "dist/licenses/dependencies/index.json",
+      "bytes": 6630
+    },
+    {
+      "file": "dist/licenses/dependencies/iwsdk_core1.0.1.txt",
+      "bytes": 1088
+    },
+    {
+      "file": "dist/licenses/dependencies/iwsdk_locomotor1.0.1.txt",
+      "bytes": 1088
+    },
+    {
+      "file": "dist/licenses/dependencies/iwsdk_scene-composition1.0.1.txt",
+      "bytes": 1088
+    },
+    {
+      "file": "dist/licenses/dependencies/iwsdk_xr-input1.0.1.txt",
+      "bytes": 1088
+    },
+    {
+      "file": "dist/licenses/dependencies/meshoptimizer0.22.0.txt",
+      "bytes": 1079
+    },
+    {
+      "file": "dist/licenses/dependencies/module-details-from-path1.0.4.txt",
+      "bytes": 1091
+    },
+    {
+      "file": "dist/licenses/dependencies/moo0.5.3.txt",
+      "bytes": 1517
+    },
+    {
+      "file": "dist/licenses/dependencies/ms2.1.3.txt",
+      "bytes": 1079
+    },
+    {
+      "file": "dist/licenses/dependencies/nearley2.20.1.txt",
+      "bytes": 1123
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_api-logs0.220.0.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_api1.9.1.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_core2.12.0.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_instrumentation0.220.0.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_resources2.12.0.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_sdk-trace-base2.12.0.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_sdk-trace2.12.0.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/opentelemetry_semantic-conventions1.43.0.txt",
+      "bytes": 11357
+    },
+    {
+      "file": "dist/licenses/dependencies/playwright-core1.64.0.txt",
+      "bytes": 11857
+    },
+    {
+      "file": "dist/licenses/dependencies/playwright1.64.0.txt",
+      "bytes": 11857
+    },
+    {
+      "file": "dist/licenses/dependencies/pmndrs_handle6.6.31.txt",
+      "bytes": 1053
+    },
+    {
+      "file": "dist/licenses/dependencies/pmndrs_msdfonts1.0.76.txt",
+      "bytes": 7045
+    },
+    {
+      "file": "dist/licenses/dependencies/pmndrs_pointer-events6.6.31.txt",
+      "bytes": 2110
+    },
+    {
+      "file": "dist/licenses/dependencies/pmndrs_uikit-horizon1.0.76.txt",
+      "bytes": 2129
+    },
+    {
+      "file": "dist/licenses/dependencies/pmndrs_uikit-lucide1.0.76.txt",
+      "bytes": 2110
+    },
+    {
+      "file": "dist/licenses/dependencies/pmndrs_uikit-pub-sub1.0.76.txt",
+      "bytes": 2110
+    },
+    {
+      "file": "dist/licenses/dependencies/pmndrs_uikit1.0.76.txt",
+      "bytes": 2110
+    },
+    {
+      "file": "dist/licenses/dependencies/preact_signals-core1.14.4.txt",
+      "bytes": 1086
+    },
+    {
+      "file": "dist/licenses/dependencies/railroad-diagrams1.0.0.txt",
+      "bytes": 518
+    },
+    {
+      "file": "dist/licenses/dependencies/randexp0.4.6.txt",
+      "bytes": 1061
+    },
+    {
+      "file": "dist/licenses/dependencies/react19.3.0.txt",
+      "bytes": 1088
+    },
+    {
+      "file": "dist/licenses/dependencies/require-in-the-middle8.0.1.txt",
+      "bytes": 1192
+    },
+    {
+      "file": "dist/licenses/dependencies/ret0.1.15.txt",
+      "bytes": 1061
+    },
+    {
+      "file": "dist/licenses/dependencies/sentry_conventions0.16.0.txt",
+      "bytes": 1098
+    },
+    {
+      "file": "dist/licenses/dependencies/sentry_core10.76.1.txt",
+      "bytes": 1093
+    },
+    {
+      "file": "dist/licenses/dependencies/sentry_node-core10.76.1.txt",
+      "bytes": 1093
+    },
+    {
+      "file": "dist/licenses/dependencies/sentry_node10.76.1.txt",
+      "bytes": 1093
+    },
+    {
+      "file": "dist/licenses/dependencies/sentry_opentelemetry10.76.1.txt",
+      "bytes": 1093
+    },
+    {
+      "file": "dist/licenses/dependencies/sentry_server-utils10.76.1.txt",
+      "bytes": 1093
+    },
+    {
+      "file": "dist/licenses/dependencies/super-three0.181.0.txt",
+      "bytes": 1081
+    },
+    {
+      "file": "dist/licenses/dependencies/three-mesh-bvh0.9.16.txt",
+      "bytes": 1072
+    },
+    {
+      "file": "dist/licenses/dependencies/tweenjs_tween.js23.1.3.txt",
+      "bytes": 1166
+    },
+    {
+      "file": "dist/licenses/dependencies/types_emscripten1.41.6.txt",
+      "bytes": 1141
+    },
+    {
+      "file": "dist/licenses/dependencies/types_stats.js0.17.4.txt",
+      "bytes": 1141
+    },
+    {
+      "file": "dist/licenses/dependencies/types_three0.181.0.txt",
+      "bytes": 1141
+    },
+    {
+      "file": "dist/licenses/dependencies/types_webxr0.5.24.txt",
+      "bytes": 1141
+    },
+    {
+      "file": "dist/licenses/dependencies/use-sync-external-store1.7.0.txt",
+      "bytes": 1088
+    },
+    {
+      "file": "dist/licenses/dependencies/webgpu_types0.1.74.txt",
+      "bytes": 1500
+    },
+    {
+      "file": "dist/licenses/dependencies/yoga-layout3.2.1.txt",
+      "bytes": 1086
+    },
+    {
+      "file": "dist/licenses/dependencies/zappar_msdf-generator1.2.4.txt",
+      "bytes": 6295
+    },
+    {
+      "file": "dist/licenses/dependencies/zod4.6.5.txt",
+      "bytes": 1072
+    },
+    {
+      "file": "dist/licenses/dependencies/zustand4.5.7.txt",
+      "bytes": 1070
+    },
+    {
+      "file": "dist/licenses/motri-MIT.txt",
+      "bytes": 1067
+    },
+    {
+      "file": "dist/licenses/sentry-server-utils-MIT.txt",
+      "bytes": 1093
+    },
+    {
+      "file": "dist/licenses/yoga-layout-MIT.txt",
+      "bytes": 1086
+    },
+    {
+      "file": "dist/manifest.webmanifest",
+      "bytes": 592
+    },
+    {
+      "file": "dist/privacy.html",
+      "bytes": 6253
+    },
+    {
+      "file": "dist/scenes/bootstrap.iwsdk.scene.json",
+      "bytes": 183
+    },
+    {
+      "file": "dist/sw.js",
+      "bytes": 6097
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-plus/left.glb",
+      "bytes": 217984
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-plus/profile.json",
+      "bytes": 11430
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-plus/right.glb",
+      "bytes": 213868
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-plus-v2/left.glb",
+      "bytes": 804740
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-plus-v2/profile.json",
+      "bytes": 11468
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-plus-v2/right.glb",
+      "bytes": 806196
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-pro/left.glb",
+      "bytes": 297644
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-pro/profile.json",
+      "bytes": 11427
+    },
+    {
+      "file": "dist/vendor/profiles/meta-quest-touch-pro/right.glb",
+      "bytes": 300304
+    },
+    {
+      "file": "dist/vendor/profiles/oculus-touch-v2/left.glb",
+      "bytes": 527940
+    },
+    {
+      "file": "dist/vendor/profiles/oculus-touch-v2/profile.json",
+      "bytes": 10778
+    },
+    {
+      "file": "dist/vendor/profiles/oculus-touch-v2/right.glb",
+      "bytes": 528220
+    },
+    {
+      "file": "dist/vendor/profiles/oculus-touch-v3/left.glb",
+      "bytes": 665820
+    },
+    {
+      "file": "dist/vendor/profiles/oculus-touch-v3/profile.json",
+      "bytes": 11412
+    },
+    {
+      "file": "dist/vendor/profiles/oculus-touch-v3/right.glb",
+      "bytes": 665920
+    }
+  ],
+  "errors": []
+}
