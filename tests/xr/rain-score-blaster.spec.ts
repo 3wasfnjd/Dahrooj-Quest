@@ -52,7 +52,7 @@ test('holding the mini blaster keeps a steady cadence beyond the 16-shot budget'
  await start(page,'ar');await choose(page,'goal');
  await page.evaluate(()=>{
   const w=window as any,g=w.__DAHROOJ_REFERENCE__.game,r=g.runtime,T=g.ctx.T;
-  r.testPin([0,0,-2],[0,1,0]);r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='shot'&&b.id==='mini'));
+  r.testPin([0,0,-2],[0,1,0]);r.setMenu(true,'play');r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='shot'&&b.id==='mini'));r.setMenu(false);
   const c=w.IWER_DEVICE.controllers.left,q=new T.Quaternion().setFromAxisAngle(g.ctx.V(1,0,0),Math.PI/2);
   c.position.set(-.4,1.6,.2);c.quaternion.set(q.x,q.y,q.z,q.w);
   const frame=r.frame;let last=0,elapsed=0,fired=r.blast.fired;

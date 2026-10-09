@@ -23,7 +23,7 @@ test('recorded firework cues follow launch and explosion while water suppresses 
  await page.locator('#enter-vr').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
  await page.evaluate(()=>{
   const w=window as any,g=w.__DAHROOJ_REFERENCE__.game,r=g.runtime;
-  r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='shot'&&b.id==='firework'));
+  r.setMenu(true,'play');r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='shot'&&b.id==='firework'));r.setMenu(false);
   w.fireworkProbe={launch:0,burst:0,fallback:0,sources:0,voices:0,max:0};
   const context=g.g.audio(),make=context.createBufferSource.bind(context);
   context.createBufferSource=()=>{const source=make();if(!w.fireworkProbe.capturing)return source;

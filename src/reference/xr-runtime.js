@@ -1,12 +1,10 @@
-import {createFlatModePanel} from './flat-mode-panel';
-import {JELLY_COLORS,jellyColor} from '../core/appearance';
+import {DAHROOJ_COLORS} from './palette.js';
+import {createFlatModePanel,MENU_ACCESSORIES,MENU_SHOTS} from './flat-mode-panel';
 import {rainSpawn,guideRain} from './rain-field';
 import {menuDepth,menuGroup} from './menu-depth';
 import {ballImpactSpeed} from './ball-impact';
 import {createScorePopup} from './score-popup';
 import {GOAL_AIM_Z} from './court-layout.js';
-import {createChallengeList} from './challenge-list.js';
-import {DAHROOJ_COLORS,DAHROOJ_SWATCHES} from './palette.js';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 import {createReferenceCharacter} from './character.js';
 import {createReferenceNature} from './nature.js';
@@ -27,7 +25,6 @@ export const createReferenceXR=(() => {
   const GAIN=2, SLING_K=23, SLING_MIN=.06, SLING_MAX=.65, MIN_THROW=1, MAX_SPEED=46, SPAN=.04;
   // Headset texts in Arabic and English: [id, Arabic, English].
   const MODES=[['goal','مرمى','Goal'],['hoop','سلة','Hoop'],['window','شباك','Window'],['cans','علب','Cans'],['bowling','بولينغ','Bowling'],['bricks','الطوب','Bricks'],['fair','ملاهي','Fair'],['climb','الجبل','Summit'],['rain','مطر دحاريج','Dahrooj Rain']];
-  const STYLES=[['jelly','جيلي','Jelly'],['fur','فرو','Fur'],['bubble','فقاعة','Bubble']];
   const XR_MODES=new Set(MODES.map(m=>m[0]));
   let lang='ar';try{if(localStorage.getItem('dahrooj-lang')==='en')lang='en';}catch(_){}
   const tr=(ar,en)=>lang==='en'?en:ar;
@@ -39,7 +36,7 @@ export const createReferenceXR=(() => {
     const {T,renderer,scene,camera,S,BR,V}=g;
     let session=null,kind=null,lastTime=0,holder=null,holdT=0,clock=0,paper='',arScale=AR_SCALE,arZoom=1,popT=1,frames=0;
     // Throw styles: 'trigger' (aim, hold to charge, let go), 'hand' (a real swing), 'sling'.
-    let throwStyle='trigger',menuToggled=false,parked=false,placing=false,anchor=null,placedFor='',menuOpen=false,intro=null;
+    let throwStyle='trigger',parked=false,placing=false,anchor=null,placedFor='',menuOpen=false,intro=null;
     // Summit: a model mountain on the table (AR) or on a plinth in front of you (VR).
     // The Summit's size in metres per game unit: life-size in the VR world, tabletop in AR; the right stick changes it.
     // VR: the mountain stands as far off as the goal and the other targets (about 10.5 m), a little larger to suit.
@@ -68,9 +65,6 @@ export const createReferenceXR=(() => {
     // What the game's physics asks about the pond (VR world only).
     const waterApi={depth:(x,z)=>nature?nature.waterAt(x,z):0,splash:(p,k)=>nature?.splash?.(p.x,p.z,k)};
     const natureOn=()=>!!nature&&kind==='immersive-vr';
-    const TIMES=[['auto','تلقائي','Auto'],['day','نهار','Day'],['dusk','غروب','Dusk'],['night','ليل','Night'],['dawn','فجر','Dawn']];
-    const WEATHERS=[['auto','تلقائي','Auto'],['clear','صافي','Clear'],['rain','مطر','Rain'],['snow','ثلج','Snow']];
-    const named=(list,id)=>{const e=list.find(x=>x[0]===id);return e?tr(e[1],e[2]):'';};
     // A paper floor for VR; AR shows the room through passthrough instead.
     const floor=new T.Mesh(new T.CircleGeometry(40,64),new T.MeshBasicMaterial({color:0xddd2c1}));
     floor.name='xr-world-fallback-floor';floor.rotation.x=-Math.PI/2;floor.position.y=-.004;floor.visible=false;scene.add(floor);
@@ -193,79 +187,33 @@ export const createReferenceXR=(() => {
       card.mesh.scale.setScalar(1);card.mesh.material.opacity=Math.min(ease(inK),ease(outK));card.mesh.visible=card.mesh.material.opacity>.01;
       if(n.t>=life)cardNow=null;
     }
-    // The menu rides on the left hand: flip it palm-up or raise it. Point with the right hand to pick.
-    // Solid paper: no scene blending. Alpha cutout only trims the rounded outside corners.
-    const MW=768,MH=1320,MENU_W=.24,MENU_H=MENU_W*MH/MW;
-    const menu=panel(MENU_W,MENU_H,MW,MH,true);menuLayer.add(menu.mesh);menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);menu.mesh.name='xr-menu';menu.mesh.renderOrder=20;
-    const challengeList=createChallengeList(T,{parent:menu.mesh,panelWidth:MENU_W,panelHeight:MENU_H,pixelsWidth:MW,pixelsHeight:MH,font});
-    const buttons=[],PAD=36,IN=MW-PAD*2;
-    // Positions go right to left in Arabic and left to right in English (see layoutMenu).
-    // Four modes a row.
-    // The modes live on the floating cards (B); the settings keep style, throw, world and the rest. The settings
-    // show only the top MENU_VIS pixels of the pane; the challenges (X) use all of it.
-    // VR has a world row (time, weather) that the room (AR) doesn't, so its pane is taller.
-    const menuVisH=()=>kind==='immersive-ar'?952:1084,menuVis=()=>chOpen?MH:menuVisH();
-    // The blaster's shot styles (and the opening's and the rain's shots).
-    const SHOTS=[['bolt','برق','Bolt'],['mini','دحروج','Mini'],['bubble','فقاعة','Bubble'],['firework','ألعاب نارية','Firework']];
+    // One shared panel owns modes, settings, rewards and the short credits page.
+    const SHOTS=MENU_SHOTS;
     let shotStyle='bolt';try{const v=localStorage.getItem('dahrooj-shot');if(SHOTS.some(x=>x[0]===v))shotStyle=v;}catch(_){}
-    STYLES.forEach(([id,ar,en],i)=>buttons.push({kind:'style',id,ar,en,i,y:182,w:224,h:122}));
-    JELLY_COLORS.forEach((color,i)=>buttons.push({kind:'jellyColor',id:color.id,ar:color.ar,en:color.en,i,y:316,w:88,h:42}));
-    [['trigger','زناد','Trigger'],['hand','يد','Hand'],['sling','نبيطة','Sling']].forEach(([id,ar,en],i)=>buttons.push({kind:'throw',id,ar,en,i,y:396,w:224,h:92}));
-    SHOTS.forEach(([id,ar,en],i)=>buttons.push({kind:'shot',id,ar,en,i,y:562,w:166,h:120}));
-    buttons.push({kind:'time',id:'time',i:0,y:736,w:342,h:92});
-    buttons.push({kind:'weather',id:'weather',i:1,y:736,w:342,h:92});
-    // The last row sits under the world row in VR, straight under the shots in the room (AR): see layoutMenu.
-    buttons.push({kind:'place',id:'place',i:0,y:852,w:224,h:92});
-    buttons.push({kind:'lang',id:'lang',i:1,y:852,w:224,h:92});
-    buttons.push({kind:'exit',id:'exit',ar:'خروج',en:'Exit',i:2,y:852,w:224,h:92});
-    function layoutMenu(){
-      const rtl=lang!=='en';
-      for(const b of buttons){
-        const step=b.kind==='mode'?177.3:b.kind==='jellyColor'?100:b.kind==='style'?236:b.kind==='shot'?176.7:b.kind==='throw'||b.kind==='place'||b.kind==='lang'||b.kind==='exit'?236:354,
-          n=b.kind==='mode'||b.kind==='shot'?4:b.kind==='jellyColor'?7:b.kind==='style'?3:b.kind==='time'||b.kind==='weather'?2:3,col=b.kind==='mode'?b.i%4:b.i;
-        b.x=PAD+(rtl?n-1-col:col)*step;
-        if(b.kind==='place'||b.kind==='lang'||b.kind==='exit')b.y=kind==='immersive-ar'?720:866;
-      }
-    }
-    function layoutAcc(){const rtl=lang!=='en';for(const b of accButtons){b.x=PAD+(rtl?3-b.i%4:b.i%4)*177;b.y=972+Math.floor(b.i/4)*128;}resetBtn.x=rtl?PAD:MW-PAD-resetBtn.w;}
-    layoutMenu();
-    const buttonShown=b=>b.kind==='jellyColor'?g.style()==='jelly':b.kind==='time'||b.kind==='weather'?kind!=='immersive-ar':true;
-    // No free play in the headset, so its challenge stays on the web.
     const headsetChallenges=()=>(g.challenges?g.challenges():[]).filter(c=>c.id!=='free25');
-    let chOpen=false,menuFresh=false;
-    const uiBusy=()=>menuToggled||menuOpen||plazaOn||menu.mesh.visible;
-    function stopGameplayInput(){for(const h of hands){release(h,true);h.hover=-1;h.plaza=-1;h.scrollDrag=null;}}
-    function toggleMenu(challenges){const on=!(menuToggled&&chOpen===challenges);setPlaza(false);menuToggled=on;chOpen=challenges;menuFresh=on;menu.key='';if(on)stopGameplayInput();}
-    // Rewards: every few challenges done unlocks something for Dahrooj to wear, picked under the challenges (X).
-    const ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14]];
-    const accButtons=ACCESSORIES.map(([id,ar,en,need],i)=>({kind:'acc',id,ar,en,need,i,y:972,w:164,h:118}));
-    // Starting the challenges over takes two presses: the first asks to be sure.
-    const resetBtn={kind:'reset',id:'reset',y:132,w:190,h:56};let resetArm=0;
-    function resetPress(){
-      if(resetArm>0){resetArm=0;g.resetChallenges?.();wearing='';try{localStorage.setItem('dahrooj-acc','');}catch(_){}
-        doneNow=challengesDone();notify('info',tr('صفّرت التحديات','Challenges reset'),tr('ابدأ من جديد!','Start again!'));}
-      else resetArm=3;
-      menu.key='';
-    }
-    layoutAcc();
-    let wearing='';try{wearing=localStorage.getItem('dahrooj-acc')||'';}catch(_){}
+    const uiBusy=()=>menuOpen;
+    function stopGameplayInput(){for(const h of hands){release(h,true);h.hover=-1;h.plaza=-1;}}
+    function toggleMenu(challenges){const page=challenges?'challenges':'play';setMenu(!(menuOpen&&modePanel.page===page),page);}
+    const accButtons=MENU_ACCESSORIES.map(([id,ar,en,need])=>({kind:'acc',id,ar,en,need}));
+    let resetArm=0,wearing='';try{wearing=localStorage.getItem('dahrooj-acc')||'';}catch(_){}
     const challengesDone=()=>(g.challenges?g.challenges():[]).filter(c=>c.value>=c.goal).length;
     let doneNow=challengesDone(),doneCheck=0;
     const accOpen=a=>doneNow>=a.need;
     const wornNow=()=>{const a=accButtons.find(b=>b.id===wearing);return a&&accOpen(a)?wearing:'';};
-    // A newly unlocked reward gets a toast and the chime, once.
+    function resetPress(){
+      if(resetArm>0){resetArm=0;g.resetChallenges?.();wearing='';try{localStorage.setItem('dahrooj-acc','');}catch(_){}
+        doneNow=challengesDone();notify('info',tr('صفّرت التحديات','Challenges reset'),tr('ابدأ من جديد!','Start again!'));}
+      else resetArm=3;
+    }
     function watchRewards(dt){
       doneCheck-=dt;if(doneCheck>0)return;doneCheck=.5;
       const before=doneNow;doneNow=challengesDone();
-      if(doneNow>before){
-        const got=accButtons.filter(b=>b.need>before&&b.need<=doneNow).pop();
-        if(got){notify('reward',tr(`فتحت ${got.ar}!`,`${got.en} unlocked!`),tr('البسها لدحروج من قائمة التحديات (X)','Put it on Dahrooj from the challenges (X)'),got.id);g.chime?.();menu.key='';}
-      }
+      if(doneNow>before){const got=accButtons.filter(b=>b.need>before&&b.need<=doneNow).pop();
+        if(got){notify('reward',tr(`فتحت ${got.ar}!`,`${got.en} unlocked!`),tr('البسها من المظهر ← الإكسسوارات','Equip from Appearance → Accessories'),got.id);g.chime?.();}}
     }
     function wear(id){
-      const a=accButtons.find(b=>b.id===id);if(!a)return;
-      if(!accOpen(a)){notify('info',tr(`${a.ar} مقفلة`,`The ${a.en.toLowerCase()} is locked`),tr(`خلّص ${a.need} تحديات عشان تفتحها`,`Finish ${a.need} challenges to unlock it`));return;}
-      wearing=id;try{localStorage.setItem('dahrooj-acc',id);}catch(_){}menu.key='';
+      const a=accButtons.find(b=>b.id===id);if(!a||!accOpen(a))return;
+      wearing=id;try{localStorage.setItem('dahrooj-acc',id);}catch(_){}
     }
     // Little drawings of each reward for the buttons.
     function drawAcc(c,id,cx,cy,locked){
@@ -281,129 +229,23 @@ export const createReferenceXR=(() => {
       else if(id==='scarf'){c.strokeStyle='#46aaa9';c.lineWidth=10;c.beginPath();c.ellipse(cx,cy+21,19,5,0,0,Math.PI);c.stroke();c.fillStyle='#46aaa9';c.fillRect(cx+5,cy+22,10,19);}
       c.restore();
     }
-    const STYLE_DOTS=DAHROOJ_SWATCHES;
-    // Opaque paper gradient. Button highlights are composited onto this solid canvas base.
-    function menuPaper(c,W,H,R){
-      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#ffffff');gr.addColorStop(1,'#f5f5f5');
-      c.fillStyle=gr;round(c,6,6,W-12,H-12,R);c.fill();
-      c.save();round(c,6,6,W-12,H-12,R);c.clip();
-      gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(255,255,255,.12)');gr.addColorStop(.35,'rgba(255,255,255,0)');gr.addColorStop(.62,'rgba(255,255,255,0)');gr.addColorStop(.7,'rgba(255,255,255,.04)');gr.addColorStop(.78,'rgba(255,255,255,0)');
-      c.fillStyle=gr;c.fillRect(0,0,W,H);c.restore();
-      c.lineWidth=4;c.strokeStyle='rgba(255,255,255,.85)';round(c,8,8,W-16,H-16,R-2);c.stroke();
-      c.lineWidth=2;c.strokeStyle='rgba(44,45,61,.16)';round(c,4,4,W-8,H-8,R+2);c.stroke();
-    }
-    function drawMenu(hover){
-      if(!menu.mesh.visible)return;
-      const sky=nature?nature.settings:{time:'auto',weather:'auto'};
-      const chs=headsetChallenges();
-      const key=[resetArm>0,wornNow(),doneNow,modeNow(),g.style(),g.jellyColor(),throwStyle,kind,sky.time,sky.weather,hover.join(','),chOpen,lang,chs.map(c=>c.value).join(',')].join('|');if(key===menu.key)return;menu.key=key;
-      const c=menu.ctx,VH=menuVis();c.clearRect(0,0,MW,MH);
-      // Only the visible height is drawn; settings are shorter than challenges.
-      menuPaper(c,MW,VH,64);
-      // Show just that part of the canvas.
-      menu.tex.repeat.set(1,VH/MH);menu.tex.offset.set(0,1-VH/MH);
-      // Title and section labels.
-      c.textAlign='center';c.direction=tr('rtl','ltr');c.fillStyle=INK;c.font=font(800,60);c.fillText(tr('دحروج','Dahrooj'),MW/2,92);
-      c.fillStyle='rgba(44,45,61,.12)';c.fillRect(PAD+40,120,IN-80,2);
-      if(chOpen){
-        // The challenges, with progress, in place of the options.
-        const done=chs.filter(x=>x.value>=x.goal).length;
-        c.font=font(700,30);c.fillStyle='rgba(44,45,61,.85)';c.fillText(tr(`التحديات · ${done} من ${chs.length}`,`Challenges · ${done} of ${chs.length}`),MW/2,164);
-        // Reset, on the far side of the heading.
-        {const b=resetBtn,hot=hover.includes(2000),armed=resetArm>0;
-          c.fillStyle=armed?'#c8442f':hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,b.h/2);c.fill();
-          if(!armed){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();}
-          c.textAlign='center';c.fillStyle=armed?PAPER:INK;c.font=font(800,armed?24:26);c.fillText(armed?tr('متأكد؟ اضغط ثانية','Sure? Press again'):tr('↺ تصفير','↺ Reset'),b.x+b.w/2,b.y+b.h/2+9);}
-        challengeList.rows(chs,lang);
-        const v=challengeList.view;c.fillStyle='rgba(44,45,61,.16)';c.fillRect(v.x+v.w+9,v.y,6,v.h);
-        c.fillStyle=INK;c.font=font(600,25);c.fillText(tr('حرّك العصا اليسرى أو اسحب القائمة للتمرير','Left stick or drag the list to scroll'),MW/2,911);
-        // The rewards, under the list.
-        c.textAlign='center';c.font=font(700,26);c.fillStyle='rgba(44,45,61,.85)';
-        c.fillText(tr('إكسسوارات دحروج · تنفتح بالتحديات','Dahrooj\'s rewards · unlocked by challenges'),MW/2,950);
-        const worn=wornNow();
-        accButtons.forEach((b,k)=>{
-          const open=accOpen(b),on=b.id===worn,hot=hover.includes(1000+k);
-          c.fillStyle=on?INK:hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,28);c.fill();
-          if(!on){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();}
-          if(b.id)drawAcc(c,b.id,b.x+b.w/2,b.y+52,!open);
-          else{c.fillStyle=on?PAPER:INK;c.font=font(800,40);c.fillText('—',b.x+b.w/2,b.y+66);}
-          c.fillStyle=on?PAPER:INK;c.font=font(700,open?21:20);c.fillText(open?tr(b.ar,b.en):tr(`يحتاج ${b.need}`,`needs ${b.need}`),b.x+b.w/2,b.y+106);
-        });
-      }else{
-      c.font=font(700,30);c.fillStyle='rgba(44,45,61,.85)';
-      for(const [t,y] of [[tr('الستايل','Style'),164],[tr('الرمي','Throw'),378],[tr('الطلقات','Shots'),544],...(kind==='immersive-ar'?[]:[[tr('العالم','World'),720]])])c.fillText(t,MW/2,y);
-      }
-      buttons.forEach((b,i)=>{
-        if(chOpen||!buttonShown(b))return;
-        const label=b.kind==='lang'?(lang==='en'?'العربية':'English'):b.kind==='place'?(kind==='immersive-ar'?tr('ثبّت من جديد','Re-pin'):tr('توسيط','Recentre'))
-          :b.kind==='time'?tr('الوقت: ','Time: ')+named(TIMES,sky.time):b.kind==='weather'?tr('الطقس: ','Weather: ')+named(WEATHERS,sky.weather):tr(b.ar,b.en);
-        // Time and weather belong to the VR world; the room has its own.
-        if((b.kind==='time'||b.kind==='weather')&&!natureOn())c.globalAlpha=.35;
-        const on=(b.kind==='jellyColor'&&b.id===g.jellyColor())||(b.kind==='mode'&&b.id===modeNow())||(b.kind==='style'&&b.id===g.style())||(b.kind==='shot'&&b.id===shotStyle)||(b.kind==='throw'&&b.id===throwStyle),hot=hover.includes(i);
-        const r=b.kind==='style'?36:b.h/2;
-        // Painted button highlights; the canvas underneath remains fully opaque.
-        if(on){c.fillStyle=INK;round(c,b.x,b.y,b.w,b.h,r);c.fill();}
-        else{
-          const bg=c.createLinearGradient(0,b.y,0,b.y+b.h);bg.addColorStop(0,hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.62)');bg.addColorStop(1,hot?'rgba(255,255,255,.7)':'rgba(255,255,255,.3)');
-          c.fillStyle=bg;round(c,b.x,b.y,b.w,b.h,r);c.fill();
-          c.lineWidth=2.5;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();
-        }
-        if(b.kind==='style'){
-          // A little Dahrooj in that style: a shaded body with two eyes.
-          const [a,d]=b.id==='jelly'?[new T.Color(jellyColor(g.jellyColor()).hex).lerp(new T.Color(0xffffff),.4).getStyle(),new T.Color(jellyColor(g.jellyColor()).hex).getStyle()]:STYLE_DOTS[b.id]||['#888','#444'],cx=b.x+b.w/2,cy=b.y+52;
-          const bg=c.createRadialGradient(cx-10,cy-12,4,cx,cy,32);bg.addColorStop(0,a);bg.addColorStop(1,d);
-          c.fillStyle=bg;c.beginPath();c.arc(cx,cy,30,0,7);c.fill();c.lineWidth=2;c.strokeStyle='rgba(44,45,61,.25)';c.stroke();
-          for(const ex of [-9,9]){c.fillStyle='#ffffff';c.beginPath();c.arc(cx+ex,cy-3,6.5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy-2,3.3,0,7);c.fill();}
-          c.fillStyle=on?PAPER:INK;c.font=font(800,28);c.fillText(label,cx,b.y+110);
-        }else if(b.kind==='jellyColor'){
-          c.fillStyle=new T.Color(jellyColor(b.id).hex).getStyle();round(c,b.x+7,b.y+7,b.w-14,b.h-14,14);c.fill();
-          c.fillStyle=INK;c.font=font(800,18);c.fillText((on?'✓ ':'')+label,b.x+b.w/2,b.y+28);
-        }else if(b.kind==='shot'){
-          // A little picture of the shot: a gold streak, a mini Dahrooj, a bubble, a burst.
-          const cx=b.x+b.w/2,cy=b.y+46,ink=on?PAPER:INK;
-          if(b.id==='bolt'){const gr=c.createLinearGradient(cx-44,cy+14,cx+40,cy-14);gr.addColorStop(0,'rgba(255,210,122,0)');gr.addColorStop(1,'#ffd27a');
-            c.strokeStyle=gr;c.lineWidth=9;c.lineCap='round';c.beginPath();c.moveTo(cx-44,cy+14);c.lineTo(cx+34,cy-12);c.stroke();c.fillStyle='#ffffff';c.beginPath();c.arc(cx+36,cy-12,8,0,7);c.fill();}
-          else if(b.id==='mini'){const bg=c.createRadialGradient(cx-6,cy-8,3,cx,cy,22);bg.addColorStop(0,DAHROOJ_SWATCHES.jelly[0]);bg.addColorStop(1,DAHROOJ_SWATCHES.jelly[1]);c.fillStyle=bg;c.beginPath();c.arc(cx,cy,22,0,7);c.fill();
-            c.strokeStyle=ink;c.globalAlpha*=.35;c.lineWidth=3;c.setLineDash([3,7]);c.beginPath();c.moveTo(cx-48,cy+18);c.quadraticCurveTo(cx-34,cy-20,cx-24,cy);c.stroke();c.setLineDash([]);c.globalAlpha=1;}
-          else if(b.id==='bubble'){const bg=c.createRadialGradient(cx-8,cy-8,4,cx,cy,26);bg.addColorStop(0,'rgba(255,255,255,.9)');bg.addColorStop(.6,'rgba(190,225,255,.35)');bg.addColorStop(1,'rgba(240,170,255,.55)');
-            c.fillStyle=bg;c.beginPath();c.arc(cx,cy,26,0,7);c.fill();c.lineWidth=2.5;c.strokeStyle='rgba(120,160,220,.7)';c.stroke();c.fillStyle='#ffffff';c.beginPath();c.arc(cx-9,cy-10,5,0,7);c.fill();}
-          else{const cols=['#e2603f','#f2c14e','#6fa8d6','#7bbf8a','#c9a2e6'];for(let k=0;k<10;k++){const a=k/10*Math.PI*2;c.strokeStyle=cols[k%5];c.lineWidth=5;c.lineCap='round';
-            c.beginPath();c.moveTo(cx+Math.cos(a)*9,cy+Math.sin(a)*9);c.lineTo(cx+Math.cos(a)*26,cy+Math.sin(a)*26);c.stroke();}c.fillStyle='#ffffff';c.beginPath();c.arc(cx,cy,6,0,7);c.fill();}
-          c.fillStyle=ink;c.font=font(800,label.length>8?24:28);c.fillText(label,cx,b.y+104);
-        }else{
-          c.fillStyle=on?PAPER:INK;c.font=font(800,label.length>10?32:38);c.fillText(label,b.x+b.w/2,b.y+b.h/2+13);
-        }
-        c.globalAlpha=1;
-      });
-      c.textAlign='center';c.fillStyle='rgba(44,45,61,.66)';c.font=font(600,27);
-      const hint=chOpen?[tr('X لإغلاق التحديات','X closes the challenges'),'']
-        :climbOn?[tr('العصا اليسار للحركة · A للقفز','Left stick to move · A to jump'),tr('العصا اليمنى للحجم · الزناد للرمي','Right stick to resize · trigger to throw')]
-        :rainOn?[tr('الزنادين يطلقون على الدحاريج','Either trigger shoots at the Dahroojs'),tr('Y الأنماط · X التحديات','Y modes · X challenges')]
-        :throwStyle==='sling'?[tr('اسحب دحروج بالزناد اليمين ثم أفلت','Pull Dahrooj back with the right trigger, let go'),tr('A يرجّع دحروج · Y الأنماط · X التحديات','A calls him back · Y modes · X challenges')]
-        :[tr('الزناد اليمين للرمي · اليسار يطلق','Right trigger throws · left trigger shoots'),tr('A يرجّع دحروج · Y الأنماط · X التحديات','A calls him back · Y modes · X challenges')];
-      const hy=chOpen?1270:menuVisH()-86;c.fillText(hint[0],MW/2,hy);c.fillText(hint[1],MW/2,hy+42);
-      menu.tex.needsUpdate=true;
-    }
-    function menuHit(uv){
-      const x=uv.x*MW,y=(1-uv.y)*menuVis();
-      if(chOpen&&x>=resetBtn.x&&x<=resetBtn.x+resetBtn.w&&y>=resetBtn.y&&y<=resetBtn.y+resetBtn.h)return 2000;
-      if(chOpen){const k=accButtons.findIndex(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);return k<0?-1:1000+k;}
-      return buttons.findIndex(b=>buttonShown(b)&&x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);
-    }
     function menuAction(i){
-      if(i===2000){resetPress();return;}
-      if(i>=1000){const a=accButtons[i-1000];if(a)wear(a.id);return;}
-      const b=buttons[i];if(!b)return;
-      if(b.kind==='mode'){holder=null;if(b.id==='rain'){setClimb(false);setRain(true);}else{setRain(false);if(b.id==='climb')setClimb(true);else{setClimb(false);g.setMode(b.id);}}}
-      else if(b.kind==='style')g.setStyle(b.id);
+      const b=modePanel.action(i);if(!b)return;
+      if(modePanel.navigate(b)){for(const h of hands)h.hover=-1;drawPanel();return;}
+      if(b.kind==='mode'){choosePlaza(MODES.findIndex(c=>c[0]===b.id));return;}
+      if(b.kind==='close'){setMenu(false);return;}
+      if(b.kind==='style')g.setStyle(b.id);
       else if(b.kind==='jellyColor'){g.setJellyColor(b.id);models?.setJellyColor(b.id);}
+      else if(b.kind==='acc')wear(b.id);
+      else if(b.kind==='reset')resetPress();
       else if(b.kind==='throw'){holder=null;throwStyle=b.id;}
       else if(b.kind==='shot'){shotStyle=b.id;shotChosen=true;try{localStorage.setItem('dahrooj-shot',b.id);}catch(_){}}
-      else if(b.kind==='exit')session?.end();
-      else if(b.kind==='lang'){lang=lang==='en'?'ar':'en';try{localStorage.setItem('dahrooj-lang',lang);}catch(_){}g.setLang?.(lang);layoutMenu();layoutAcc();menu.key=hud.key=start.key='';}
-      else if(b.kind==='time'&&natureOn()){const i=TIMES.findIndex(t=>t[0]===nature.settings.time);nature.set({time:TIMES[(i+1)%TIMES.length][0]});}
-      else if(b.kind==='weather'&&natureOn()){const i=WEATHERS.findIndex(t=>t[0]===nature.settings.weather);nature.set({weather:WEATHERS[(i+1)%WEATHERS.length][0]});}
-      else if(b.kind==='place'){if(kind==='immersive-ar'){holder=null;placing=true;}else{climbSpot=null;place();}}
+      else if(b.kind==='exit'){setMenu(false);session?.end();}
+      else if(b.kind==='lang'){lang=lang==='en'?'ar':'en';try{localStorage.setItem('dahrooj-lang',lang);}catch(_){}g.setLang?.(lang);hud.key=start.key='';for(const h of hands)h.hover=-1;}
+      else if(b.kind==='time'&&natureOn())nature.set({time:b.id});
+      else if(b.kind==='weather'&&natureOn())nature.set({weather:b.id});
+      else if(b.kind==='place'){setMenu(false);if(kind==='immersive-ar'){holder=null;placing=true;}else{climbSpot=null;place();}}
+      drawPanel();
     }
 
     /* ---------- the slingshot, held in the left hand ---------- */
@@ -486,7 +328,7 @@ export const createReferenceXR=(() => {
     /* ---------- Dahrooj Rain: the opening's rain as a mode, from the plaza ---------- */
     let rainOn=false;
     function setRain(on){
-      if(on===rainOn)return;rainOn=on;hud.key='';menu.key='';
+      if(on===rainOn)return;rainOn=on;hud.key='';
       if(on){clearIntro();holder=null;parked=false;beginIntro(true);}else if(intro?.rain)clearIntro();
     }
     /* ---------- feel: controller vibration and sound from where things happen ---------- */
@@ -666,9 +508,7 @@ export const createReferenceXR=(() => {
 
     function press(h,how){if(!session||session.visibilityState!=='visible')return;
       if(!session)return;
-      if(menuOpen&&chOpen&&h.scrollHit&&how==='trigger'){h.scrollDrag={y:h.menuY,offset:challengeList.offset};return;}
       if(menuOpen&&h.hover>=0&&how==='trigger'){menuAction(h.hover);return;}
-      if(plazaOn&&h.plaza>=0&&how==='trigger'){choosePlaza(h.plaza);return;}
       if(uiBusy())return;
       // Holding a shooting trigger keeps firing (see autoFire), in every mode.
       if(intro){if(h.onStart)endIntro();else{fireIntro(h);h.autoT=clock;h.auto={fire:()=>fireIntro(h),every:.13};}return;}
@@ -1028,7 +868,7 @@ export const createReferenceXR=(() => {
         ?{requiredFeatures:['local-floor'],optionalFeatures:['hand-tracking','hit-test','plane-detection']}
         :{optionalFeatures:['local-floor','bounded-floor','hand-tracking']};
       const s=g.getSession();if(!s)throw new Error('IWSDK session required');
-      session=s;kind=mode;lang=g.language();layoutMenu();anchor=null;arScale=AR_SCALE;arZoom=1;placing=mode==='immersive-ar';menuToggled=false;
+      session=s;kind=mode;lang=g.language();anchor=null;arScale=AR_SCALE;arZoom=1;placing=mode==='immersive-ar';setMenu(false);
       renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
       place();
       if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,renderer,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
@@ -1060,7 +900,7 @@ export const createReferenceXR=(() => {
       // IWSDK keeps its render loop.
       for(const s of hitSources.values())s.cancel?.();hitSources.clear();
       rainOn=false;clearIntro();start.mesh.visible=false;
-      cards.length=0;cardNow=null;card.mesh.visible=false;plazaOn=false;plaza.visible=false;
+      cards.length=0;cardNow=null;card.mesh.visible=false;setMenu(false);
       setClimb(false);holder=null;parked=false;placing=false;S.held=false;g.clearVolley();g.respawn();
       session=null;kind=null;
       rig.scale.setScalar(1);rig.position.set(0,0,0);rig.quaternion.identity();
@@ -1175,42 +1015,28 @@ export const createReferenceXR=(() => {
     }
 
 
-    /* ---------- the mode plaza: floating cards, one live miniature per mode ---------- */
-    // Y opens one fixed, opaque canvas panel. Pointer hover changes only its painted outline.
-    const PLAZA=[
-      ['goal','مرمى','Goal','سجّل على الحارس','Score past the keeper'],['hoop','سلة','Hoop','سلات ورا بعض','Hoops in a row'],
-      ['window','شباك','Window','الشباك يصغر','The window shrinks'],['cans','علب','Cans','طيّحها كلها','Knock them all down'],
-      ['bowling','بولينغ','Bowling','سترايك!','Strike!'],['bricks','الطوب','Bricks','اكسر القلعة','Break the castle'],
-      ['fair','ملاهي','Fair','٦٠ ثانية نقاط','60 seconds of points'],['climb','الجبل','Summit','اوصل القمة','Reach the top'],
-      ['rain','مطر دحاريج','Dahrooj Rain','فجّرها كلها','Pop them all']];
+    /* ---------- one fixed menu, drawn on the owner-tested flat surface ---------- */
+    const PLAZA=MODES;
     const plaza=new T.Group();plaza.name='xr-plaza';plaza.visible=false;menuLayer.add(plaza);
-    let plazaOn=false,plazaHot=-1;
-    const modePanel=createFlatModePanel(PLAZA);plaza.add(modePanel.mesh);menuGroup(plaza);
-    // Anchor once in front of the opening head pose, without following later head motion.
+    const modePanel=createFlatModePanel(PLAZA,drawAcc);plaza.add(modePanel.mesh);menuGroup(plaza);
     function placePlaza(){
       const {pos,dir}=headLocal();plaza.position.copy(pos).addScaledVector(dir,1.1);plaza.position.y-=.2;
-      plaza.quaternion.setFromRotationMatrix(new T.Matrix4().lookAt(pos,plaza.position,UP));
-      plaza.updateWorldMatrix(true,true);
+      plaza.quaternion.setFromRotationMatrix(new T.Matrix4().lookAt(pos,plaza.position,UP));plaza.updateWorldMatrix(true,true);
     }
-    function setPlaza(on){
-      if(on===plazaOn)return;plazaOn=on;plazaHot=-1;
-      if(on){stopGameplayInput();menuToggled=menuOpen=false;menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);challengeList.show(false);placePlaza();modePanel.draw(lang==='en',-1,modeNow());}
-      plaza.visible=on;
+    function drawPanel(){if(menuOpen){const sky=nature?.settings||{time:'auto',weather:'auto'};
+      modePanel.draw({english:lang==='en',kind,mode:modeNow(),style:g.style(),jellyColor:g.jellyColor(),throwStyle,shotStyle,time:sky.time,weather:sky.weather,accessory:wornNow(),done:doneNow,resetArmed:resetArm>0,challenges:headsetChallenges()},hands.find(h=>h.hover>=0)?.hover??-1);}}
+    function setMenu(on,page='modes'){
+      const was=menuOpen;if(on){stopGameplayInput();modePanel.show(page);if(!was)placePlaza();}
+      menuOpen=plaza.visible=on;if(!on){resetArm=0;for(const h of hands)h.hover=-1;}
+      drawPanel();
     }
+    function setPlaza(on){setMenu(on,'modes');}
     function choosePlaza(i){
-      if(!plazaOn)return;const c=PLAZA[i];if(!c)return;
-      const soundPos=plaza.localToWorld(modePanel.point(i,lang==='en'));holder=null;
-      setPlaza(false);
+      const c=PLAZA[i];if(!c)return;holder=null;const soundPos=plaza.getWorldPosition(V());setMenu(false);
       if(c[0]==='rain'){setClimb(false);setRain(true);}else{setRain(false);if(c[0]==='climb')setClimb(true);else{setClimb(false);g.setMode(c[0]);}}
       at(soundPos,()=>g.whoosh(.5));for(const h of hands)buzz(h,.45,70);
     }
-    function plazaRay(){
-      if(!plazaOn)return -1;
-      const hit=ray.intersectObject(modePanel.mesh,false)[0];
-      return hit?.uv?modePanel.hit(hit.uv.x,hit.uv.y,lang==='en'):-1;
-    }
-    function stepPlaza(){if(plazaOn)modePanel.draw(lang==='en',plazaHot,modeNow());}
-
+    let handMenuRaised=false;
     /* ---------- per frame ---------- */
     let grassMesh=null;
     const parkSpot=V(0,0,0);
@@ -1223,30 +1049,16 @@ export const createReferenceXR=(() => {
     }
     function menuButtons(){
       for(const h of hands){const pad=h.source?.gamepad;if(!pad)continue;const a=!!pad.buttons[4]?.pressed,b=!!pad.buttons[5]?.pressed,edgeA=a&&!h.buttons[0],edgeB=b&&!h.buttons[1];h.buttons[0]=a;h.buttons[1]=b;
-        if(h===leftHand()&&edgeB)setPlaza(!plazaOn);
+        if(h===leftHand()&&edgeB)setPlaza(!(menuOpen&&modePanel.page==='modes'));
         else if(h===leftHand()&&edgeA)toggleMenu(true);
         else if(h!==leftHand()&&edgeB)toggleMenu(false);
         else if(h!==leftHand()&&edgeA&&!uiBusy()){if(climbOn)climb3.jump();else recall();}
       }
     }
-    function updateMenu(dt){
-      const L=leftHand();let want=menuToggled;
-      {
-        // B: settings; X: challenges. Optional hands use the palm-up gesture.
-        if(L?.source?.hand){L.grip.getWorldQuaternion(wq);const up=V(0,1,0).applyQuaternion(wq).y;want=menuOpen?up<.15:up<-.3;}
-        if(want){
-          if(L?.source?.hand){menu.mesh.position.copy(L.grip.position).add(V(0,.23,0));eyeNow();menu.mesh.lookAt(eye);}
-          else if(!menuOpen||menuFresh){
-            // With a controller (B for settings, X for challenges) the pane opens in front of your eyes,
-            // whole, wherever your hands are; it stays put until you close it.
-            const {pos,dir}=headLocal();menuFresh=false;
-            menu.mesh.position.set(pos.x+dir.x*.5,pos.y-.06,pos.z+dir.z*.5);eyeNow();menu.mesh.lookAt(eye);
-          }
-        }
-      }
-      menuOpen=want;
-      // The pane is as tall as what it shows.
-      const k=clamp(menu.mesh.scale.x+(want?1:-1)*dt*7,.01,1),hk=menuVis()/MH;menu.mesh.scale.set(k,k*hk,k);menu.mesh.visible=k>.02;challengeList.show(chOpen&&menu.mesh.visible);menu.mesh.updateWorldMatrix(true,true);
+    function updateMenu(){
+      const L=leftHand();if(!L?.source?.hand){handMenuRaised=false;return;}
+      L.grip.getWorldQuaternion(wq);const raised=V(0,1,0).applyQuaternion(wq).y<-.3;
+      if(raised&&!handMenuRaised)setPlaza(!menuOpen);handMenuRaised=raised;
     }
     function loop(time,frame){if(!session||session.visibilityState!=='visible'||!frame.getViewerPose(renderer.xr.getReferenceSpace())){lastTime=time;for(const h of hands){release(h,true);h.line.visible=false;h.dot.visible=false;}g.focus(false);return;}g.focus(true);
       const dt=lastTime?clamp((time-lastTime)/1000,0,.05):1/72;lastTime=time;clock+=dt;frames++;
@@ -1254,9 +1066,8 @@ export const createReferenceXR=(() => {
       const st=g.stage();
       updateListener();
       watchRewards(dt);
-      if(resetArm>0){resetArm-=dt;if(resetArm<=0){resetArm=0;menu.key='';}}
+      if(resetArm>0){resetArm-=dt;if(resetArm<=0){resetArm=0;}}
       stepCards(dt);
-      stepPlaza(dt);
       // A happy pulse when a throw scores: strong in the throwing hand, softer in the other.
       {const sc=S.scoredT>0;if(sc&&!scoredBefore){buzz(lastThrower,.7,110);for(const h of hands)if(h!==lastThrower)buzz(h,.35,80);}scoredBefore=sc;}
       if(natureOn()){eyeNow();nature.setPitch?.(climbOn?GOAL_AIM_Z:(g.stage().farZ??targetPoint().z),rig.position.z+3);nature.update(dt,eye);
@@ -1283,23 +1094,20 @@ export const createReferenceXR=(() => {
       }else reticle.visible=false;
       if(kind==='immersive-ar')showPlanes(frame);
       updateRoom(frame);
-      const hover=[],F=climbOn?null:forkHand();let startHot=false,stickX=0;
+      const F=climbOn?null:forkHand();let startHot=false,stickX=0;
       for(const h of hands){
         h.grip.getWorldPosition(wp);h.hist.push({p:wp.clone(),t:clock});
         while(h.hist.length&&clock-h.hist[0].t>.25)h.hist.shift();
         const r=rayOf(h);ray.set(r.origin,r.dir);
-        const hit=menu.mesh.visible&&h!==leftHand()?ray.intersectObject(menu.mesh,false)[0]:null;
-        h.menuY=hit?(1-hit.uv.y)*menuVis():0;h.scrollHit=!!hit&&chOpen&&challengeList.hit(hit.uv.x*MW,h.menuY);
-        if(h.scrollDrag&&hit&&menuOpen&&chOpen)challengeList.scrollTo(h.scrollDrag.offset+h.scrollDrag.y-h.menuY);
-        h.hover=hit?menuHit(hit.uv):-1;if(h.hover>=0)hover.push(h.hover);
-        h.plaza=!hit&&h!==leftHand()?plazaRay(h):-1;if(h.plaza>=0&&h.plaza!==plazaHot){plazaHot=h.plaza;buzz(h,.12,12);at(plaza.localToWorld(modePanel.point(h.plaza,lang==='en')),()=>g.whoosh(.08));}else if(h!==leftHand()&&h.plaza<0&&plazaHot>=0&&!hands.some(o=>o!==h&&o.plaza>=0))plazaHot=-1;
+        const hit=menuOpen&&h!==leftHand()?ray.intersectObject(modePanel.mesh,false)[0]:null;
+        const previous=h.hover;h.hover=hit?.uv?modePanel.hit(hit.uv.x,hit.uv.y):-1;
+        if(h.hover>=0&&h.hover!==previous)buzz(h,.12,12);
         h.onStart=!hit&&start.mesh.visible&&!!ray.intersectObject(start.mesh,false)[0];if(h.onStart)startHot=true;
         h.line.scale.z=(hit?hit.distance:.6*scaleNow())/scaleNow();
         h.line.visible=h.dot.visible=!!h.source&&holder!==h&&h!==F;
         const pad=h.source?.gamepad,axes=pad?.axes;
         // A shooting trigger held down fires again and again until it's let go.
         if(h.auto){if(!session||uiBusy()||(h.hover>=0)){h.auto=null;}else if(clock-(h.autoT||0)>=h.auto.every){h.autoT=clock;h.auto.fire();}}
-        if(menuOpen&&chOpen&&h===leftHand()&&axes?.length>3&&Math.abs(axes[3])>.22)challengeList.scrollBy(axes[3]*600*dt);
         if(uiBusy())continue;
         if(climbOn&&axes&&axes.length>3){
           if(h===leftHand()||!leftHand())stickX=Math.abs(axes[2])>.25?axes[2]:stickX;
@@ -1314,7 +1122,7 @@ export const createReferenceXR=(() => {
       }
       if(climbOn){climb3.setDir(stickX);placeClimb();}
       fork.visible=!!F?.source;if(F?.source&&fork.parent!==F.grip)F.grip.add(fork);
-      drawMenu(hover);drawHud();scorePopup.step(dt);if(start.mesh.visible)drawStart(startHot);
+      drawPanel();drawHud();scorePopup.step(dt);if(start.mesh.visible)drawStart(startHot);
       if(intro){stepIntro(dt);drawIntro();}
       stepBlast(dt);
       // Hidden while the mode cards are out, so it never sits over one.
@@ -1395,11 +1203,11 @@ export const createReferenceXR=(() => {
     }
 
     return {enter,frame:loop,get presenting(){return !!session;},get kind(){return kind;},get holding(){return !!holder;},
-      ...(import.meta.env.DEV?{action:menuAction,choosePlaza}:{}),get placing(){return placing;},get rests(){return rests;},get ballShown(){return !!ballModel?.group.visible;},get challengesOpen(){return menuOpen&&chOpen;},get challengeScroll(){return {offset:challengeList.offset,max:challengeList.max};},get challengeIds(){return headsetChallenges().map(c=>c.id);},get lang(){return lang;},get session(){return session;},get chargeNow(){return holder?chargePower(holder):0;},get roomPlanes(){return roomPlanes.size;},...(import.meta.env.DEV?{addTestPlane}:{}),
+      ...(import.meta.env.DEV?{action:menuAction,choosePlaza}:{}),get placing(){return placing;},get rests(){return rests;},get ballShown(){return !!ballModel?.group.visible;},get challengesOpen(){return menuOpen&&modePanel.page==='challenges';},get challengeScroll(){return {offset:modePanel.challengePage,max:Math.ceil(headsetChallenges().length/6)-1};},get challengeIds(){return headsetChallenges().map(c=>c.id);},get lang(){return lang;},get session(){return session;},get chargeNow(){return holder?chargePower(holder):0;},get roomPlanes(){return roomPlanes.size;},...(import.meta.env.DEV?{addTestPlane}:{}),
       // For tests: pin the court as if the hit test found this spot and surface normal.
       // Tests: let go of Dahrooj and drop him at P with velocity v, as if thrown there.
       ...(import.meta.env.DEV?{rainSnapshot:()=>intro?.rain?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>({id:b.id,age:intro.t-b.born,p:b.p.toArray()})):[],testDrop(P,v){parked=false;holder=null;S.held=false;S.pos.set(...P);S.vel.set(...v);S.side.set(0,0,0);S.shot=true;S.grounded=false;S.shotT=0;S.scoredT=0;S.missT=0;},
-      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {w:MW,h:menuVis(),buttons:[...buttons,...accButtons,resetBtn].map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:plazaOn,shown:plaza.visible,hot:plazaHot,ids:PLAZA.map(p=>p[0])};},setPlaza,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(modePanel.point(i,lang==='en'))).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get throwStyle(){return throwStyle;},
+      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {...modePanel.size,page:modePanel.page,buttons:modePanel.buttons.map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:menuOpen&&modePanel.page==='modes',shown:plaza.visible,hot:-1,ids:PLAZA.map(p=>p[0])};},setPlaza,setMenu,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(modePanel.point(i,lang==='en'))).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get menuPage(){return modePanel.page;},get throwStyle(){return throwStyle;},
       // For tests: what each hand reports.
       ...(import.meta.env.DEV?{inspect:()=>hands.map(h=>({connected:!!h.source,hand:h.source?.handedness,samples:h.hist.length,velocity:velocity(h).toArray()}))}:{} )};
   };

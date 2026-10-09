@@ -36,7 +36,7 @@ test('mode picker keeps depth isolated after gameplay and snow has no animated g
   const materials:any[]=[];plaza.traverse((o:any)=>{if(o.isMesh)materials.push(o.material);});
   return {cards:plaza.children.length,isolated:materials.every(m=>m.customProgramCacheKey()==='dahrooj-menu-opaque-layer-v2'),snowDepth:snow.material.depthWrite,particleDepth:rain.material.depthWrite,glitter:snow.material.fragmentShader.includes('pow(glitter'),visible:snow.visible};
  });
- expect(data).toEqual({cards:9,isolated:true,snowDepth:false,particleDepth:false,glitter:false,visible:true});
+ expect(data).toEqual({cards:1,isolated:true,snowDepth:false,particleDepth:false,glitter:false,visible:true});
  await page.screenshot({path:info.outputPath('snow-and-mode-picker.png')});expect(errors).toEqual([]);
 });
 test('jelly score numerals cover the spectrum in one cached texture',async({page},info)=>{

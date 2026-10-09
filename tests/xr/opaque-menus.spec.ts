@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Inspect actual XR surfaces after controller input. */
 import {test,expect} from '@playwright/test';
-for(const kind of ['vr','ar'] as const)test(`settings, challenges and mode cards remain opaque after playing in ${kind}`,async({page},info)=>{
+for(const kind of ['vr','ar'] as const)test(`all unified menu sections remain opaque after playing in ${kind}`,async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);
  await page.evaluate(()=>(window as any).IWER_DEVICE.stereoEnabled=true);
@@ -28,7 +28,7 @@ for(const kind of ['vr','ar'] as const)test(`settings, challenges and mode cards
    out.push({name:o.name,opaque:m.blending===0&&m.opacity===1,lateQueue:m.transparent,groupOrder:group?.renderOrder,opacity:m.opacity,depthWrite:m.depthWrite,depthTest:m.depthTest,isolated:m.customProgramCacheKey()==='dahrooj-menu-opaque-layer-v2',interiorAlpha});
   });return out;
  },name);
- const solid=(items:any[])=>{expect(items.length).toBeGreaterThan(0);for(const m of items){expect(m.opaque).toBe(true);expect(m.lateQueue).toBe(true);expect(m.groupOrder).toBe(1000);expect(m.opacity).toBe(1);expect(m.depthWrite).toBe(true);expect(m.depthTest).toBe(true);expect(m.isolated).toBe(true);expect(m.interiorAlpha).toBe(255);}};
+ const solid=(items:any[])=>{expect(items.length).toBeGreaterThan(0);for(const m of items){expect(m.opaque).toBe(true);expect(m.lateQueue).toBe(true);expect(m.groupOrder).toBe(1000);expect(m.opacity).toBe(1);expect(m.depthWrite).toBe(false);expect(m.depthTest).toBe(false);expect(m.isolated).toBe(true);expect(m.interiorAlpha).toBe(255);}};
  await press('right','b-button');
  await page.waitForFunction(()=>{const g=(window as any).__DAHROOJ_REFERENCE__.game;return g.runtime.menuOpen&&!g.runtime.challengesOpen&&g.world.scene.getObjectByName('xr-menu').scale.x>=.99;});
  const settings=await surfaces('xr-menu');solid(settings);
@@ -37,15 +37,13 @@ for(const kind of ['vr','ar'] as const)test(`settings, challenges and mode cards
  await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengesOpen);
  const challenges=await surfaces('xr-menu');solid(challenges);
  const initial=await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset);
- await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateAxis('thumbstick','y-axis',1));
- await page.waitForFunction(initial=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset>initial+150,initial);
- await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateAxis('thumbstick','y-axis',0));
- expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset)).toBeGreaterThan(initial);
+ await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='page'&&b.id==='next'));});
+ expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset)).toBe(initial+1);
  solid(await surfaces('xr-menu'));
  await page.screenshot({path:info.outputPath('opaque-challenges-'+kind+'.png')});
  await press('left','y-button');
  await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.plaza.open);
- // Check while cards scale into view as well as after settling; no alpha fade is allowed.
+ // All sections retain the same plane, with no alpha fade.
  const opening=await surfaces('xr-plaza');solid(opening);
  await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-plaza').children.every((c:any)=>c.scale.x>=.49));
  const cards=await surfaces('xr-plaza');solid(cards);

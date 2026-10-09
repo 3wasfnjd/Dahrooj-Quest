@@ -31,7 +31,7 @@ for(const kind of ['vr','ar'])test(`${kind}: isolate goal, hoop and window while
   await choose('baseline');await page.waitForFunction(()=>(window as any).__RENDER_MASK__.stage===true);
   await button('left','x-button');await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengesOpen);
   await choose('no-menu-depth');await page.waitForFunction(()=>(window as any).__RENDER_MASK__.depth===false);
-  expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-menu').material.depthTest)).toBe(true);
+  expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-menu').material.depthTest)).toBe(false);
   await choose('baseline');await button('left','y-button');await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.plaza.open);
   await choose('no-menus');await page.waitForFunction(()=>(window as any).__RENDER_MASK__.menu===false);
   await choose('baseline');await button('left','y-button');
