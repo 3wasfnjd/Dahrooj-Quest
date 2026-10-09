@@ -26,7 +26,7 @@
 
 1. [إلغاء خفض دقة الأطراف، مع الدقة الأصلية](https://dahrooj-quest-preview.shady-fern-7948.chatgpt.site/?xrdiag=1&xrdiagPreset=no-world&xrdiagBadge=0&xrdiagFoveation=0).
 2. [نفس الإعداد مع طلب دقة رسم 1.25](https://dahrooj-quest-preview.shady-fern-7948.chatgpt.site/?xrdiag=1&xrdiagPreset=no-world&xrdiagBadge=0&xrdiagFoveation=0&xrdiagScale=1.25).
-3. [دقة أعلى 2.0 للوضعين](https://dahrooj-quest-preview.shady-fern-7948.chatgpt.site/?xrdiag=1&xrdiagPreset=no-world&xrdiagBadge=0&xrdiagFoveation=0&xrdiagScale=2). طلب المالك رفع الجودة بعد قبول تجربة 1.25؛ المتاح الآن 1.25 و1.5 و2 فقط، وتُرفض القيم الأخرى إلى الدقة الافتراضية.
+3. [دقة أعلى 2.0 للوضعين](https://dahrooj-quest-preview.shady-fern-7948.chatgpt.site/?xrdiag=1&xrdiagPreset=no-world&xrdiagBadge=0&xrdiagFoveation=0&xrdiagScale=2). طلب المالك رفع الجودة بعد قبول تجربة 1.25؛ المتاح الآن 1.25 و1.5 و2 و4 فقط، وتُرفض القيم الأخرى إلى الدقة الافتراضية.
 
 مقياس 2 يطلب ضعف أبعاد الدقة الافتراضية (أربعة أضعاف عدد البكسلات نظريًا)، أو 2.56 ضعف بكسلات تجربة 1.25 إذا قُبل المقياس كما طُلب. هذا أعلى خيار مضاف للتجربة، وليس ادعاءً بأقصى دقة يدعمها الجهاز. تبقى الخامات والمجسمات والتنعيم ومسار العينين دون تعديل. إذا تراجعت السلاسة يمكن استخدام `xrdiagScale=1.5` أو العودة إلى 1.25. لا توجد نتيجة أداء فعلية لدقة 2 بعد.
 
@@ -96,3 +96,11 @@
 نتيجة التحقق المحلي: TypeScript والتدقيق والبناء وفحص الحجم ناجحة؛ **٤٩ اختبار وحدة و١٤٢ تحققًا للجبل و٧ سيناريوهات GPU/XR** ناجحة، وكذلك التشغيل دون اتصال مع واجهة التشخيص وبيانات البناء تحت سياسة CSP للإنتاج. فُحصت لقطات القوائم وشريط التشخيص. [سجل النتائج وبصمات الملفات](evidence/render-diagnostics/validation.json). جرى تضمين `build.json` في ذاكرة الإصدار دون اتصال بعد أن كشف اختبار التشخيص غيابه منها.
 
 مرجع سلوك الحدود: [Three BufferGeometry.computeBoundingSphere](https://threejs.org/docs/pages/BufferGeometry.html#computeBoundingSphere). مرجع المسار الفعلي هو مصدر الإصدار المثبت `three/src/renderers/webgl/WebGLMultiview.js` و`WebGLProgram.js` و`webxr/WebXRManager.js` و`@iwsdk/core/dist/init/world-initializer.js`، وليس افتراض أن أحدث إصدار مطابق له.
+
+## تجربة الدقة 4.0 — طلب المالك
+
+أبلغ المالك أن دقة 2 حسّنت الصورة كثيرًا وأن اللعب سلس، وطلب الانتقال مباشرة إلى 4 بدل 2.5.
+
+[دقة 4 للوضعين مع إخفاء العالم في VR](https://dahrooj-quest-preview.shady-fern-7948.chatgpt.site/?xrdiag=1&xrdiagPreset=no-world&xrdiagBadge=0&xrdiagFoveation=0&xrdiagScale=4).
+
+هذا طلب مقياس طبقة XR قبل الجلسة، وليس ضمانًا لدقة يقبلها المتصفح. نظريًا يطلب أربعة أضعاف بكسلات تجربة 2، و16 ضعف بكسلات المقياس الافتراضي إذا قُبل دون تقييد. تظل إعدادات التنعيم ومسار العينين والعالم كما في تجربة 2. لم تختبر دقة 4 على النظارة بعد، ولا تعني سلاسة 2 أن 4 ستكون سلسة. الرجوع يكون بإعادة فتح رابط `xrdiagScale=2` خارج جلسة XR. يسجل تقرير التشخيص الأبعاد الفعلية حتى يمكن تمييز الطلب من التطبيق الفعلي.
