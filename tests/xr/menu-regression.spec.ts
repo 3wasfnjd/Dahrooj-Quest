@@ -8,6 +8,8 @@ test('menus stop held blaster fire after playing',async({page})=>{
  expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.blast.fired)).toBe(before);
 });
 test('mode cards ignore old throws and menus stay mutually exclusive',async({page})=>{
+ // Repeated menu cycles exceed 180s under software rendering on hosted CI; this is not a frame-rate gate.
+ test.setTimeout(process.env.CI?300000:90000);
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
  const button=async(hand:string,id:string)=>{await page.evaluate(({hand,id})=>(window as any).IWER_DEVICE.controllers[hand].updateButtonValue(id,1),{hand,id});await page.waitForTimeout(180);await page.evaluate(({hand,id})=>(window as any).IWER_DEVICE.controllers[hand].updateButtonValue(id,0),{hand,id});await page.waitForTimeout(120);};
  await button('left','y-button');await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.plaza.open);

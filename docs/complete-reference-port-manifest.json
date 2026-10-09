@@ -24,7 +24,7 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "4644d1de581782adf3e3bafcd6a0a152e773455e84124d4ec7acb0ab0f90e082"
+      "sha256": "4f4f683639b5f97fa7e3643070d6c9c0654027131c1a9d5af1f0d82694c5ec8a"
     },
     {
       "path": "src/reference/game-state.js",

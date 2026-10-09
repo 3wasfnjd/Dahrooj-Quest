@@ -1,0 +1,14 @@
+{
+  "hardwareTested": false,
+  "environment": "Local IWER with Chromium and SwiftShader",
+  "unitTestsPassed": 42,
+  "summitChecksPassed": 142,
+  "xr": [
+    "✓  1 tests/xr/rain-front.spec.ts:3:40 › Rain falls ahead across both sides and follows later headset turns in vr (18.0s)",
+    "✓  2 tests/xr/rain-front.spec.ts:3:40 › Rain falls ahead across both sides and follows later headset turns in ar (8.8s)",
+    "✓  3 tests/xr/rain-score-blaster.spec.ts:11:40 › Rain accessories stay instanced and bounded in vr (19.1s)",
+    "✓  4 tests/xr/rain-score-blaster.spec.ts:11:40 › Rain accessories stay instanced and bounded in ar (8.8s)",
+    "✓  5 tests/xr/rain-score-blaster.spec.ts:29:1 › score is glossy digits that animate once per increase and then disappear (33.3s)",
+    "✓  6 tests/xr/rain-score-blaster.spec.ts:51:1 › holding the mini blaster keeps a steady cadence beyond the 16-shot budget (13.9s)"
+  ]
+}

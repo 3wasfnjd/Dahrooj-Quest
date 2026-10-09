@@ -1,3 +1,4 @@
+import {rainSpawn,guideRain} from './rain-field';
 import {menuDepth} from './menu-depth';
 import {ballImpactSpeed} from './ball-impact';
 import {createScorePopup} from './score-popup';
@@ -443,14 +444,14 @@ export const createReferenceXR=(() => {
     // How many and how far: the room in mixed reality, a wider ring in the open VR world.
     const crowdSize=()=>kind==='immersive-ar'?{n:72,R:2.6}:{n:100,R:4.4};
     const STYLE_COLORS=DAHROOJ_COLORS;
-    // One ball dropping from above somewhere in the ring around you, at a random moment and size.
+    // Rain falls in front; the separate opening keeps its original ring.
     function dropBall(delay){
       const I=intro,{R}=crowdSize(),c=I.centre,a=Math.random()*Math.PI*2,dist=.55+Math.sqrt(Math.random())*(R-.55);
       const raw=INTRO_R*(.75+Math.random()*.5),rad=I.rain&&raw>INTRO_R?INTRO_R+(raw-INTRO_R)*.5:raw,sp=.2+Math.random()*.5,dirA=Math.random()*Math.PI*2;
       // Pick once per spawn; cosmetics never change the player's unlocks or add physics bodies.
       const accessory=I.rain?RAIN_ACCESSORIES[Math.random()*RAIN_ACCESSORIES.length|0]:'';
       I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*5|0],R:rad,accessory,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
-        born:I.t+delay,gx:Math.cos(dirA)*sp,gz:Math.sin(dirA)*sp,hop:.5+Math.random()*2.5,d:0,dv:0,hit:0,blink:0,next:1+Math.random()*3});
+        pending:I.rain,born:I.t+delay,gx:Math.cos(dirA)*sp,gz:Math.sin(dirA)*sp,hop:.5+Math.random()*2.5,d:0,dv:0,hit:0,blink:0,next:1+Math.random()*3});
     }
     function spawnIntro(){
       const I=intro,{pos}=headLocal();I.spawned=true;I.gap=0;I.wall=I.wall||performance.now();I.centre=I.centre||pos.clone();
@@ -515,10 +516,11 @@ export const createReferenceXR=(() => {
       // All popped: a new wave a moment later (the rain tops itself up as it goes).
       if(!I.balls.length){I.gap+=dt;if(I.gap>1)spawnIntro();}
       if(I.rain){const {n}=crowdSize();while(I.balls.length<n)dropBall(Math.random()*2);}
-      const {R:ROOM}=crowdSize(),live=I.balls.filter(b=>I.t>=b.born),{pos:head}=headLocal(),c=I.centre;
+      const {R:ROOM}=crowdSize(),live=I.balls.filter(b=>I.t>=b.born),{pos:head,dir}=headLocal(),c=I.centre;
       const rainProps=I.rain&&natureOn()?nature.props:null,propScale=scaleNow();
       if(rainProps){rig.getWorldQuaternion(rainRotation);rainInverse.copy(rainRotation).invert();}
       for(const b of live){
+        if(b.pending){rainSpawn(b.p,head,dir,ROOM,Math.random(),Math.random());b.p.y=head.y+.6+Math.random()*1.8;b.pending=false;}
         const r=b.R,grounded=b.p.y<=r+.001&&Math.abs(b.v.y)<.01;
         b.v.y-=REAL_G*dt;
         if(grounded){
@@ -532,13 +534,17 @@ export const createReferenceXR=(() => {
           if(sp>.6){b.v.y=sp*.5;b.dv-=sp*2.2;b.hit=.2;if(sp>2&&g.bump&&Math.random()<.35)at(roomPoint(b.p),()=>g.bump(Math.min(1,sp/6)*.4));}
           else b.v.y=0;
         }
-        // Wander anywhere in the ring around you: off its edge, or right at your feet, head back in.
-        const ox=b.p.x-c.x,oz=b.p.z-c.z,od=Math.hypot(ox,oz)||1,hd=Math.hypot(b.p.x-head.x,b.p.z-head.z);
-        if(od>ROOM||hd<.45){
-          const a=Math.random()*Math.PI*2,rr=.7+Math.sqrt(Math.random())*(ROOM-.9),sp=.25+Math.random()*.4;
-          const tx=c.x+Math.sin(a)*rr-b.p.x,tz=c.z-Math.cos(a)*rr-b.p.z,tl=Math.hypot(tx,tz)||1;b.gx=tx/tl*sp;b.gz=tz/tl*sp;
+        if(I.rain){
+          // Keep most of the crowd ahead while allowing gentle sideways wandering and physical bounces.
+          guideRain(b.p,b,head,dir,ROOM);
+        }else{
+          const ox=b.p.x-c.x,oz=b.p.z-c.z,od=Math.hypot(ox,oz)||1,hd=Math.hypot(b.p.x-head.x,b.p.z-head.z);
+          if(od>ROOM||hd<.45){
+            const a=Math.random()*Math.PI*2,rr=.7+Math.sqrt(Math.random())*(ROOM-.9),sp=.25+Math.random()*.4;
+            const tx=c.x+Math.sin(a)*rr-b.p.x,tz=c.z-Math.cos(a)*rr-b.p.z,tl=Math.hypot(tx,tz)||1;b.gx=tx/tl*sp;b.gz=tz/tl*sp;
+          }
+          if(od>ROOM+.4){b.p.x=c.x+ox/od*(ROOM+.4);b.p.z=c.z+oz/od*(ROOM+.4);}
         }
-        if(od>ROOM+.4){b.p.x=c.x+ox/od*(ROOM+.4);b.p.z=c.z+oz/od*(ROOM+.4);}
         b.dv+=(-b.d*320-b.dv*12)*dt;b.d=clamp(b.d+b.dv*dt,-.3,.45);
         b.hit=Math.max(0,b.hit-dt);b.next-=dt;if(b.next<=0){b.blink=.14;b.next=2+Math.random()*3;}b.blink=Math.max(0,b.blink-dt);
         if(rainProps){
@@ -575,7 +581,7 @@ export const createReferenceXR=(() => {
       eyeNow();const toward=rig.worldToLocal(eye.clone()),k=intro.leaving?Math.max(.001,1-intro.leaving/.35):1;
       crowd.begin();
       for(const b of intro.balls){
-        if(intro.t<b.born)continue;
+        if(intro.t<b.born||b.pending)continue;
         const falling=b.p.y>b.R+.02&&b.v.y<-1.5;
         crowd.add(b.style,V(b.p.x,b.p.y-b.R*Math.max(0,b.d),b.p.z),b.R*k,toward,[1+b.d*.75,1-b.d],b.hit>0||b.blink>0?'shut':falling?'wide':'open',b.accessory);
       }
@@ -1448,8 +1454,8 @@ export const createReferenceXR=(() => {
       ...(import.meta.env.DEV?{action:menuAction,choosePlaza}:{}),get placing(){return placing;},get rests(){return rests;},get ballShown(){return !!ballModel?.group.visible;},get challengesOpen(){return menuOpen&&chOpen;},get challengeScroll(){return {offset:challengeList.offset,max:challengeList.max};},get challengeIds(){return headsetChallenges().map(c=>c.id);},get lang(){return lang;},get session(){return session;},get chargeNow(){return holder?chargePower(holder):0;},get roomPlanes(){return roomPlanes.size;},...(import.meta.env.DEV?{addTestPlane}:{}),
       // For tests: pin the court as if the hit test found this spot and surface normal.
       // Tests: let go of Dahrooj and drop him at P with velocity v, as if thrown there.
-      ...(import.meta.env.DEV?{testDrop(P,v){parked=false;holder=null;S.held=false;S.pos.set(...P);S.vel.set(...v);S.side.set(0,0,0);S.shot=true;S.grounded=false;S.shotT=0;S.scoredT=0;S.missT=0;},
-      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {w:MW,h:menuVis(),buttons:[...buttons,...accButtons,resetBtn].map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:plazaOn,shown:plaza.visible,hot:plazaHot,ids:PLAZA.map(p=>p[0])};},setPlaza,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(pcards[i].root.position.clone())).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get throwStyle(){return throwStyle;},
+      ...(import.meta.env.DEV?{rainSnapshot:()=>intro?.rain?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>({id:b.id,age:intro.t-b.born,p:b.p.toArray()})):[],testDrop(P,v){parked=false;holder=null;S.held=false;S.pos.set(...P);S.vel.set(...v);S.side.set(0,0,0);S.shot=true;S.grounded=false;S.shotT=0;S.scoredT=0;S.missT=0;},
+      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {w:MW,h:menuVis(),buttons:[...buttons,...accButtons,resetBtn].map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:plazaOn,shown:plaza.visible,hot:plazaHot,ids:PLAZA.map(p=>p[0])};},setPlaza,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(pcards[i].root.position.clone())).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get throwStyle(){return throwStyle;},
       // For tests: what each hand reports.
       ...(import.meta.env.DEV?{inspect:()=>hands.map(h=>({connected:!!h.source,hand:h.source?.handedness,samples:h.hist.length,velocity:velocity(h).toArray()}))}:{} )};
   };
