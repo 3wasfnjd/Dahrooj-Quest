@@ -1,3 +1,4 @@
+import {createFlatModePanel} from './flat-mode-panel';
 import {JELLY_COLORS,jellyColor} from '../core/appearance';
 import {rainSpawn,guideRain} from './rain-field';
 import {menuDepth,menuGroup} from './menu-depth';
@@ -1059,7 +1060,7 @@ export const createReferenceXR=(() => {
       // IWSDK keeps its render loop.
       for(const s of hitSources.values())s.cancel?.();hitSources.clear();
       rainOn=false;clearIntro();start.mesh.visible=false;
-      cards.length=0;cardNow=null;card.mesh.visible=false;plazaOn=false;plaza.visible=false;plazaK=0;
+      cards.length=0;cardNow=null;card.mesh.visible=false;plazaOn=false;plaza.visible=false;
       setClimb(false);holder=null;parked=false;placing=false;S.held=false;g.clearVolley();g.respawn();
       session=null;kind=null;
       rig.scale.setScalar(1);rig.position.set(0,0,0);rig.quaternion.identity();
@@ -1175,8 +1176,7 @@ export const createReferenceXR=(() => {
 
 
     /* ---------- the mode plaza: floating cards, one live miniature per mode ---------- */
-    // Y opens nine compact cards on a single arc below the view. They stay at the opening pose.
-    // Point to enlarge one, then pull the trigger to select it. Old throws cannot choose a mode.
+    // Y opens one fixed, opaque canvas panel. Pointer hover changes only its painted outline.
     const PLAZA=[
       ['goal','مرمى','Goal','سجّل على الحارس','Score past the keeper'],['hoop','سلة','Hoop','سلات ورا بعض','Hoops in a row'],
       ['window','شباك','Window','الشباك يصغر','The window shrinks'],['cans','علب','Cans','طيّحها كلها','Knock them all down'],
@@ -1184,108 +1184,32 @@ export const createReferenceXR=(() => {
       ['fair','ملاهي','Fair','٦٠ ثانية نقاط','60 seconds of points'],['climb','الجبل','Summit','اوصل القمة','Reach the top'],
       ['rain','مطر دحاريج','Dahrooj Rain','فجّرها كلها','Pop them all']];
     const plaza=new T.Group();plaza.name='xr-plaza';plaza.visible=false;menuLayer.add(plaza);
-    let plazaOn=false,plazaK=0,plazaHot=-1,plazaPick=null;
-    const pm=(c,o={})=>menuDepth(new T.MeshStandardMaterial({color:c,roughness:.8,...o,toneMapped:false,fog:false}));
-    const PM={cream:pm(0x909090),ink:pm(0x2c2d3d),coral:pm(0xe2603f),gold:pm(0xf2c14e),leaf:pm(0x7bbf8a),wood:pm(0xc98f5c),stone:pm(0xd9a67e),brown:pm(0x7b5536),sky:pm(0x6fa8d6),grey:pm(0xb9ad9c,{metalness:.4})};
-    const box=(w,h,d,m,x,y,z)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);return o;};
-    const ball=(r,m,x,y,z)=>{const o=new T.Mesh(new T.SphereGeometry(r,16,12),m);o.position.set(x,y,z);return o;};
-    const cyl=(r,h,m,x,y,z)=>{const o=new T.Mesh(new T.CylinderGeometry(r,r,h,14),m);o.position.set(x,y,z);return o;};
-    // Each miniature is about 16 cm across, standing on a little round plinth; spin() animates it when pointed at.
-    function mini(id){
-      const g=new T.Group(),a=[];const add=(...o)=>{for(const x of o)g.add(x);};
-      add(Object.assign(cyl(.085,.012,PM.cream,0,0,0)));
-      if(id==='goal'){for(const x of [-.06,.06])add(cyl(.004,.06,PM.cream,x,.036,0));const bar=cyl(.004,.124,PM.cream,0,.066,0);bar.rotation.z=Math.PI/2;add(bar);
-        const k=ball(.016,PM.coral,0,.025,.01);add(k);a.push(t=>{k.position.x=Math.sin(t*3)*.04;});add(ball(.012,PM.ink,.03,.02,.06));}
-      else if(id==='hoop'){add(cyl(.004,.1,PM.grey,0,.056,-.04),box(.07,.05,.004,PM.cream,0,.1,-.035));const r=new T.Mesh(new T.TorusGeometry(.018,.003,6,18),PM.coral);r.rotation.x=Math.PI/2;r.position.set(0,.085,-.015);add(r);
-        const b=ball(.011,PM.ink,0,.03,.04);add(b);a.push(t=>{const k=(t*.8)%1;b.position.set(0,.03+Math.sin(k*Math.PI)*.07,.04-k*.055);});}
-      else if(id==='window'){const f=new T.Group();for(const [w,h,x,y] of [[.06,.006,0,.03],[.06,.006,0,-.03],[.006,.06,.03,0],[.006,.06,-.03,0]])f.add(box(w,h,.006,PM.ink,x,y,0));
-        f.position.y=.08;add(f,cyl(.003,.05,PM.ink,0,.03,0));a.push(t=>{f.position.x=Math.sin(t*1.5)*.025;const s=.8+.2*Math.sin(t*2);f.scale.set(s,s,1);});}
-      else if(id==='cans'){add(box(.12,.006,.05,PM.wood,0,.04,0));for(const [x,y] of [[-.03,0],[0,0],[.03,0],[-.015,1],[.015,1],[0,2]])add(cyl(.012,.026,y%2?PM.ink:PM.coral,x,.057+y*.027,0));
-        const b=ball(.011,PM.ink,0,.03,.07);add(b);a.push(t=>{const k=(t*.7)%1;b.position.z=.07-k*.07;b.position.y=.03+Math.sin(k*Math.PI)*.04;});}
-      else if(id==='bowling'){add(box(.05,.004,.15,PM.wood,0,.008,0));const pins=[];for(const [x,z] of [[0,0],[-.01,-.015],[.01,-.015],[-.02,-.03],[0,-.03],[.02,-.03]]){const p=cyl(.004,.028,PM.cream,x,.025,z-.03);pins.push(p);add(p);}
-        const b=ball(.012,PM.ink,0,.02,.06);add(b);a.push(t=>{const k=(t*.5)%1;b.position.z=.06-k*.12;pins.forEach((p,i)=>{p.rotation.x=k>.85?-(k-.85)*8*(i%2?1:.6):0;});});}
-      else if(id==='bricks'){const sh=[PM.stone,pm(0xe8b98c),pm(0xc98f6a)];for(let r=0;r<4;r++)for(let c=0;c<5;c++)add(box(.022,.011,.012,sh[(r+c)%3],(c-2)*.023+(r%2?.006:0),.012+r*.012,0));
-        for(const x of [-.07,.07]){add(box(.03,.07,.025,PM.stone,x,.04,0));for(const dx of [-.01,.01])add(box(.008,.01,.008,PM.stone,x+dx,.08,.008));
-          const fl=box(.022,.012,.002,PM.coral,x+.012,.105,0);add(fl,cyl(.0015,.035,PM.wood,x,.095,0));a.push(t=>{fl.rotation.y=Math.sin(t*5+x*40)*.4;});}}
-      else if(id==='fair'){add(box(.13,.05,.03,PM.wood,0,.03,-.01),box(.14,.006,.04,PM.cream,0,.058,0));for(const x of [-.064,.064])add(cyl(.003,.08,PM.cream,x,.08,.012));
-        for(let i=0;i<8;i++)add(box(.0175,.006,.045,i%2?PM.cream:PM.coral,-.061+i*.0175,.122,0));
-        const ducks=[];for(let i=0;i<4;i++){const d=ball(.009,PM.gold,0,.068,0);ducks.push(d);add(d);}
-        const bl=ball(.012,PM.sky,-.03,.095,-.012),bl2=ball(.012,PM.coral,.02,.1,-.012);add(bl,bl2);
-        a.push(t=>{ducks.forEach((d,i)=>{d.position.x=((i*.035+t*.03)%.14)-.07;});bl.position.y=.095+Math.sin(t*2)*.004;bl2.position.y=.1+Math.sin(t*2+1)*.004;});}
-      else if(id==='climb'){const m=new T.Mesh(new T.ConeGeometry(.07,.13,7),PM.brown);m.position.y=.07;add(m);
-        const snow=new T.Mesh(new T.ConeGeometry(.025,.03,7),PM.cream);snow.position.y=.122;add(snow);add(cyl(.0015,.03,PM.wood,0,.15,0));
-        const fl=box(.018,.01,.002,PM.coral,.009,.16,0);add(fl);const b=ball(.008,PM.ink,0,0,0);add(b);
-        a.push(t=>{fl.rotation.y=Math.sin(t*5)*.4;const k=(t*.25)%1,ang=k*Math.PI*4;b.position.set(Math.cos(ang)*.065*(1-k*.8),.02+k*.11,Math.sin(ang)*.065*(1-k*.8));});}
-      else if(id==='rain'){const cloud=new T.Group();for(const [x,y,rr] of [[-.03,0,.022],[0,.008,.028],[.03,0,.022]])cloud.add(ball(rr,PM.cream,x,y,0));cloud.position.y=.13;add(cloud);
-        const drops=[PM.ink,PM.coral,PM.brown,PM.sky].map((m,i)=>{const d=ball(.011,m,(i-1.5)*.025,.1,0);add(d);return d;});
-        a.push(t=>{drops.forEach((d,i)=>{const k=(t*.7+i*.27)%1;d.position.y=.11-k*.1;d.scale.setScalar(k>.9?Math.max(.01,(1-k)*10):1);});cloud.position.x=Math.sin(t)*.006;});}
-      g.traverse(o=>{if(o.isMesh){o.castShadow=false;o.renderOrder=60;}});
-      return {g,step:t=>a.forEach(f=>f(t))};
-    }
-    // The card: a rounded paper pane with the miniature standing in front of it and its name underneath.
-    const CARD_W=.26,CARD_H=.34,CARD_REST=.5,CARD_HOVER=.9;
-    const cardShape=(()=>{const w=CARD_W,h=CARD_H,r=.035,sh=new T.Shape();sh.moveTo(-w/2+r,-h/2);sh.lineTo(w/2-r,-h/2);sh.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);sh.lineTo(w/2,h/2-r);sh.quadraticCurveTo(w/2,h/2,w/2-r,h/2);
-      sh.lineTo(-w/2+r,h/2);sh.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);sh.lineTo(-w/2,-h/2+r);sh.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return new T.ShapeGeometry(sh,8);})();
-    const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
-      // Backdrops replace world depth only at covered pixels; miniatures then use full real depth precision.
-      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xffffff,depthWrite:true,fog:false,toneMapped:false}),true));pane.renderOrder=50;root.add(pane);
-      const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,depthWrite:true,fog:false,toneMapped:false}),true));ring.visible=false;ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
-      const m=mini(id);m.g.position.set(0,-.012,.05);m.g.scale.setScalar(1.22);root.add(m.g);
-      const lc=document.createElement('canvas');lc.width=512;lc.height=192;const lt=new T.CanvasTexture(lc);lt.colorSpace=T.SRGBColorSpace;lt.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),menuDepth(new T.MeshBasicMaterial({map:lt,alphaTest:.5,depthWrite:true,fog:false,toneMapped:false})));label.position.set(0,-CARD_H/2+.045,.012);label.renderOrder=70;root.add(label);
-      plaza.add(root);
-      return {id,ar,en,subAr,subEn,root,pane,ring,mini:m,lc,lt,key:'',hot:0,i};
-    });
-    menuGroup(plaza);
-    function drawLabel(c){
-      const key=lang;if(c.key===key)return;c.key=key;const x=c.lc.getContext('2d');x.setTransform(2,0,0,2,0,0);x.clearRect(0,0,256,96);x.textAlign='center';x.direction=tr('rtl','ltr');
-      x.fillStyle=INK;x.font=font(800,44);x.fillText(tr(c.ar,c.en),128,48);x.fillStyle='rgba(44,45,61,.85)';x.font=font(600,24);x.fillText(tr(c.subAr,c.subEn),128,82);c.lt.needsUpdate=true;
-    }
-    // One low arc, anchored once on opening: it does not chase the eyes as the player looks down.
+    let plazaOn=false,plazaHot=-1;
+    const modePanel=createFlatModePanel(PLAZA);plaza.add(modePanel.mesh);menuGroup(plaza);
+    // Anchor once in front of the opening head pose, without following later head motion.
     function placePlaza(){
-      const {pos,dir}=headLocal(),yaw=Math.atan2(dir.x,dir.z),R=1.1;
-      plaza.position.set(pos.x,0,pos.z);plaza.rotation.set(0,yaw,0);
-      const viewer=V(0,pos.y,0),look=new T.Matrix4();
-      pcards.forEach((c,i)=>{
-        const ang=(i-(pcards.length-1)/2)*.17*(lang==='en'?1:-1);
-        c.home=V(Math.sin(ang)*R,pos.y-.44,Math.cos(ang)*R);c.root.position.copy(c.home);
-        c.root.quaternion.setFromRotationMatrix(look.lookAt(viewer,c.home,UP));
-        c.hot=0;c.mini.g.rotation.y=0;
-      });
+      const {pos,dir}=headLocal();plaza.position.copy(pos).addScaledVector(dir,1.1);plaza.position.y-=.2;
+      plaza.quaternion.setFromRotationMatrix(new T.Matrix4().lookAt(pos,plaza.position,UP));
+      plaza.updateWorldMatrix(true,true);
     }
     function setPlaza(on){
-      if(on===plazaOn&&!plazaPick)return;plazaOn=on;plazaHot=-1;plazaPick=null;
-      if(on){stopGameplayInput();menuToggled=menuOpen=false;menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);challengeList.show(false);placePlaza();pcards.forEach(drawLabel);plazaK=0;}
-      else{plazaK=0;plaza.visible=false;}
+      if(on===plazaOn)return;plazaOn=on;plazaHot=-1;
+      if(on){stopGameplayInput();menuToggled=menuOpen=false;menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);challengeList.show(false);placePlaza();modePanel.draw(lang==='en',-1,modeNow());}
+      plaza.visible=on;
     }
     function choosePlaza(i){
-      const c=pcards[i];if(!c)return;plazaPick={c,t:0};
-      holder=null;
-      if(c.id==='rain'){setClimb(false);setRain(true);}else{setRain(false);if(c.id==='climb')setClimb(true);else{setClimb(false);g.setMode(c.id);}}
-      at(rig.localToWorld(c.root.position.clone()),()=>g.whoosh(.5));for(const h of hands)buzz(h,.45,70);
+      if(!plazaOn)return;const c=PLAZA[i];if(!c)return;
+      const soundPos=plaza.localToWorld(modePanel.point(i,lang==='en'));holder=null;
+      setPlaza(false);
+      if(c[0]==='rain'){setClimb(false);setRain(true);}else{setRain(false);if(c[0]==='climb')setClimb(true);else{setClimb(false);g.setMode(c[0]);}}
+      at(soundPos,()=>g.whoosh(.5));for(const h of hands)buzz(h,.45,70);
     }
-    // Which card the ray of hand h points at (-1 for none).
-    function plazaRay(h){
-      if(!plazaOn||plazaK<.9)return -1;let best=-1,bd=1e9;
-      for(const c of pcards){const hit=ray.intersectObject(c.pane,false)[0];if(hit&&hit.distance<bd){bd=hit.distance;best=c.i;}}
-      return best;
+    function plazaRay(){
+      if(!plazaOn)return -1;
+      const hit=ray.intersectObject(modePanel.mesh,false)[0];
+      return hit?.uv?modePanel.hit(hit.uv.x,hit.uv.y,lang==='en'):-1;
     }
-    function stepPlaza(dt){
-      plazaK=clamp(plazaK+(plazaOn?1:-1)*dt*4,0,1);plaza.visible=plazaK>0;if(!plaza.visible){plazaPick=null;return;}
-      // Existing throws never select UI cards. Mode selection requires an explicit trigger press.
-      pcards.forEach((c,i)=>{
-        const hot=i===plazaHot||(plazaPick&&plazaPick.c===c);c.hot+=((hot?1:0)-c.hot)*(1-Math.exp(-dt*12));
-        const appear=clamp(plazaK*1.3-i*.03,0,1),e=appear<1?1-Math.pow(1-appear,3):1;
-        c.root.position.copy(c.home);
-        // Enlarge upward from the same low strip without pulling the card off the pointer ray.
-        c.root.position.y+=(CARD_HOVER-CARD_REST)*CARD_H*.5*c.hot;
-        c.root.scale.setScalar(Math.max(.001,e*(CARD_REST+(CARD_HOVER-CARD_REST)*c.hot)));
-        c.ring.visible=!!hot;
-        if(hot)c.mini.step(clock);c.mini.g.rotation.y+=(Math.sin(clock*.9+i)*.25*c.hot-c.mini.g.rotation.y)*(1-Math.exp(-dt*8));
-      });
-      plaza.updateWorldMatrix(true,true);
-      if(plazaPick){plazaPick.t+=dt;const c=plazaPick.c;c.root.scale.multiplyScalar(1+plazaPick.t*2.5);if(plazaPick.t>.35){setPlaza(false);plazaPick=null;}}
-    }
+    function stepPlaza(){if(plazaOn)modePanel.draw(lang==='en',plazaHot,modeNow());}
 
     /* ---------- per frame ---------- */
     let grassMesh=null;
@@ -1368,7 +1292,7 @@ export const createReferenceXR=(() => {
         h.menuY=hit?(1-hit.uv.y)*menuVis():0;h.scrollHit=!!hit&&chOpen&&challengeList.hit(hit.uv.x*MW,h.menuY);
         if(h.scrollDrag&&hit&&menuOpen&&chOpen)challengeList.scrollTo(h.scrollDrag.offset+h.scrollDrag.y-h.menuY);
         h.hover=hit?menuHit(hit.uv):-1;if(h.hover>=0)hover.push(h.hover);
-        h.plaza=!hit&&h!==leftHand()?plazaRay(h):-1;if(h.plaza>=0&&h.plaza!==plazaHot){plazaHot=h.plaza;buzz(h,.12,12);at(plaza.localToWorld(pcards[h.plaza].root.position.clone()),()=>g.whoosh(.08));}else if(h!==leftHand()&&h.plaza<0&&plazaHot>=0&&!hands.some(o=>o!==h&&o.plaza>=0))plazaHot=-1;
+        h.plaza=!hit&&h!==leftHand()?plazaRay(h):-1;if(h.plaza>=0&&h.plaza!==plazaHot){plazaHot=h.plaza;buzz(h,.12,12);at(plaza.localToWorld(modePanel.point(h.plaza,lang==='en')),()=>g.whoosh(.08));}else if(h!==leftHand()&&h.plaza<0&&plazaHot>=0&&!hands.some(o=>o!==h&&o.plaza>=0))plazaHot=-1;
         h.onStart=!hit&&start.mesh.visible&&!!ray.intersectObject(start.mesh,false)[0];if(h.onStart)startHot=true;
         h.line.scale.z=(hit?hit.distance:.6*scaleNow())/scaleNow();
         h.line.visible=h.dot.visible=!!h.source&&holder!==h&&h!==F;
@@ -1475,7 +1399,7 @@ export const createReferenceXR=(() => {
       // For tests: pin the court as if the hit test found this spot and surface normal.
       // Tests: let go of Dahrooj and drop him at P with velocity v, as if thrown there.
       ...(import.meta.env.DEV?{rainSnapshot:()=>intro?.rain?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>({id:b.id,age:intro.t-b.born,p:b.p.toArray()})):[],testDrop(P,v){parked=false;holder=null;S.held=false;S.pos.set(...P);S.vel.set(...v);S.side.set(0,0,0);S.shot=true;S.grounded=false;S.shotT=0;S.scoredT=0;S.missT=0;},
-      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {w:MW,h:menuVis(),buttons:[...buttons,...accButtons,resetBtn].map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:plazaOn,shown:plaza.visible,hot:plazaHot,ids:PLAZA.map(p=>p[0])};},setPlaza,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(pcards[i].root.position.clone())).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get throwStyle(){return throwStyle;},
+      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {w:MW,h:menuVis(),buttons:[...buttons,...accButtons,resetBtn].map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:plazaOn,shown:plaza.visible,hot:plazaHot,ids:PLAZA.map(p=>p[0])};},setPlaza,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(modePanel.point(i,lang==='en'))).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get throwStyle(){return throwStyle;},
       // For tests: what each hand reports.
       ...(import.meta.env.DEV?{inspect:()=>hands.map(h=>({connected:!!h.source,hand:h.source?.handedness,samples:h.hist.length,velocity:velocity(h).toArray()}))}:{} )};
   };
