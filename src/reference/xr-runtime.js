@@ -97,10 +97,11 @@ export const createReferenceXR=(() => {
     }
 
     /* ---------- floating panels drawn on canvases ---------- */
-    function panel(w,h,px,py){
+    function panel(w,h,px,py,opaque=false){
       const canvas=document.createElement('canvas');canvas.width=px;canvas.height=py;
       const tex=new T.CanvasTexture(canvas);tex.colorSpace=T.SRGBColorSpace;tex.generateMipmaps=false;tex.minFilter=T.LinearFilter;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false,fog:false,toneMapped:false}));
+      const material=new T.MeshBasicMaterial({map:tex,transparent:!opaque,alphaTest:opaque?.5:0,depthTest:opaque,depthWrite:opaque,fog:false,toneMapped:false});
+      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),opaque?menuDepth(material):material);
       mesh.renderOrder=3;return {canvas,ctx:canvas.getContext('2d'),tex,mesh,key:''};
     }
     function round(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
@@ -189,9 +190,9 @@ export const createReferenceXR=(() => {
       if(n.t>=life)cardNow=null;
     }
     // The menu rides on the left hand: flip it palm-up or raise it. Point with the right hand to pick.
-    // A tall pane of frosted glass in Dahrooj's ink and paper: the world shows faintly through it.
+    // Solid paper: no scene blending. Alpha cutout only trims the rounded outside corners.
     const MW=768,MH=1200,MENU_W=.24,MENU_H=MENU_W*MH/MW;
-    const menu=panel(MENU_W,MENU_H,MW,MH);rig.add(menu.mesh);menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);menu.mesh.name='xr-menu';menu.mesh.renderOrder=20;
+    const menu=panel(MENU_W,MENU_H,MW,MH,true);rig.add(menu.mesh);menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);menu.mesh.name='xr-menu';menu.mesh.renderOrder=20;
     const challengeList=createChallengeList(T,{parent:menu.mesh,panelWidth:MENU_W,panelHeight:MENU_H,pixelsWidth:MW,pixelsHeight:MH,font});
     const buttons=[],PAD=36,IN=MW-PAD*2;
     // Positions go right to left in Arabic and left to right in English (see layoutMenu).
@@ -274,9 +275,9 @@ export const createReferenceXR=(() => {
       c.restore();
     }
     const STYLE_DOTS=DAHROOJ_SWATCHES;
-    // The menus' glass: a soft paper tint, brighter at the top, a white rim and a faint diagonal sheen (W x H, corner R).
-    function glassPane(c,W,H,R){
-      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'rgba(255,252,246,.98)');gr.addColorStop(1,'rgba(240,234,224,.97)');
+    // Opaque paper gradient. Button highlights are composited onto this solid canvas base.
+    function menuPaper(c,W,H,R){
+      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#fffcf6');gr.addColorStop(1,'#f0eae0');
       c.fillStyle=gr;round(c,6,6,W-12,H-12,R);c.fill();
       c.save();round(c,6,6,W-12,H-12,R);c.clip();
       gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(255,255,255,.12)');gr.addColorStop(.35,'rgba(255,255,255,0)');gr.addColorStop(.62,'rgba(255,255,255,0)');gr.addColorStop(.7,'rgba(255,255,255,.04)');gr.addColorStop(.78,'rgba(255,255,255,0)');
@@ -290,8 +291,8 @@ export const createReferenceXR=(() => {
       const chs=headsetChallenges();
       const key=[resetArm>0,wornNow(),doneNow,modeNow(),g.style(),throwStyle,kind,sky.time,sky.weather,hover.join(','),chOpen,lang,chs.map(c=>c.value).join(',')].join('|');if(key===menu.key)return;menu.key=key;
       const c=menu.ctx,VH=menuVis();c.clearRect(0,0,MW,MH);
-      // Glass (see glassPane). Only the visible height of the pane is drawn (the settings are shorter than the challenges).
-      glassPane(c,MW,VH,64);
+      // Only the visible height is drawn; settings are shorter than challenges.
+      menuPaper(c,MW,VH,64);
       // Show just that part of the canvas.
       menu.tex.repeat.set(1,VH/MH);menu.tex.offset.set(0,1-VH/MH);
       // Title and section labels.
@@ -333,7 +334,7 @@ export const createReferenceXR=(() => {
         if((b.kind==='time'||b.kind==='weather')&&!natureOn())c.globalAlpha=.35;
         const on=(b.kind==='mode'&&b.id===modeNow())||(b.kind==='style'&&b.id===g.style())||(b.kind==='shot'&&b.id===shotStyle)||(b.kind==='throw'&&b.id===throwStyle),hot=hover.includes(i);
         const r=b.kind==='style'?36:b.h/2;
-        // Glass buttons: lighter panes with a white edge; the chosen one is solid ink.
+        // Painted button highlights; the canvas underneath remains fully opaque.
         if(on){c.fillStyle=INK;round(c,b.x,b.y,b.w,b.h,r);c.fill();}
         else{
           const bg=c.createLinearGradient(0,b.y,0,b.y+b.h);bg.addColorStop(0,hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.62)');bg.addColorStop(1,hot?'rgba(255,255,255,.7)':'rgba(255,255,255,.3)');
@@ -1014,7 +1015,7 @@ export const createReferenceXR=(() => {
       session=s;kind=mode;lang=g.language();layoutMenu();anchor=null;arScale=AR_SCALE;arZoom=1;placing=mode==='immersive-ar';menuToggled=false;
       renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
       place();
-      if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
+      if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,renderer,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
       // The world's own sounds: wind, leaves, rain, the pond, birds by day and crickets at night.
       if(nature&&!ambience&&createReferenceAmbience&&g.audio)ambience=createReferenceAmbience({audio:g.audio,nature});
       // Crate blasts clear nearby characters in a 3D radius, never the ball held by the player.
@@ -1211,13 +1212,12 @@ export const createReferenceXR=(() => {
     const cardShape=(()=>{const w=CARD_W,h=CARD_H,r=.035,sh=new T.Shape();sh.moveTo(-w/2+r,-h/2);sh.lineTo(w/2-r,-h/2);sh.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);sh.lineTo(w/2,h/2-r);sh.quadraticCurveTo(w/2,h/2,w/2-r,h/2);
       sh.lineTo(-w/2+r,h/2);sh.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);sh.lineTo(-w/2,-h/2+r);sh.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return new T.ShapeGeometry(sh,8);})();
     const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
-      // Drawn in a fixed order (ring, pane, label) and the see-through ones don't write depth: otherwise, looking
-      // down at a card, the label's clear edges could hide the pane behind them.
-      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2eddf,transparent:true,opacity:.98,depthWrite:false,fog:false,toneMapped:false})));pane.renderOrder=50;root.add(pane);
-      const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,transparent:true,opacity:0,depthWrite:false,fog:false,toneMapped:false})));ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
+      // Solid surfaces write the reserved UI depth so later world particles cannot paint over them.
+      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2eddf,depthWrite:true,fog:false,toneMapped:false})));pane.renderOrder=50;root.add(pane);
+      const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,depthWrite:true,fog:false,toneMapped:false})));ring.visible=false;ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
       const m=mini(id);m.g.position.set(0,-.012,.05);m.g.scale.setScalar(1.22);root.add(m.g);
       const lc=document.createElement('canvas');lc.width=512;lc.height=192;const lt=new T.CanvasTexture(lc);lt.colorSpace=T.SRGBColorSpace;lt.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),menuDepth(new T.MeshBasicMaterial({map:lt,transparent:true,depthWrite:false,fog:false,toneMapped:false})));label.position.set(0,-CARD_H/2+.045,.012);label.renderOrder=51;root.add(label);
+      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),menuDepth(new T.MeshBasicMaterial({map:lt,alphaTest:.5,depthWrite:true,fog:false,toneMapped:false})));label.position.set(0,-CARD_H/2+.045,.012);label.renderOrder=51;root.add(label);
       plaza.add(root);
       return {id,ar,en,subAr,subEn,root,pane,ring,mini:m,lc,lt,key:'',hot:0,i};
     });
@@ -1264,11 +1264,11 @@ export const createReferenceXR=(() => {
         // Enlarge upward from the same low strip without pulling the card off the pointer ray.
         c.root.position.y+=(CARD_HOVER-CARD_REST)*CARD_H*.5*c.hot;
         c.root.scale.setScalar(Math.max(.001,e*(CARD_REST+(CARD_HOVER-CARD_REST)*c.hot)));
-        c.ring.material.opacity=.9*c.hot;c.pane.material.opacity=.98*e;
+        c.ring.visible=!!hot;
         if(hot)c.mini.step(clock);c.mini.g.rotation.y+=(Math.sin(clock*.9+i)*.25*c.hot-c.mini.g.rotation.y)*(1-Math.exp(-dt*8));
       });
       plaza.updateWorldMatrix(true,true);
-      if(plazaPick){plazaPick.t+=dt;const c=plazaPick.c;c.root.scale.multiplyScalar(1+plazaPick.t*2.5);c.pane.material.opacity*=Math.max(0,1-plazaPick.t*3);if(plazaPick.t>.35){setPlaza(false);plazaPick=null;}}
+      if(plazaPick){plazaPick.t+=dt;const c=plazaPick.c;c.root.scale.multiplyScalar(1+plazaPick.t*2.5);if(plazaPick.t>.35){setPlaza(false);plazaPick=null;}}
     }
 
     /* ---------- per frame ---------- */

@@ -1,0 +1,52 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Inspect actual XR surfaces after controller input. */
+import {test,expect} from '@playwright/test';
+for(const kind of ['vr','ar'] as const)test(`settings, challenges and mode cards remain opaque after playing in ${kind}`,async({page},info)=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);
+ await page.locator('#enter-'+kind).click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
+ await page.evaluate(kind=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;if(kind==='ar')r.testPin([0,0,-2],[0,1,0]);else r.nature.set({time:'day',weather:'snow'});},kind);
+ await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('trigger',1));
+ await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.blast.fired>=3);
+ await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('trigger',0));
+ const press=async(hand:string,id:string)=>{
+  await page.evaluate(({hand,id})=>(window as any).IWER_DEVICE.controllers[hand].updateButtonValue(id,1),{hand,id});
+  await page.waitForTimeout(120);
+  await page.evaluate(({hand,id})=>(window as any).IWER_DEVICE.controllers[hand].updateButtonValue(id,0),{hand,id});
+ };
+ const surfaces=async(name:string)=>page.evaluate(name=>{
+  const s=(window as any).__DAHROOJ_REFERENCE__.game.world.scene,root=s.getObjectByName(name),out:any[]=[];
+  root.traverse((o:any)=>{if(!o.isMesh||!o.visible)return;const m=o.material,canvas=m.map?.image;
+   let interiorAlpha=255;
+   if(o.name==='xr-menu'||o.name==='xr-challenge-list'){
+    const h=o.name==='xr-menu'?Math.round(canvas.height*m.map.repeat.y):canvas.height;
+    const pixels=canvas.getContext('2d').getImageData(80,80,canvas.width-160,h-160).data;
+    for(let i=3;i<pixels.length;i+=4)interiorAlpha=Math.min(interiorAlpha,pixels[i]);
+   }
+   out.push({name:o.name,transparent:m.transparent,opacity:m.opacity,depthWrite:m.depthWrite,depthTest:m.depthTest,isolated:m.customProgramCacheKey()==='dahrooj-menu-depth-v1',interiorAlpha});
+  });return out;
+ },name);
+ const solid=(items:any[])=>{expect(items.length).toBeGreaterThan(0);for(const m of items){expect(m.transparent).toBe(false);expect(m.opacity).toBe(1);expect(m.depthWrite).toBe(true);expect(m.depthTest).toBe(true);expect(m.isolated).toBe(true);expect(m.interiorAlpha).toBe(255);}};
+ await press('right','b-button');
+ await page.waitForFunction(()=>{const g=(window as any).__DAHROOJ_REFERENCE__.game;return g.runtime.menuOpen&&!g.runtime.challengesOpen&&g.world.scene.getObjectByName('xr-menu').scale.x>=.99;});
+ const settings=await surfaces('xr-menu');solid(settings);
+ await page.screenshot({path:info.outputPath('opaque-settings-'+kind+'.png')});
+ await press('left','x-button');
+ await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengesOpen);
+ const challenges=await surfaces('xr-menu');solid(challenges);
+ const initial=await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset);
+ await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateAxis('thumbstick','y-axis',1));
+ await page.waitForFunction(initial=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset>initial+150,initial);
+ await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateAxis('thumbstick','y-axis',0));
+ expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset)).toBeGreaterThan(initial);
+ solid(await surfaces('xr-menu'));
+ await page.screenshot({path:info.outputPath('opaque-challenges-'+kind+'.png')});
+ await press('left','y-button');
+ await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.plaza.open);
+ // Check while cards scale into view as well as after settling; no alpha fade is allowed.
+ const opening=await surfaces('xr-plaza');solid(opening);
+ await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-plaza').children.every((c:any)=>c.scale.x>=.49));
+ const cards=await surfaces('xr-plaza');solid(cards);
+ await page.screenshot({path:info.outputPath('opaque-modes-'+kind+'.png')});
+ expect(errors).toEqual([]);
+ await info.attach('opaque-surfaces',{body:JSON.stringify({settings,challenges,cards:cards.length},null,2),contentType:'application/json'});
+});

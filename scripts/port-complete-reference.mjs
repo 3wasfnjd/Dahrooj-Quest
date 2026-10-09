@@ -1,4 +1,5 @@
-import {proceduralFireworkOverrides} from './procedural-firework-overrides.mjs';
+import {opaqueMenuOverrides} from './opaque-menu-overrides.mjs';
+import {fireworkOverrides} from './firework-overrides.mjs';
 import {compactModesOverrides} from './compact-modes-overrides.mjs';
 import {frontRainOverrides} from './front-rain-overrides.mjs';
 import {fairDisplayOverrides} from './fair-display-overrides.mjs';
@@ -11,7 +12,7 @@ import {challengeOverrides} from './challenge-overrides.mjs';
 import {renderOverrides} from './render-overrides.mjs';
 import fs from 'node:fs';import {styleOverrides} from './style-overrides.mjs';import * as espree from 'espree';import * as scope from 'eslint-scope';import ts from 'typescript';import crypto from 'node:crypto';
 const root=process.argv[2]||'../legacy-reference';const read=p=>fs.readFileSync(`${root}/${p}`,'utf8');const header='/* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */\n';
-const records=[];const write=(p,s,origin)=>{s=proceduralFireworkOverrides(p,compactModesOverrides(p,frontRainOverrides(p,fairDisplayOverrides(p,worldCleanupOverrides(p,rainScoreOverrides(p,summitOverrides(p,visibilityOverrides(p,menuOverrides(p,challengeOverrides(p,renderOverrides(p,styleOverrides(p,s))))))))))));fs.writeFileSync(p,header+s);records.push({path:p,origin,sha256:crypto.createHash('sha256').update(header+s).digest('hex')});};
+const records=[];const write=(p,s,origin)=>{s=opaqueMenuOverrides(p,fireworkOverrides(p,compactModesOverrides(p,frontRainOverrides(p,fairDisplayOverrides(p,worldCleanupOverrides(p,rainScoreOverrides(p,summitOverrides(p,visibilityOverrides(p,menuOverrides(p,challengeOverrides(p,renderOverrides(p,styleOverrides(p,s)))))))))))));fs.writeFileSync(p,header+s);records.push({path:p,origin,sha256:crypto.createHash('sha256').update(header+s).digest('hex')});};
 const source=[...read('index.html').matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');const ast=ts.createSourceFile('ref.js',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.JS),functions=new Map();function walk(n){if(ts.isFunctionDeclaration(n)&&n.name)functions.set(n.name.text,n.getText(ast));ts.forEachChild(n,walk)}walk(ast);
 let s=read('assets/xr/nature.js');s=s.replace('(() => {',"export const createReferenceNature=(() => {").replace('const T=THREE,','const T=THREE,').replace("const BASE=(document.currentScript&&document.currentScript.src)?new URL('./motri/',document.currentScript.src).href:'./assets/xr/motri/';","const BASE='/assets/';").replace('window.createDahroojNature=','return ');
 s=s.replaceAll("BASE+'slabs.png'","BASE+'textures/slabs.png'").replaceAll("BASE+'foliageSDF.png'","BASE+'textures/foliageSDF.png'").replaceAll('BASE+file',"BASE+'models/'+file");

@@ -1,23 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- Inspect rendered instancing and real Web Audio voices in IWER. */
 import {test,expect} from '@playwright/test';
 
-test('procedural park replaces legacy leaf assets with bounded opaque geometry',async({page},info)=>{
+test('the audited trees and original grass are restored',async({page},info)=>{
  const errors:string[]=[],requests:string[]=[];
  page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>requests.push(r.url()));
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);
- await page.locator('#enter-vr').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
+ await page.locator('#enter-vr').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.nature?.treesLoaded===3);
  await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.nature.set({time:'day',weather:'clear'}));
  const data=await page.evaluate(()=>{
-  const g=(window as any).__DAHROOJ_REFERENCE__.game,s=g.world.scene,grass=s.getObjectByName('xr-vegetation-grass');
-  return {stats:g.runtime.nature.vegetation,legacy:!!s.getObjectByName('xr-foliage'),opaque:[s.getObjectByName('xr-procedural-trunks'),s.getObjectByName('xr-procedural-crowns'),...grass.children].every(m=>!m.material.transparent&&m.material.depthWrite&&m.material.alphaTest===0&&m.frustumCulled),finite:grass.children.every((m:any)=>Number.isFinite(m.boundingSphere.radius))};
+  const g=(window as any).__DAHROOJ_REFERENCE__.game,s=g.world.scene,trees:any[]=[];s.traverse((o:any)=>{if(o.name==='xr-trees')trees.push(o);});
+  return {loaded:g.runtime.nature.treesLoaded,grass:!!s.getObjectByName('xr-grass'),foliage:!!s.getObjectByName('xr-foliage'),instanced:trees.length===3&&trees.every(t=>t.isInstancedMesh),temporary:!!s.getObjectByName('xr-procedural-trunks')};
  });
- expect(data.stats.trees).toBeGreaterThan(20);expect(data.stats.trees).toBeLessThanOrEqual(42);expect(data.stats.grassTriangles).toBeLessThanOrEqual(12288);
- expect(data.stats.treeDrawCalls).toBe(2);expect(data.opaque).toBe(true);expect(data.finite).toBe(true);expect(data.legacy).toBe(false);
- await page.waitForTimeout(350);await page.screenshot({path:info.outputPath('procedural-park-day.png')});
- await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.nature.set({time:'night',weather:'snow'}));
- await page.waitForTimeout(350);await page.screenshot({path:info.outputPath('procedural-park-night.png')});
- expect(requests.filter(s=>/birchTreesVisual|oakTreesVisual|cherryTreesVisual|foliageSDF/.test(s))).toEqual([]);expect(errors).toEqual([]);
- await info.attach('vegetation-counts',{body:JSON.stringify(data,null,2),contentType:'application/json'});
+ expect(data).toEqual({loaded:3,grass:true,foliage:true,instanced:true,temporary:false});
+ for(const file of ['birchTreesVisual.glb','oakTreesVisual.glb','cherryTreesVisual.glb','foliageSDF.png'])expect(requests.some(s=>s.endsWith(file))).toBe(true);
+ await page.screenshot({path:info.outputPath('restored-park.png')});expect(errors).toEqual([]);
+ await info.attach('restored-vegetation',{body:JSON.stringify(data,null,2),contentType:'application/json'});
 });
 
 test('recorded firework cues follow launch and explosion while water suppresses the burst',async({page},info)=>{

@@ -1,11 +1,12 @@
-// One cached list texture; scrolling moves UVs, not text or GPU texture uploads.
+import {menuDepth} from './menu-depth';
+// One cached opaque list texture; scrolling moves UVs, not text or GPU texture uploads.
 export function createChallengeList(T,{parent,panelWidth,panelHeight,pixelsWidth,pixelsHeight,font}){
  const view=Object.freeze({x:36,y:192,w:672,h:684,row:72}),px=panelWidth/pixelsWidth,py=panelHeight/pixelsHeight;
  const canvas=document.createElement('canvas');canvas.width=view.w;canvas.height=view.h;
  const tex=new T.CanvasTexture(canvas);tex.colorSpace=T.SRGBColorSpace;tex.generateMipmaps=false;tex.minFilter=T.LinearFilter;tex.magFilter=T.LinearFilter;
- const material=new T.MeshBasicMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false,fog:false,toneMapped:false});
+ const material=menuDepth(new T.MeshBasicMaterial({map:tex,depthTest:true,depthWrite:true,fog:false,toneMapped:false}));
  const mesh=new T.Mesh(new T.PlaneGeometry(view.w*px,view.h*py),material);mesh.name='xr-challenge-list';mesh.renderOrder=21;mesh.position.set((view.x+view.w/2-pixelsWidth/2)*px,(pixelsHeight/2-view.y-view.h/2)*py,.001);parent.add(mesh);
- const thumb=new T.Mesh(new T.PlaneGeometry(6*px,1),new T.MeshBasicMaterial({color:0x686273,transparent:true,depthTest:false,depthWrite:false,fog:false,toneMapped:false}));thumb.name='xr-challenge-scrollbar';thumb.renderOrder=22;parent.add(thumb);
+ const thumb=new T.Mesh(new T.PlaneGeometry(6*px,1),menuDepth(new T.MeshBasicMaterial({color:0x686273,depthTest:true,depthWrite:true,fog:false,toneMapped:false})));thumb.name='xr-challenge-scrollbar';thumb.renderOrder=22;parent.add(thumb);
  let offset=0,key='';
  function position(){
   const height=canvas.height,max=Math.max(0,height-view.h);offset=Math.max(0,Math.min(max,offset));tex.repeat.y=view.h/height;tex.offset.y=1-(offset+view.h)/height;
@@ -14,7 +15,7 @@ export function createChallengeList(T,{parent,panelWidth,panelHeight,pixelsWidth
  function rows(items,lang){
   const next=lang+'|'+items.map(x=>x.id+':'+x.value+'/'+x.goal).join('|');if(key===next)return;key=next;
   const height=Math.max(view.h,items.length*view.row);if(canvas.height!==height)canvas.height=height;
-  const c=canvas.getContext('2d'),rtl=lang!=='en';c.clearRect(0,0,canvas.width,canvas.height);c.direction=rtl?'rtl':'ltr';
+  const c=canvas.getContext('2d'),rtl=lang!=='en';c.fillStyle='#f6f0e6';c.fillRect(0,0,canvas.width,canvas.height);c.direction=rtl?'rtl':'ltr';
   items.forEach((x,k)=>{
    const y=k*view.row,ok=x.value>=x.goal;c.fillStyle=ok?'#303141':'#fffaf2';c.beginPath();c.roundRect(0,y,view.w,view.row-6,18);c.fill();
    c.fillStyle=ok?'#fffaf2':'#2c2d3d';c.textAlign=rtl?'right':'left';c.font=font(700,32);

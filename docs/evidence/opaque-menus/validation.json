@@ -1,0 +1,46 @@
+{
+  "hardwareTested": false,
+  "environment": "Local IWER, Chromium and SwiftShader; not a Quest performance measurement",
+  "typecheck": "passed",
+  "lint": "passed",
+  "unitTestsPassed": 42,
+  "summitChecksPassed": 142,
+  "xr": [
+    "✓  1 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in vr (27.7s)",
+    "✓  2 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in ar (9.8s)",
+    "✓  3 tests/xr/opaque-menus.spec.ts:3:40 › settings, challenges and mode cards remain opaque after playing in vr (43.3s)",
+    "✓  4 tests/xr/opaque-menus.spec.ts:3:40 › settings, challenges and mode cards remain opaque after playing in ar (10.4s)",
+    "✓  5 tests/xr/vegetation-firework.spec.ts:4:1 › the audited trees and original grass are restored (12.2s)",
+    "✓  6 tests/xr/vegetation-firework.spec.ts:20:1 › recorded firework cues follow launch and explosion while water suppresses the burst (21.5s)"
+  ],
+  "visualReview": [
+    "hovered-card-vr.png",
+    "opaque-settings-vr.png",
+    "opaque-challenges-vr.png",
+    "opaque-settings-ar.png"
+  ],
+  "restoredVegetationFrom": "3a5917db1921a72c86865400983f87775691c69f",
+  "assetHashes": "All four restored assets match their audited SHA-256 values",
+  "ui": {
+    "menus": [
+      "settings",
+      "challenges",
+      "modes"
+    ],
+    "transparent": false,
+    "opacity": 1,
+    "worldDepthProtection": true,
+    "alphaFades": false,
+    "roundedEdges": "binary alpha cutout, no scene blending"
+  },
+  "regeneration": "Nature, XR runtime and sounds match generated source after ignoring license-banner position",
+  "productionBuild": {
+    "bytes": 11619661,
+    "gzipBytes": 6438151,
+    "javascriptBytes": 3426554,
+    "errors": []
+  },
+  "productionFileCount": 122,
+  "fireworkAudio": "Existing launch/burst bytes unchanged; synchronization, water fizzle, bounded voices and focus cleanup passed",
+  "physicalQuestFlicker": "Unresolved; owner reported flicker in previous version. This version awaits physical Quest verification."
+}
