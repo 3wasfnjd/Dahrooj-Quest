@@ -2,6 +2,7 @@ import './style.css';
 import {AssetManager, World, SessionMode, ReferenceSpaceType} from '@iwsdk/core';
 import {SaveStore} from './save/store';
 import {createCompleteGame} from './reference/complete-game.js';
+import {readDiagnosticOptions} from './rendering/diagnostic-options';
 const status = document.getElementById('status')!, vr = document.getElementById('enter-vr') as HTMLButtonElement, ar = document.getElementById('enter-ar') as HTMLButtonElement;
 async function boot() {
     if (import.meta.env.DEV && import.meta.env.VITE_XR_AUTOMATION === '1') {
@@ -26,6 +27,8 @@ async function boot() {
     world.renderer.shadowMap.enabled = false;
     world.renderer.xr.setFoveation(0.6);
     const game=createCompleteGame(world,store);
+    const diagnosticOptions=readDiagnosticOptions(location.search);
+    const diagnostics=diagnosticOptions.enabled?(await import('./rendering/render-diagnostics')).attachRenderDiagnostics(world,game,diagnosticOptions):null;
     const supports = await Promise.allSettled([navigator.xr?.isSessionSupported('immersive-vr'), navigator.xr?.isSessionSupported('immersive-ar')]);
     vr.disabled = !(supports[0].status === 'fulfilled' && supports[0].value);
     ar.disabled = !(supports[1].status === 'fulfilled' && supports[1].value);
@@ -40,7 +43,7 @@ async function boot() {
     } }, 500); };
     vr.onclick = () => enter(SessionMode.ImmersiveVR);
     ar.onclick = () => enter(SessionMode.ImmersiveAR);
-    document.getElementById('export-performance')!.onclick = () => game.export();
+    document.getElementById('export-performance')!.onclick = () => diagnostics?diagnostics.download():game.export();
     document.getElementById('reset-save')!.onclick = async () => { if (confirm('حذف التقدم والإعدادات المحلية؟ Delete local progress and settings?')) {
         await store.reset();
         location.reload();

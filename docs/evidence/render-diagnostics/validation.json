@@ -1,0 +1,85 @@
+{
+  "baseline": "6635b34d6a8e6b0ea4cfb013d2ff9000c1ea8608",
+  "hardwareTested": false,
+  "hardwareFlickerResolved": null,
+  "oculusMultiviewExercised": false,
+  "environment": "Chromium 153 / SwiftShader; IWER stereo enabled for VR and AR scenarios",
+  "checks": {
+    "typecheck": "passed",
+    "lint": "passed",
+    "unit": {
+      "tests": 49,
+      "failures": 0
+    },
+    "summitChecks": 142,
+    "xr": {
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    "xrCases": [
+      "menu surfaces keep correct depth separation across 100 viewer positions",
+      "opaque menus cover world effects without changing their real depth or passthrough alpha",
+      "settings, challenges and mode cards remain opaque after playing in vr",
+      "settings, challenges and mode cards remain opaque after playing in ar",
+      "normal play never loads or displays the optional diagnostic UI",
+      "vr: isolate goal, hoop and window while retaining menus, two views and state",
+      "ar: isolate goal, hoop and window while retaining menus, two views and state"
+    ],
+    "production": {
+      "runtime": "Chromium production WebGL2 entry/offline test; not Quest hardware",
+      "browser": "153.0.8010.0",
+      "assertions": [
+        "Production CSP is served",
+        "No IWER runtime or development bridge",
+        "No desktop gameplay fallback",
+        "Offline reload renders the entry page",
+        "Core application assets were precached",
+        "Diagnostics remain absent without opt-in",
+        "Production diagnostics load offline with the requested stereo comparison",
+        "Production diagnostics expose the requested antialias comparison",
+        "Production diagnostics do not expose the development game bridge",
+        "Privacy policy remains accessible offline",
+        "No browser errors under production CSP",
+        "No external runtime requests"
+      ],
+      "errors": [],
+      "externalRequests": [],
+      "cachedFiles": 122,
+      "status": "passed"
+    },
+    "size": {
+      "bytes": 11631851,
+      "gzipBytes": 6443499,
+      "javascriptBytes": 3438744,
+      "errors": []
+    }
+  },
+  "gpuDepthProbe": {
+    "positions": 100,
+    "depthBits": 24,
+    "wrong": 0,
+    "correct": 100
+  },
+  "hoopNetReproduction": {
+    "steps": 24,
+    "stepSeconds": 0.013888888888888888,
+    "outsideOriginalSphereVertexSamples": 116,
+    "maxExcessGameUnits": 0.0786740122700419,
+    "originalSphereRadius": 0.5458939844267775,
+    "note": "Geometry bounds defect only; not a headset flicker measurement."
+  },
+  "sourceSha256": {
+    "src/main.ts": "7a32518b5d57e76dbb16ccd72a0e80219448f66dd0c835f84655ec5edab23b0e",
+    "src/reference/stages/goal.js": "bb4e1fb03b8d5a30be56bd346fffe309f2162793ca381dac92b234172416f5d5",
+    "src/reference/stages/hoop.js": "37b6616844299d1084e59017b34c60a84e83f3f45755024f8e99d814313ad3a2",
+    "src/rendering/render-diagnostics.ts": "76dd5d8bf88b50213f16969c12a3712cbd7f6cbf50ef0a632fb664d711662ce6",
+    "src/rendering/diagnostic-isolation.ts": "372cf61d9b5a61a94b7f3a1d67b2a1073486f40401b19d5c6da4c99bb4f2156b",
+    "src/rendering/diagnostic-options.ts": "fbb4b3be457f9d2787c264bef22dca9688499e88c21b4a76054ccbebf3206833",
+    "scripts/renderer-options-plugin.ts": "49dfe2dae4b8b9e4afc8772e4d2129fb76ad9a8fe87142646a964e0c1cbd742a",
+    "scripts/finalize-build.mjs": "b4574b1e3759c7541f66616fff76c0c88be9dd49fc0556e8e31aee82d114b15c",
+    "tests/xr/render-diagnostics.spec.ts": "7a5afebd740294bcb1bcaeac160a70abda8eac7abe5b73f1fd7faa83a6df2501",
+    "tests/unit/stage-render-bounds.test.ts": "e9a04d1d419d0ed6126ede6b59eb2a8438fe024220a71d6c748a098faef61eeb"
+  }
+}

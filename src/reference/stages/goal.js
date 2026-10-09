@@ -126,6 +126,8 @@ function buildGoal(){
         }
         for(let k=0;k<nu*nv;k++){ back.off[k]+=back.vel[k]*dt; p[k*3+2]=back.base[k*3+2]-back.off[k]; }
         back.geo.attributes.position.needsUpdate=true;
+        // The deformed net must not keep its initial culling sphere.
+        back.geo.boundingSphere=null;
       }
     };
   }

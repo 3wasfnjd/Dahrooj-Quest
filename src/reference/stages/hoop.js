@@ -37,6 +37,8 @@ function buildHoop(){
           npos[j+1]=rimC.y+dy*(1+net.stretch*k)+net.off.y*k;
           npos[j+2]=rimC.z+Math.sin(a)*rad+net.off.z*k; } }
       ngeo.attributes.position.needsUpdate=true;
+      // Vertices move after a score; let culling/raycasting rebuild current bounds on demand.
+      ngeo.boundingSphere=null;
     }
     netDraw();
     return {

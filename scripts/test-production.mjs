@@ -34,6 +34,13 @@ try {
     const cached = await page.evaluate(async () => { const names = await caches.keys(); const c = await caches.open(names.find(n => n.startsWith('dahrooj-'))); return (await c.keys()).length; });
     check(cached > 25, 'Core application assets were precached');
     result.cachedFiles = cached;
+    check(await page.locator('#render-diagnostics').count() === 0, 'Diagnostics remain absent without opt-in');
+    await page.goto('http://127.0.0.1:4173/?xrdiag=1&xrdiagStereo=separate&xrdiagAA=0');
+    await page.waitForFunction(() => !!document.querySelector('#render-diagnostics'));
+    check(await page.locator('#diag-stereo').inputValue() === 'separate', 'Production diagnostics load offline with the requested stereo comparison');
+    check(await page.locator('#diag-aa').inputValue() === '0', 'Production diagnostics expose the requested antialias comparison');
+    check(await page.evaluate(() => !window.IWER_DEVICE && !window.__DAHROOJ_REFERENCE__), 'Production diagnostics do not expose the development game bridge');
+    await page.screenshot({ path: 'reports/production/diagnostics.png' });
     await page.goto('http://127.0.0.1:4173/privacy.html');
     check((await page.locator('h1').first().textContent()).includes('سياسة الخصوصية'), 'Privacy policy remains accessible offline');
     await page.screenshot({ path: 'reports/production/offline-privacy.png' });
