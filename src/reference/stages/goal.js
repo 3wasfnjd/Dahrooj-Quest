@@ -1,8 +1,9 @@
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+import {GOAL_Z,GOAL_AIM_Z} from '../court-layout.js';
 export default function create(ctx){const {T,scene,groundLine,bar,V,S,GRAV,segCollide,pointCollide,ooh,netGrid,BR,swish,success,miss}=ctx;let {time}=ctx;
 function buildGoal(){
     const grp=new T.Group(); scene.add(grp);
-    const GW=6, GH=2.3, GD=1.8, GZ=-11, PR=0.07;
+    const GW=6, GH=2.3, GD=1.8, GZ=GOAL_Z, PR=0.07;
     groundLine(grp,-14,GZ,14,GZ);
     groundLine(grp,-GW/2-2.2,GZ,-GW/2-2.2,GZ+2.6); groundLine(grp,GW/2+2.2,GZ,GW/2+2.2,GZ+2.6); groundLine(grp,-GW/2-2.2,GZ+2.6,GW/2+2.2,GZ+2.6);
     groundLine(grp,-10,GZ,-10,GZ+9); groundLine(grp,10,GZ,10,GZ+9); groundLine(grp,-10,GZ+9,10,GZ+9);
@@ -93,7 +94,7 @@ function buildGoal(){
       }
     }
     return {
-      grp, aimZ:GZ-0.3,
+      grp, aimZ:GOAL_AIM_Z,
       ft:sp=>Math.max(0.5,Math.min(1.25,1.35-sp/2600)),
       behind:P=>P.z<GZ-0.05,
       onRespawn(){ keeperReset(); },

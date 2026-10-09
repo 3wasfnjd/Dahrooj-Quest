@@ -26,7 +26,7 @@
     {
       "file": "src/reference/stages/goal.js",
       "origin": "index.html:buildGoal",
-      "sha256": "47e288ecd2c76ea45cda538ffa5df108f5bf09369dacd9dfef262e517c4fa5c6"
+      "sha256": "fd7df86b30c69fc8775238e0d4b5657ec167ba9fcbf4fee3ac51e9e592026250"
     },
     {
       "file": "src/reference/stages/hoop.js",

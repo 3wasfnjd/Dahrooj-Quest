@@ -24,7 +24,7 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "0b2e6e0b7eb531b93b919cd0f19bf32efe225bcc1996a66133b6f6ae4df13730"
+      "sha256": "67ae7f38d56859a4bff6d5d8e8a6f95eb2795eb9100257ef386bf5baeab2da11"
     },
     {
       "path": "src/reference/game-state.js",
@@ -34,7 +34,7 @@
     {
       "path": "src/reference/stages/goal.js",
       "origin": "index.html:buildGoal",
-      "sha256": "b250c42db527f485f5b26e94df579fa26c337325849cfecca44250e07f628765"
+      "sha256": "fd7df86b30c69fc8775238e0d4b5657ec167ba9fcbf4fee3ac51e9e592026250"
     },
     {
       "path": "src/reference/stages/hoop.js",

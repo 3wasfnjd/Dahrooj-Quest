@@ -1,3 +1,4 @@
+import {summitOverrides} from './summit-overrides.mjs';
 import {visibilityOverrides} from './visibility-overrides.mjs';
 import {menuOverrides} from './menu-overrides.mjs';
 import {challengeOverrides} from './challenge-overrides.mjs';
@@ -17,7 +18,7 @@ const ast=ts.createSourceFile('reference.js',source,ts.ScriptTarget.Latest,true,
 const functions=new Map();function visit(n){if(ts.isFunctionDeclaration(n)&&n.name)functions.set(n.name.text,n.getText(ast));ts.forEachChild(n,visit)}visit(ast);
 const prefix='/* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */\n';
 const records=[];
-function write(file,text,origin){text=visibilityOverrides(file,menuOverrides(file,challengeOverrides(file,renderOverrides(file,styleOverrides(file,text)))));fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,prefix+text+'\n');records.push({file,origin,sha256:crypto.createHash('sha256').update(prefix+text+'\n').digest('hex')})}
+function write(file,text,origin){text=summitOverrides(file,visibilityOverrides(file,menuOverrides(file,challengeOverrides(file,renderOverrides(file,styleOverrides(file,text))))));fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,prefix+text+'\n');records.push({file,origin,sha256:crypto.createHash('sha256').update(prefix+text+'\n').digest('hex')})}
 function replace(s,a,b){if(!s.includes(a))throw Error('Missing source marker '+a.slice(0,80));return s.replace(a,b)}
 function body(file,marker){const s=fs.readFileSync(path.join(root,file),'utf8'),start=s.indexOf(marker);if(start<0)throw Error(marker);return s.slice(start+marker.length,s.lastIndexOf('\n  };'))}
 const faces=functions.get('drawEye')+'\n'+functions.get('drawFace');

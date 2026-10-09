@@ -1,3 +1,4 @@
+import {GOAL_AIM_Z} from './court-layout.js';
 import {createChallengeList} from './challenge-list.js';
 import {DAHROOJ_COLORS,DAHROOJ_SWATCHES} from './palette.js';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
@@ -36,8 +37,8 @@ export const createReferenceXR=(() => {
     // Summit: a model mountain on the table (AR) or on a plinth in front of you (VR).
     // The Summit's size in metres per game unit: life-size in the VR world, tabletop in AR; the right stick changes it.
     // VR: the mountain stands as far off as the goal and the other targets (about 10.5 m), a little larger to suit.
-    const CLIMB_Z=-20,CLIMB_VR=.14,CLIMB_AR=CLIMB_VR*2/8; // AR: the VR size against the court (scale 2 there, 8 here), until pinning sets it
-    let climbOn=false,climb3=null,climbSpot=null,climbUnit=CLIMB_AR;
+    const CLIMB_Z=GOAL_AIM_Z,CLIMB_VR=.14,CLIMB_AR=CLIMB_VR*2/8; // AR: the VR size against the court (scale 2 there, 8 here), until pinning sets it
+    let climbOn=false,climb3=null,climbSpot=null,climbUnit=CLIMB_AR,climbZoom=1;
     const modeNow=()=>rainOn?'rain':climbOn?'climb':g.mode();
     const rig=g.player;rig.name='xr-rig';
     const ray=new T.Raycaster(),wp=V(0,0,0),wq=new T.Quaternion(),fwd=V(0,0,0),eye=V(0,0,0),UP=V(0,1,0);
@@ -369,7 +370,7 @@ export const createReferenceXR=(() => {
       });
       c.textAlign='center';c.fillStyle='rgba(44,45,61,.66)';c.font=font(600,27);
       const hint=chOpen?[tr('X لإغلاق التحديات','X closes the challenges'),'']
-        :climbOn?[tr('العصا اليسار للحركة · A للقفز','Left stick to move · A to jump'),tr('الزناد للرمي · Y الأنماط · X التحديات','Trigger to throw · Y modes · X challenges')]
+        :climbOn?[tr('العصا اليسار للحركة · A للقفز','Left stick to move · A to jump'),tr('العصا اليمنى للحجم · الزناد للرمي','Right stick to resize · trigger to throw')]
         :rainOn?[tr('الزنادين يطلقون على الدحاريج','Either trigger shoots at the Dahroojs'),tr('Y الأنماط · X التحديات','Y modes · X challenges')]
         :throwStyle==='sling'?[tr('اسحب دحروج بالزناد اليمين ثم أفلت','Pull Dahrooj back with the right trigger, let go'),tr('A يرجّع دحروج · Y الأنماط · X التحديات','A calls him back · Y modes · X challenges')]
         :[tr('الزناد اليمين للرمي · اليسار يطلق','Right trigger throws · left trigger shoots'),tr('A يرجّع دحروج · Y الأنماط · X التحديات','A calls him back · Y modes · X challenges')];
@@ -817,7 +818,7 @@ export const createReferenceXR=(() => {
 
     /* ---------- placing the world ---------- */
     // The point of the court pinned to the surface: the target (goal mouth, hoop, window, cans).
-    const targetPoint=()=>V(0,0,g.stage().aimZ||-10);
+    const targetPoint=()=>V(0,0,climbOn?GOAL_AIM_Z:(g.stage().aimZ||-10));
     // Curve for a throw (-1..1, positive bends right). Trigger: tilt the controller sideways as you let go,
     // like spinning a frisbee. Hand: the ball follows the bend in the hand's path. Slingshot: straight.
     function curveOf(h){
@@ -839,9 +840,9 @@ export const createReferenceXR=(() => {
       const A=targetPoint();placedFor=g.mode();
       if(kind!=='immersive-ar'){
         // Every target stands as far away as the cans: you step back from the nearer ones.
-        // Bowling keeps its own lane (farZ), the Summit its own spot. The wall and the fair keep their
+        // Bowling keeps its own lane (farZ); Summit shares the goal court. The wall and the fair keep their
         // backdrop (farZ) but stand back like the rest, a little nearer (reachZ).
-        const st=g.stage(),back=st&&(st.farZ==null||st.reachZ!=null)&&!climbOn?Math.max(0,(st.aimZ??-10)-(st.reachZ??FAR_Z)):0;
+        const st=g.stage(),back=climbOn?Math.max(0,GOAL_AIM_Z-FAR_Z):st&&(st.farZ==null||st.reachZ!=null)?Math.max(0,(st.aimZ??-10)-(st.reachZ??FAR_Z)):0;
         rig.scale.setScalar(VR_SCALE);rig.rotation.set(0,0,0);rig.position.set(0,0,.5*VR_SCALE+back);
         // High over the play area, clear of the line of throw, and a little larger so it reads at a glance.
         hud.mesh.position.set(0,2.02,-3.4);hud.mesh.scale.setScalar(1.8);return;
@@ -954,7 +955,7 @@ export const createReferenceXR=(() => {
       if(climb3)climb3.show(climbOn);
       const st=g.stage();if(st&&st.grp)st.grp.visible=!climbOn;
       holder=null;parked=false;S.held=false;g.clearVolley();hud.key='';
-      // Re-place the rig either way: the Summit doesn't use the step back the other modes take.
+      // Summit uses the same court transform as Goal, independent of the previous mode.
       if(climbOn)climbSpot=null;
       if(session)place();
     }
@@ -962,8 +963,8 @@ export const createReferenceXR=(() => {
     function placeClimb(){
       let P,theta;
       if(kind==='immersive-ar'&&anchor){P=anchor.P;theta=anchor.theta;
-        // The mountain keeps the same size against the court as in VR, so pinning (and the stick before it) sizes it.
-        const u=CLIMB_VR*VR_SCALE/arScale;if(Math.abs(u-climbUnit)>1e-6){climbUnit=u;climb3.setUnit(u);hud.key='';}}
+        // Surface scale supplies the initial size; preserve the player's right-stick zoom after placement.
+        const u=clamp(CLIMB_VR*VR_SCALE/arScale*climbZoom,.012,.2);if(Math.abs(u-climbUnit)>1e-6){climbUnit=u;climb3.setUnit(u);hud.key='';}}
       else{
         // VR: the mountain stands on the ground where the goal stands, facing you, like the other modes.
         // A few centimetres up, so its own ground doesn't flicker against the stone floor.
@@ -1016,7 +1017,7 @@ export const createReferenceXR=(() => {
       lastTime=0;frames=0;
       g.respawn();
       if(opening){placing=false;beginIntro();}
-      climbSpot=null;climbUnit=mode==='immersive-ar'?CLIMB_AR:CLIMB_VR;climb3?.setUnit(climbUnit);if(climb)setClimb(true);
+      climbSpot=null;climbZoom=1;climbUnit=mode==='immersive-ar'?CLIMB_AR:CLIMB_VR;climb3?.setUnit(climbUnit);if(climb)setClimb(true);
     }
     function onEnd(){
       // IWSDK keeps its render loop.
@@ -1270,7 +1271,7 @@ export const createReferenceXR=(() => {
       stepPlaza(dt);
       // A happy pulse when a throw scores: strong in the throwing hand, softer in the other.
       {const sc=S.scoredT>0;if(sc&&!scoredBefore){buzz(lastThrower,.7,110);for(const h of hands)if(h!==lastThrower)buzz(h,.35,80);}scoredBefore=sc;}
-      if(natureOn()){eyeNow();nature.setPitch?.(g.stage().farZ??targetPoint().z,rig.position.z+3);nature.update(dt,eye);
+      if(natureOn()){eyeNow();nature.setPitch?.(climbOn?GOAL_AIM_Z:(g.stage().farZ??targetPoint().z),rig.position.z+3);nature.update(dt,eye);
         // The pond: Motri's white line where each Dahrooj meets the water, and now and then a ring as it bobs.
         if(nature.waterline){
           const wl=(p,r)=>{nature.waterline(p.x,p.y,p.z,r);if(nature.waterAt(p.x,p.z)>0&&Math.abs(p.y)<r&&Math.random()<dt*.7)nature.bob(p.x,p.z,r);};
@@ -1314,8 +1315,8 @@ export const createReferenceXR=(() => {
         if(uiBusy())continue;
         if(climbOn&&axes&&axes.length>3){
           if(h===leftHand()||!leftHand())stickX=Math.abs(axes[2])>.25?axes[2]:stickX;
-          // The right stick up and down resizes the mountain (in VR; in AR the surface sets the size).
-          if(kind!=='immersive-ar'&&h!==leftHand()&&Math.abs(axes[3])>.4){climbUnit=clamp(climbUnit*Math.exp(-axes[3]*dt*.9),.012,.2);climb3.setUnit(climbUnit);hud.key='';}
+          // Right stick up/down resizes in VR and AR without moving the rig or the confirmed anchor.
+          if(h!==leftHand()&&Math.abs(axes[3])>.4){const next=clamp(climbUnit*Math.exp(-axes[3]*dt*.9),.012,.2);if(kind==='immersive-ar')climbZoom=next*arScale/(CLIMB_VR*VR_SCALE);if(next!==climbUnit){climbUnit=next;climb3.setUnit(climbUnit);hud.key='';}}
           continue;
         }
         // AR, while choosing the spot: the right stick up makes the court bigger, down smaller.
