@@ -34,7 +34,8 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
  <p>إخفاء الشريط لا يعطّل نقرتي العصا. لتغيير مسار العينين اخرج من جلسة XR أولًا. في AR لا نضيف ثلجًا أو طبيعة غير موجودة.</p>
  <button id="diag-flicker">شاهدت الوميض</button> <button id="diag-clear">لم أشاهد الوميض</button> <button id="diag-unknown">غير متأكد</button>
  <button id="diag-export">تنزيل تقرير التشخيص</button> <button id="diag-exit">إيقاف التشخيص وإعادة التحميل</button>
- <output id="diag-status" style="display:block;margin-top:12px"></output>`;
+ <output id="diag-status" style="display:block;margin-top:12px"></output>
+ <output id="diag-resolution" style="display:block;margin-top:8px">تظهر أبعاد الرسم الفعلية هنا بعد تجربة VR أو AR والخروج من الجلسة.</output>`;
  panel.querySelectorAll('select,button').forEach(node=>(node as HTMLElement).style.cssText='font:inherit;font-size:16px;padding:7px;margin:5px;border-radius:6px;background:#ddd;color:#222;max-width:100%');
  document.getElementById('gate')!.append(panel);
  const find=<T extends HTMLElement>(id:string)=>panel.querySelector<T>('#'+id)!;
@@ -75,10 +76,13 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
  find('diag-reload').onclick=()=>reload();find('diag-exit').onclick=()=>reload(true);
  function xrSnapshot(){
   const session=xr.getSession(),views=xr.getCamera().cameras,layer=xr.getBaseLayer();
+  const layerWidth=layer&&('textureWidth' in layer?layer.textureWidth:'framebufferWidth' in layer?layer.framebufferWidth:null);
+  const layerHeight=layer&&('textureHeight' in layer?layer.textureHeight:'framebufferHeight' in layer?layer.framebufferHeight:null);
+  const mode=game.inspectRendering().kind==='immersive-vr'?'VR':'AR';
+  find('diag-resolution').textContent=`${mode} — المقياس المطلوب: ${quality.framebufferScale} | مقاس طبقة الرسم الفعلي: ${layerWidth??'غير معروف'} × ${layerHeight??'غير معروف'} بكسل`;
   return {requestedStereo:options.stereo,actualMultiview:xr.isMultiview===true,oculusMultiviewAvailable:renderer.extensions.has('OCULUS_multiview'),viewCount:views.length,
    requestedFramebufferScale:quality.framebufferScale,
-   layerWidth:layer&&('textureWidth' in layer?layer.textureWidth:'framebufferWidth' in layer?layer.framebufferWidth:null),
-   layerHeight:layer&&('textureHeight' in layer?layer.textureHeight:'framebufferHeight' in layer?layer.framebufferHeight:null),
+   layerWidth,layerHeight,
    layerType:layer?.constructor.name??null,foveation:xr.getFoveation()??null,layerFoveation:layer&&'fixedFoveation' in layer?layer.fixedFoveation:null,environmentBlendMode:session?.environmentBlendMode??null,
    depthNear:session?.renderState.depthNear??null,depthFar:session?.renderState.depthFar??null,
    views:views.map((view,index)=>({index,viewport:view.viewport?.toArray()??null,position:new Vector3().setFromMatrixPosition(view.matrixWorld).toArray(),projection:view.projectionMatrix.toArray(),near:(view as PerspectiveCamera).near,far:(view as PerspectiveCamera).far})),
