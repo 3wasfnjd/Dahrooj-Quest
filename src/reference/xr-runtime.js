@@ -30,7 +30,7 @@ export const createReferenceXR=(() => {
   let lang='ar';try{if(localStorage.getItem('dahrooj-lang')==='en')lang='en';}catch(_){}
   const tr=(ar,en)=>lang==='en'?en:ar;
   const LABEL=id=>{const m=MODES.find(m=>m[0]===id);return m?tr(m[1],m[2]):'';};
-  const INK='#2c2d3d',PAPER='#fffaf2';
+  const INK='#2c2d3d',PAPER='#d0d0d0';
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
   return g=>{
@@ -111,7 +111,7 @@ export const createReferenceXR=(() => {
     // One paper look for every pane (score board, notifications): soft shadow, cream body, a hairline edge and,
     // when given, a coloured band on the reading side.
     function paperCard(c,x,y,w,h,r,accent,rtl){
-      c.save();c.shadowColor='rgba(20,20,30,.32)';c.shadowBlur=24;c.shadowOffsetY=7;c.fillStyle='rgba(255,252,246,.96)';round(c,x,y,w,h,r);c.fill();c.restore();
+      c.save();c.shadowColor='rgba(20,20,30,.32)';c.shadowBlur=24;c.shadowOffsetY=7;c.fillStyle='rgba(184,184,184,.96)';round(c,x,y,w,h,r);c.fill();c.restore();
       if(accent){c.save();round(c,x,y,w,h,r);c.clip();c.fillStyle=accent;c.fillRect(rtl?x+w-14:x,y,14,h);c.restore();}
       c.lineWidth=3;c.strokeStyle='rgba(44,45,61,.12)';round(c,x,y,w,h,r);c.stroke();
     }
@@ -125,7 +125,7 @@ export const createReferenceXR=(() => {
       const key=placing?'placing|'+lang:['climb',ch.hearts,ch.height,ch.checkpoint,ch.again,t.title,lang].join('|');if(key===hud.key)return;hud.key=key;
       const c=hud.ctx;c.clearRect(0,0,1024,300);c.textAlign='center';c.direction=tr('rtl','ltr');
       if(placing){
-        c.fillStyle='rgba(255,252,246,.88)';round(c,62,30,900,230,46);c.fill();c.fillStyle=INK;
+        c.fillStyle='rgba(184,184,184,.88)';round(c,62,30,900,230,46);c.fill();c.fillStyle=INK;
         c.font=font(800,52);c.fillText(tr('وجّه على سطح واضغط الزناد للتثبيت','Aim at a surface and pull the trigger to pin'),512,125);
         c.font=font(700,40);c.fillStyle='rgba(44,45,61,.7)';c.fillText(tr('العصا للأعلى والأسفل تكبّر وتصغّر قبل التثبيت','Stick up and down: bigger and smaller, until you pin'),512,200);
       }else if(ch){
@@ -152,7 +152,7 @@ export const createReferenceXR=(() => {
       // The badge.
       const bx=rtl?CW-118:118,by=CH/2-4;
       c.fillStyle=accent;c.beginPath();c.arc(bx,by,56,0,7);c.fill();
-      if(n.kind==='reward'&&n.icon){c.fillStyle='rgba(255,252,246,.95)';c.beginPath();c.arc(bx,by,47,0,7);c.fill();c.save();c.translate(bx,by+5);c.scale(1.45,1.45);drawAcc(c,n.icon,0,0,false);c.restore();}
+      if(n.kind==='reward'&&n.icon){c.fillStyle='rgba(184,184,184,.95)';c.beginPath();c.arc(bx,by,47,0,7);c.fill();c.save();c.translate(bx,by+5);c.scale(1.45,1.45);drawAcc(c,n.icon,0,0,false);c.restore();}
       else if(n.kind==='challenge'){c.strokeStyle=PAPER;c.lineWidth=13;c.lineCap='round';c.lineJoin='round';c.beginPath();c.moveTo(bx-25,by+2);c.lineTo(bx-6,by+20);c.lineTo(bx+28,by-19);c.stroke();}
       else{c.fillStyle=PAPER;c.font=font(800,64);c.textAlign='center';c.fillText('!',bx,by+23);}
       // The words: what kind of message, then the message, then a hint.
@@ -266,8 +266,8 @@ export const createReferenceXR=(() => {
     // Little drawings of each reward for the buttons.
     function drawAcc(c,id,cx,cy,locked){
       c.save();c.globalAlpha*=locked?.35:1;
-      const bg=c.createRadialGradient(cx-8,cy-8,3,cx,cy,26);bg.addColorStop(0,'#f6ede0');bg.addColorStop(1,'#c9b8a2');c.fillStyle=bg;c.beginPath();c.arc(cx,cy+6,24,0,7);c.fill();
-      for(const ex of [-8,8]){c.fillStyle='#fff';c.beginPath();c.arc(cx+ex,cy+3,5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy+4,2.6,0,7);c.fill();}
+      const bg=c.createRadialGradient(cx-8,cy-8,3,cx,cy,26);bg.addColorStop(0,'#c4c4c4');bg.addColorStop(1,'#c9b8a2');c.fillStyle=bg;c.beginPath();c.arc(cx,cy+6,24,0,7);c.fill();
+      for(const ex of [-8,8]){c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx+ex,cy+3,5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy+4,2.6,0,7);c.fill();}
       if(id==='party'){c.fillStyle='#e2603f';c.beginPath();c.moveTo(cx-12,cy-14);c.lineTo(cx+12,cy-14);c.lineTo(cx+3,cy-40);c.closePath();c.fill();c.fillStyle='#f2c14e';c.beginPath();c.arc(cx+3,cy-41,4,0,7);c.fill();}
       else if(id==='glasses'){c.fillStyle='#1b2233';for(const ex of [-9,9]){c.beginPath();c.ellipse(cx+ex,cy+3,8,6,0,0,7);c.fill();}c.fillRect(cx-2,cy+1,4,2);}
       else if(id==='cap'){c.fillStyle='#c8442f';c.beginPath();c.arc(cx,cy-6,21,Math.PI,0);c.fill();c.fillRect(cx-4,cy-8,28,5);}
@@ -278,12 +278,12 @@ export const createReferenceXR=(() => {
     const STYLE_DOTS=DAHROOJ_SWATCHES;
     // Opaque paper gradient. Button highlights are composited onto this solid canvas base.
     function menuPaper(c,W,H,R){
-      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#fffcf6');gr.addColorStop(1,'#f0eae0');
+      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#a6a6a6');gr.addColorStop(1,'#969696');
       c.fillStyle=gr;round(c,6,6,W-12,H-12,R);c.fill();
       c.save();round(c,6,6,W-12,H-12,R);c.clip();
-      gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(255,255,255,.12)');gr.addColorStop(.35,'rgba(255,255,255,0)');gr.addColorStop(.62,'rgba(255,255,255,0)');gr.addColorStop(.7,'rgba(255,255,255,.04)');gr.addColorStop(.78,'rgba(255,255,255,0)');
+      gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(196,196,196,.12)');gr.addColorStop(.35,'rgba(196,196,196,0)');gr.addColorStop(.62,'rgba(196,196,196,0)');gr.addColorStop(.7,'rgba(196,196,196,.04)');gr.addColorStop(.78,'rgba(196,196,196,0)');
       c.fillStyle=gr;c.fillRect(0,0,W,H);c.restore();
-      c.lineWidth=4;c.strokeStyle='rgba(255,255,255,.85)';round(c,8,8,W-16,H-16,R-2);c.stroke();
+      c.lineWidth=4;c.strokeStyle='rgba(196,196,196,.85)';round(c,8,8,W-16,H-16,R-2);c.stroke();
       c.lineWidth=2;c.strokeStyle='rgba(44,45,61,.16)';round(c,4,4,W-8,H-8,R+2);c.stroke();
     }
     function drawMenu(hover){
@@ -305,8 +305,8 @@ export const createReferenceXR=(() => {
         c.font=font(700,30);c.fillStyle='rgba(44,45,61,.85)';c.fillText(tr(`التحديات · ${done} من ${chs.length}`,`Challenges · ${done} of ${chs.length}`),MW/2,164);
         // Reset, on the far side of the heading.
         {const b=resetBtn,hot=hover.includes(2000),armed=resetArm>0;
-          c.fillStyle=armed?'#c8442f':hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,b.h/2);c.fill();
-          if(!armed){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();}
+          c.fillStyle=armed?'#c8442f':hot?'rgba(196,196,196,.95)':'rgba(196,196,196,.55)';round(c,b.x,b.y,b.w,b.h,b.h/2);c.fill();
+          if(!armed){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(196,196,196,.9)';c.stroke();}
           c.textAlign='center';c.fillStyle=armed?PAPER:INK;c.font=font(800,armed?24:26);c.fillText(armed?tr('متأكد؟ اضغط ثانية','Sure? Press again'):tr('↺ تصفير','↺ Reset'),b.x+b.w/2,b.y+b.h/2+9);}
         challengeList.rows(chs,lang);
         const v=challengeList.view;c.fillStyle='rgba(44,45,61,.16)';c.fillRect(v.x+v.w+9,v.y,6,v.h);
@@ -317,8 +317,8 @@ export const createReferenceXR=(() => {
         const worn=wornNow();
         accButtons.forEach((b,k)=>{
           const open=accOpen(b),on=b.id===worn,hot=hover.includes(1000+k);
-          c.fillStyle=on?INK:hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,28);c.fill();
-          if(!on){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();}
+          c.fillStyle=on?INK:hot?'rgba(196,196,196,.95)':'rgba(196,196,196,.55)';round(c,b.x,b.y,b.w,b.h,28);c.fill();
+          if(!on){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(196,196,196,.9)';c.stroke();}
           if(b.id)drawAcc(c,b.id,b.x+b.w/2,b.y+52,!open);
           else{c.fillStyle=on?PAPER:INK;c.font=font(800,40);c.fillText('—',b.x+b.w/2,b.y+66);}
           c.fillStyle=on?PAPER:INK;c.font=font(700,open?21:20);c.fillText(open?tr(b.ar,b.en):tr(`يحتاج ${b.need}`,`needs ${b.need}`),b.x+b.w/2,b.y+106);
@@ -338,28 +338,28 @@ export const createReferenceXR=(() => {
         // Painted button highlights; the canvas underneath remains fully opaque.
         if(on){c.fillStyle=INK;round(c,b.x,b.y,b.w,b.h,r);c.fill();}
         else{
-          const bg=c.createLinearGradient(0,b.y,0,b.y+b.h);bg.addColorStop(0,hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.62)');bg.addColorStop(1,hot?'rgba(255,255,255,.7)':'rgba(255,255,255,.3)');
+          const bg=c.createLinearGradient(0,b.y,0,b.y+b.h);bg.addColorStop(0,hot?'rgba(196,196,196,.95)':'rgba(196,196,196,.62)');bg.addColorStop(1,hot?'rgba(196,196,196,.7)':'rgba(196,196,196,.3)');
           c.fillStyle=bg;round(c,b.x,b.y,b.w,b.h,r);c.fill();
-          c.lineWidth=2.5;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();
+          c.lineWidth=2.5;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(196,196,196,.9)';c.stroke();
         }
         if(b.kind==='style'){
           // A little Dahrooj in that style: a shaded body with two eyes.
           const [a,d]=STYLE_DOTS[b.id]||['#888','#444'],cx=b.x+b.w/2,cy=b.y+52;
           const bg=c.createRadialGradient(cx-10,cy-12,4,cx,cy,32);bg.addColorStop(0,a);bg.addColorStop(1,d);
           c.fillStyle=bg;c.beginPath();c.arc(cx,cy,30,0,7);c.fill();c.lineWidth=2;c.strokeStyle='rgba(44,45,61,.25)';c.stroke();
-          for(const ex of [-9,9]){c.fillStyle='#fff';c.beginPath();c.arc(cx+ex,cy-3,6.5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy-2,3.3,0,7);c.fill();}
+          for(const ex of [-9,9]){c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx+ex,cy-3,6.5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy-2,3.3,0,7);c.fill();}
           c.fillStyle=on?PAPER:INK;c.font=font(800,28);c.fillText(label,cx,b.y+122);
         }else if(b.kind==='shot'){
           // A little picture of the shot: a gold streak, a mini Dahrooj, a bubble, a burst.
           const cx=b.x+b.w/2,cy=b.y+46,ink=on?PAPER:INK;
           if(b.id==='bolt'){const gr=c.createLinearGradient(cx-44,cy+14,cx+40,cy-14);gr.addColorStop(0,'rgba(255,210,122,0)');gr.addColorStop(1,'#ffd27a');
-            c.strokeStyle=gr;c.lineWidth=9;c.lineCap='round';c.beginPath();c.moveTo(cx-44,cy+14);c.lineTo(cx+34,cy-12);c.stroke();c.fillStyle='#fff4d6';c.beginPath();c.arc(cx+36,cy-12,8,0,7);c.fill();}
+            c.strokeStyle=gr;c.lineWidth=9;c.lineCap='round';c.beginPath();c.moveTo(cx-44,cy+14);c.lineTo(cx+34,cy-12);c.stroke();c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx+36,cy-12,8,0,7);c.fill();}
           else if(b.id==='mini'){const bg=c.createRadialGradient(cx-6,cy-8,3,cx,cy,22);bg.addColorStop(0,DAHROOJ_SWATCHES.jelly[0]);bg.addColorStop(1,DAHROOJ_SWATCHES.jelly[1]);c.fillStyle=bg;c.beginPath();c.arc(cx,cy,22,0,7);c.fill();
             c.strokeStyle=ink;c.globalAlpha*=.35;c.lineWidth=3;c.setLineDash([3,7]);c.beginPath();c.moveTo(cx-48,cy+18);c.quadraticCurveTo(cx-34,cy-20,cx-24,cy);c.stroke();c.setLineDash([]);c.globalAlpha=1;}
-          else if(b.id==='bubble'){const bg=c.createRadialGradient(cx-8,cy-8,4,cx,cy,26);bg.addColorStop(0,'rgba(255,255,255,.9)');bg.addColorStop(.6,'rgba(190,225,255,.35)');bg.addColorStop(1,'rgba(240,170,255,.55)');
-            c.fillStyle=bg;c.beginPath();c.arc(cx,cy,26,0,7);c.fill();c.lineWidth=2.5;c.strokeStyle='rgba(120,160,220,.7)';c.stroke();c.fillStyle='#fff';c.beginPath();c.arc(cx-9,cy-10,5,0,7);c.fill();}
+          else if(b.id==='bubble'){const bg=c.createRadialGradient(cx-8,cy-8,4,cx,cy,26);bg.addColorStop(0,'rgba(196,196,196,.9)');bg.addColorStop(.6,'rgba(190,225,255,.35)');bg.addColorStop(1,'rgba(240,170,255,.55)');
+            c.fillStyle=bg;c.beginPath();c.arc(cx,cy,26,0,7);c.fill();c.lineWidth=2.5;c.strokeStyle='rgba(120,160,220,.7)';c.stroke();c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx-9,cy-10,5,0,7);c.fill();}
           else{const cols=['#e2603f','#f2c14e','#6fa8d6','#7bbf8a','#c9a2e6'];for(let k=0;k<10;k++){const a=k/10*Math.PI*2;c.strokeStyle=cols[k%5];c.lineWidth=5;c.lineCap='round';
-            c.beginPath();c.moveTo(cx+Math.cos(a)*9,cy+Math.sin(a)*9);c.lineTo(cx+Math.cos(a)*26,cy+Math.sin(a)*26);c.stroke();}c.fillStyle='#fff4d6';c.beginPath();c.arc(cx,cy,6,0,7);c.fill();}
+            c.beginPath();c.moveTo(cx+Math.cos(a)*9,cy+Math.sin(a)*9);c.lineTo(cx+Math.cos(a)*26,cy+Math.sin(a)*26);c.stroke();}c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx,cy,6,0,7);c.fill();}
           c.fillStyle=ink;c.font=font(800,label.length>8?24:28);c.fillText(label,cx,b.y+104);
         }else{
           c.fillStyle=on?PAPER:INK;c.font=font(800,label.length>10?32:38);c.fillText(label,b.x+b.w/2,b.y+b.h/2+13);
@@ -1172,7 +1172,7 @@ export const createReferenceXR=(() => {
     const plaza=new T.Group();plaza.name='xr-plaza';plaza.visible=false;menuLayer.add(plaza);
     let plazaOn=false,plazaK=0,plazaHot=-1,plazaPick=null;
     const pm=(c,o={})=>menuDepth(new T.MeshStandardMaterial({color:c,roughness:.8,...o,toneMapped:false,fog:false}));
-    const PM={cream:pm(0xfffaf2),ink:pm(0x2c2d3d),coral:pm(0xe2603f),gold:pm(0xf2c14e),leaf:pm(0x7bbf8a),wood:pm(0xc98f5c),stone:pm(0xd9a67e),brown:pm(0x7b5536),sky:pm(0x6fa8d6),grey:pm(0xb9ad9c,{metalness:.4})};
+    const PM={cream:pm(0x909090),ink:pm(0x2c2d3d),coral:pm(0xe2603f),gold:pm(0xf2c14e),leaf:pm(0x7bbf8a),wood:pm(0xc98f5c),stone:pm(0xd9a67e),brown:pm(0x7b5536),sky:pm(0x6fa8d6),grey:pm(0xb9ad9c,{metalness:.4})};
     const box=(w,h,d,m,x,y,z)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);return o;};
     const ball=(r,m,x,y,z)=>{const o=new T.Mesh(new T.SphereGeometry(r,16,12),m);o.position.set(x,y,z);return o;};
     const cyl=(r,h,m,x,y,z)=>{const o=new T.Mesh(new T.CylinderGeometry(r,r,h,14),m);o.position.set(x,y,z);return o;};
@@ -1214,7 +1214,7 @@ export const createReferenceXR=(() => {
       sh.lineTo(-w/2+r,h/2);sh.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);sh.lineTo(-w/2,-h/2+r);sh.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return new T.ShapeGeometry(sh,8);})();
     const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
       // Backdrops replace world depth only at covered pixels; miniatures then use full real depth precision.
-      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2eddf,depthWrite:true,fog:false,toneMapped:false}),true));pane.renderOrder=50;root.add(pane);
+      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xa6a6a6,depthWrite:true,fog:false,toneMapped:false}),true));pane.renderOrder=50;root.add(pane);
       const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,depthWrite:true,fog:false,toneMapped:false}),true));ring.visible=false;ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
       const m=mini(id);m.g.position.set(0,-.012,.05);m.g.scale.setScalar(1.22);root.add(m.g);
       const lc=document.createElement('canvas');lc.width=512;lc.height=192;const lt=new T.CanvasTexture(lc);lt.colorSpace=T.SRGBColorSpace;lt.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
