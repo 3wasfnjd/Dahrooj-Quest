@@ -41,12 +41,12 @@
     {
       "file": "src/reference/stages/cans.js",
       "origin": "index.html:buildCans",
-      "sha256": "da06d243bc87ac750551334239004ffcb1480a70e11111c3997b4b928232de40"
+      "sha256": "6e6d97a5b2a946b945f4b49756ce9039d8b8af9c07872596a37e88ab20783f6f"
     },
     {
       "file": "src/reference/stages/bowling.js",
       "origin": "index.html:buildBowling",
-      "sha256": "c58d87c2550ec4cd1de3b2111ea7502b4dc396531f5265fa1c5a33a134bb2d39"
+      "sha256": "2ab16e4dcd056435bc008cddc9edb98888b7aceddeca68e975a234167c7021a8"
     },
     {
       "file": "src/reference/stages/bricks.js",
@@ -56,7 +56,7 @@
     {
       "file": "src/reference/stages/fair.js",
       "origin": "index.html:buildFair",
-      "sha256": "c1d33ea5a0cf9e1a3dd90103ce8d183df622ec8ca43d647331d03c3bfe5a61ba"
+      "sha256": "35b7112950cba9bf4c579cd2713fa6f092aa10848c5c7c8b2be24177733fd077"
     },
     {
       "file": "src/reference/stage-art.js",

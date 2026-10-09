@@ -79,7 +79,7 @@ export const createReferenceXR=(() => {
     let ballModel=null;const volleyModels=[];
     function model(slot,style,face){
       if(!slot||slot.style!==style||slot.face!==face){
-        if(slot){scene.remove(slot.group);models.forget?.(slot.group);}
+        if(slot){scene.remove(slot.group);slot.dispose();}
         slot=models.make(style,{face});slot.face=face;scene.add(slot.group);
       }
       slot.setAccessory?.(wornNow());slot.group.visible=true;return slot;
@@ -226,7 +226,8 @@ export const createReferenceXR=(() => {
     const buttonShown=b=>b.kind==='time'||b.kind==='weather'?kind!=='immersive-ar':true;
     // No free play in the headset, so its challenge stays on the web.
     const headsetChallenges=()=>(g.challenges?g.challenges():[]).filter(c=>c.id!=='free25');
-    let chOpen=false,menuFresh=false,curved=false;
+    let chOpen=false,chPage=0,menuFresh=false;
+    const CH_PAGE_SIZE=8,challengePages=[{x:PAD,y:874,w:190,h:54},{x:MW-PAD-190,y:874,w:190,h:54}];
     // Rewards: every few challenges done unlocks something for Dahrooj to wear, picked under the challenges (X).
     const ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10]];
     const accButtons=ACCESSORIES.map(([id,ar,en,need],i)=>({kind:'acc',id,ar,en,need,i,y:972,w:106,h:118}));
@@ -284,7 +285,7 @@ export const createReferenceXR=(() => {
     function drawMenu(hover){
       const sky=nature?nature.settings:{time:'auto',weather:'auto'};
       const chs=headsetChallenges();
-      const key=[resetArm>0,wornNow(),doneNow,modeNow(),g.style(),throwStyle,kind,sky.time,sky.weather,hover.join(','),chOpen,lang,chs.map(c=>c.value).join(',')].join('|');if(key===menu.key)return;menu.key=key;
+      const key=[resetArm>0,wornNow(),doneNow,modeNow(),g.style(),throwStyle,kind,sky.time,sky.weather,hover.join(','),chOpen,lang,chPage,chs.map(c=>c.value).join(',')].join('|');if(key===menu.key)return;menu.key=key;
       const c=menu.ctx,VH=menuVis();c.clearRect(0,0,MW,MH);
       // Glass (see glassPane). Only the visible height of the pane is drawn (the settings are shorter than the challenges).
       glassPane(c,MW,VH,64);
@@ -302,15 +303,16 @@ export const createReferenceXR=(() => {
           c.fillStyle=armed?'#c8442f':hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,b.h/2);c.fill();
           if(!armed){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();}
           c.textAlign='center';c.fillStyle=armed?PAPER:INK;c.font=font(800,armed?24:26);c.fillText(armed?tr('متأكد؟ اضغط ثانية','Sure? Press again'):tr('↺ تصفير','↺ Reset'),b.x+b.w/2,b.y+b.h/2+9);}
-        const rowH=Math.min(64,740/Math.max(1,chs.length));
-        chs.forEach((x,k)=>{
+        const rowH=84;
+        chs.slice(chPage*CH_PAGE_SIZE,(chPage+1)*CH_PAGE_SIZE).forEach((x,k)=>{
           const y=186+k*rowH,ok=x.value>=x.goal;
           c.fillStyle=ok?'rgba(44,45,61,.9)':'rgba(255,255,255,.55)';round(c,PAD,y,IN,rowH-8,(rowH-8)/2);c.fill();
           const title=lang==='en'&&x.en?x.en:x.title,rtl=lang!=='en';
-          c.textAlign=rtl?'right':'left';c.fillStyle=ok?PAPER:INK;c.font=font(700,Math.min(28,rowH*.46));c.fillText((ok?'✓ ':'')+title,rtl?MW-PAD-24:PAD+24,y+rowH*.5+2);
-          c.textAlign=rtl?'left':'right';c.font=font(800,Math.min(26,rowH*.42));c.fillText(`${x.value}/${x.goal}`,rtl?PAD+22:MW-PAD-22,y+rowH*.5+2);
+          c.textAlign=rtl?'right':'left';c.fillStyle=ok?PAPER:INK;c.font=font(700,36);const words=((ok?'✓ ':'')+title).split(' '),lines=[];let line='';for(const word of words){const next=line?line+' '+word:word;if(line&&c.measureText(next).width>IN-136){lines.push(line);line=word;}else line=next;}if(line)lines.push(line);lines.forEach((line,i)=>c.fillText(line,rtl?MW-PAD-24:PAD+24,y+rowH/2+12+(i-(lines.length-1)/2)*36));
+          c.textAlign=rtl?'left':'right';c.font=font(800,32);c.fillText(`${x.value}/${x.goal}`,rtl?PAD+22:MW-PAD-22,y+rowH*.5+2);
           c.textAlign='center';
         });
+        challengePages.forEach((b,i)=>{c.fillStyle=hover.includes(3000+i)?'#e7d8bd':'#fffaf2';round(c,b.x,b.y,b.w,b.h,22);c.fill();c.fillStyle=INK;c.font=font(700,30);c.fillText(i?tr('التالي','Next'):tr('السابق','Previous'),b.x+b.w/2,b.y+36);});c.font=font(700,30);c.fillStyle=INK;c.fillText(tr(`${chPage+1} من ${Math.ceil(chs.length/CH_PAGE_SIZE)}`,`${chPage+1} of ${Math.ceil(chs.length/CH_PAGE_SIZE)}`),MW/2,910);
         // The rewards, under the list.
         c.textAlign='center';c.font=font(700,26);c.fillStyle='rgba(44,45,61,.85)';
         c.fillText(tr('إكسسوارات دحروج · تنفتح بالتحديات','Dahrooj\'s rewards · unlocked by challenges'),MW/2,950);
@@ -377,11 +379,13 @@ export const createReferenceXR=(() => {
     }
     function menuHit(uv){
       const x=uv.x*MW,y=(1-uv.y)*menuVis();
+      if(chOpen){const i=challengePages.findIndex(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);if(i>=0)return 3000+i;}
       if(chOpen&&x>=resetBtn.x&&x<=resetBtn.x+resetBtn.w&&y>=resetBtn.y&&y<=resetBtn.y+resetBtn.h)return 2000;
       if(chOpen){const k=accButtons.findIndex(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);return k<0?-1:1000+k;}
       return buttons.findIndex(b=>buttonShown(b)&&x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);
     }
     function menuAction(i){
+      if(i===3000||i===3001){chPage=clamp(chPage+(i===3001?1:-1),0,Math.ceil(headsetChallenges().length/CH_PAGE_SIZE)-1);menu.key='';return;}
       if(i===2000){resetPress();return;}
       if(i>=1000){const a=accButtons[i-1000];if(a)wear(a.id);return;}
       const b=buttons[i];if(!b)return;
@@ -422,7 +426,7 @@ export const createReferenceXR=(() => {
     /* ---------- the opening: Dahrooj balls rain all around you, then a start button ---------- */
     // The same rain is a mode of its own, Dahrooj Rain (rain: true): no start button, and it never stops.
     // Every ball and shot is drawn by one crowd (a handful of instanced draws), so there can be lots.
-    const INTRO_R=.11,INTRO_STYLES=['jelly','fabric','clay','fur','bubble'],CROWD_MAX=300;
+    const INTRO_R=.11,INTRO_STYLES=['jelly','fabric','clay','fur','bubble'],CROWD_MAX=120;
     const crowd=models?.crowd?models.crowd(CROWD_MAX):null;
     const introGroup=crowd?crowd.group:new T.Group();introGroup.name='xr-intro';rig.add(introGroup);
     const start=panel(.56,.28,1024,512);start.mesh.name='xr-start';start.mesh.visible=false;rig.add(start.mesh);
@@ -443,7 +447,7 @@ export const createReferenceXR=(() => {
     function beginIntro(rain=false){const st=g.stage();if(st&&st.grp)st.grp.visible=false;intro={t:0,frames:0,balls:[],shots:[],sparks:[],ready:false,leaving:0,popped:0,spawned:false,gap:0,rain,centre:null};}
     const SPARK=new T.SphereGeometry(1,8,6);let ballIds=0;
     // How many and how far: the room in mixed reality, a wider ring in the open VR world.
-    const crowdSize=()=>kind==='immersive-ar'?{n:130,R:2.6}:{n:220,R:4.4};
+    const crowdSize=()=>kind==='immersive-ar'?{n:72,R:2.6}:{n:100,R:4.4};
     const STYLE_COLORS=DAHROOJ_COLORS;
     // One ball dropping from above somewhere in the ring around you, at a random moment and size.
     function dropBall(delay){
@@ -460,13 +464,13 @@ export const createReferenceXR=(() => {
     function endIntro(){
       if(!intro||intro.leaving||intro.rain)return;
       intro.leaving=.001;start.mesh.visible=false;
-      for(const s of intro.sparks)rig.remove(s.m);intro.sparks.length=0;
+      for(const s of intro.sparks){rig.remove(s.m);s.m.material.dispose();}intro.sparks.length=0;
       placing=kind==='immersive-ar';g.respawn();
       const st=g.stage();if(st&&st.grp&&!climbOn)st.grp.visible=true;
     }
     function clearIntro(){
       if(!intro)return;
-      for(const s of intro.sparks)rig.remove(s.m);
+      for(const s of intro.sparks){rig.remove(s.m);s.m.material.dispose();}
       intro=null;if(crowd){crowd.begin();crowd.end();}start.mesh.visible=false;
       const st=g.stage();if(st&&st.grp&&!climbOn)st.grp.visible=true;
     }
@@ -494,8 +498,8 @@ export const createReferenceXR=(() => {
     // The trigger fires a shot (the blaster's, in the chosen style) along the hand's ray.
     function fireIntro(h){if(!intro||intro.leaving)return;fireBlast(h,true);}
     function popBall(b){
-      const I=intro;I.balls.splice(I.balls.indexOf(b),1);I.popped++;
-      for(let k=0;k<10;k++){
+      const I=intro;skyPop(roomPoint(b.p));I.balls.splice(I.balls.indexOf(b),1);I.popped++;
+      for(let k=0;k<10&&I.sparks.length<80;k++){
         const m=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:k%3?STYLE_COLORS[b.style]:0xfffaf2,transparent:true}));m.scale.setScalar(.012+Math.random()*.01);rig.add(m);
         const a=Math.random()*Math.PI*2,e=Math.random()*Math.PI-Math.PI/2,v=1+Math.random()*1.6;
         I.sparks.push({m,p:b.p.clone(),v:V(Math.cos(a)*Math.cos(e)*v,Math.sin(e)*v+1,Math.sin(a)*Math.cos(e)*v),t:0,max:.45+Math.random()*.3});
@@ -657,7 +661,7 @@ export const createReferenceXR=(() => {
       if(holder===h){
         holder=null;
         const u=lost?null:launch(h,S.pos);
-        if(u){const c=curveOf(h);curved=Math.abs(c)>.3;g.throwWith(toGame(u),c*CURVE_K);lastThrower=h;buzz(h,.35+Math.min(.5,u.length()/MAX_SPEED*.6),45);}else{parked=true;popT=0;S.pos.copy(updateParkSpot(forkHand()));}
+        if(u){const c=curveOf(h);g.throwWith(toGame(u),c*CURVE_K);lastThrower=h;buzz(h,.35+Math.min(.5,u.length()/MAX_SPEED*.6),45);}else{parked=true;popT=0;S.pos.copy(updateParkSpot(forkHand()));}
       }
     }
     /* ---------- shots: the left-hand blaster, and every shot in the opening and Dahrooj Rain ---------- */
@@ -687,8 +691,8 @@ export const createReferenceXR=(() => {
     const shotRay=new T.Raycaster();
     const blast={shots:[],sparks:[],popped:0,fired:0};
     function fireBlast(h,fromIntro=false){
-      if(blast.shots.length>=32)return;const kind_=styleFor(fromIntro),P=SHOT_STYLE[kind_];
-      if(clock-(h.lastShot||0)<P.cool)return;h.lastShot=clock;blast.fired++;
+      if(blast.shots.length>=16)return;const kind_=styleFor(fromIntro),P=SHOT_STYLE[kind_];
+      if(clock-(h.lastShot||0)<P.cool)return;h.lastShot=clock;blast.fired++;g.noteStyle?.();
       const {origin,dir}=rayOf(h),k=scaleNow(),p=origin.addScaledVector(dir,.08*k);
       let m=null;
       if(kind_==='bolt'){m=new T.Group();const tr=new T.Mesh(shotGeo,shotMat),hd=new T.Mesh(headGeo,headMat);
@@ -697,14 +701,14 @@ export const createReferenceXR=(() => {
       const look=INTRO_STYLES[(blast.fired)%INTRO_STYLES.length];
       blast.shots.push({kind:kind_,m,p,v:dir.clone().multiplyScalar(P.speed*k),dir:dir.clone(),t:0,r:P.r*k,look,wob:Math.random()*6,fromIntro});
       // Muzzle flash (not for a bubble).
-      if(kind_!=='bubble'){const f=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:0xffe9b0,transparent:true}));f.scale.setScalar(.05*k);f.position.copy(p);scene.add(f);
+      if(kind_!=='bubble'&&blast.sparks.length<128){const f=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:0xffe9b0,transparent:true}));f.scale.setScalar(.05*k);f.position.copy(p);scene.add(f);
         blast.sparks.push({m:f,p:p.clone(),v:V(0,0,0),t:0,max:.07,flash:true});}
       at(p,()=>kind_==='bolt'?g.pew?.():kind_==='firework'?g.whoosh(.35):g.whoosh(.18));buzz(h,kind_==='bubble'?.12:.3,22);
     }
     // A little spray of sparks where a shot lands.
     function impact(p,n,color=0xffd27a){
       const k=scaleNow();
-      for(let i=0;i<8;i++){
+      for(let i=0;i<8&&blast.sparks.length<128;i++){
         const m=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:i%2?color:0xfffaf2,transparent:true}));m.scale.setScalar((.008+Math.random()*.008)*k);scene.add(m);
         const d=V(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().addScaledVector(n,1.2).normalize().multiplyScalar((1+Math.random()*1.5)*k);
         blast.sparks.push({m,p:p.clone(),v:d,t:0,max:.25+Math.random()*.2});
@@ -713,7 +717,7 @@ export const createReferenceXR=(() => {
     // A firework's bloom: coloured sparks every way.
     function bloom(p){
       const k=scaleNow();
-      for(let i=0;i<26;i++){
+      for(let i=0;i<26&&blast.sparks.length<128;i++){
         const m=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:FIRE_COLS[i%FIRE_COLS.length],transparent:true}));m.scale.setScalar((.01+Math.random()*.01)*k);scene.add(m);
         const d=V(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar((1.6+Math.random()*1.6)*k);
         blast.sparks.push({m,p:p.clone(),v:d,t:0,max:.5+Math.random()*.35});
@@ -721,9 +725,11 @@ export const createReferenceXR=(() => {
       at(p,()=>g.popSound?.());
     }
     const shown=o=>{for(let x=o;x;x=x.parent)if(!x.visible)return false;return true;};
+    function skyPop(p){if(p.y>eyeNow().y+.25*scaleNow())g.chAdd?.('skyPop5');}
     function burst(p,style){
+      skyPop(p);
       const k=scaleNow();
-      for(let i=0;i<14;i++){
+      for(let i=0;i<14&&blast.sparks.length<128;i++){
         const m=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:i%3?STYLE_COLORS[style]||0xfffaf2:0xfffaf2,transparent:true}));m.scale.setScalar((.012+Math.random()*.012)*k);scene.add(m);
         const a=Math.random()*Math.PI*2,e=Math.random()*Math.PI-Math.PI/2,v=(1.2+Math.random()*1.8)*k;
         blast.sparks.push({m,p:p.clone(),v:V(Math.cos(a)*Math.cos(e)*v,Math.sin(e)*v+k,Math.sin(a)*Math.cos(e)*v),t:0,max:.45+Math.random()*.3});
@@ -748,7 +754,7 @@ export const createReferenceXR=(() => {
         const nearSeg=(p,rr)=>{const t=clamp(q.subVectors(p,a).dot(seg)/(len*len||1),0,1);return q.copy(a).addScaledVector(seg,t).distanceTo(p)<rr+R;};
         let done=false,popped=false;
         // Dahroojs it reaches pop.
-        for(let j=rests.length-1;j>=0;j--)if(nearSeg(rests[j].p,BR)){const r=rests[j];burst(r.p,r.style);if(r.m){scene.remove(r.m.group);models.forget?.(r.m.group);}rests.splice(j,1);popped=true;}
+        for(let j=rests.length-1;j>=0;j--)if(nearSeg(rests[j].p,BR)){const r=rests[j];burst(r.p,r.style);if(r.m){scene.remove(r.m.group);r.m.dispose();}rests.splice(j,1);popped=true;}
         const vol=g.volley();for(let j=vol.length-1;j>=0;j--)if(nearSeg(vol[j].pos,BR)){burst(vol[j].pos,g.style());vol.splice(j,1);popped=true;}
         if(S.shot&&!S.held&&nearSeg(S.pos,BR)){burst(S.pos,g.style());holder=null;g.recall();popped=true;}
         if(intro&&!intro.leaving)for(const b of [...intro.balls]){if(intro.t<b.born)continue;if(nearSeg(rig.localToWorld(ip.copy(b.p)),b.R*k)){popBall(b);popped=true;}}
@@ -787,11 +793,11 @@ export const createReferenceXR=(() => {
         if(s.kind==='firework'&&!s.wet&&(done||s.t>P.life)){
           // The burst pops every Dahrooj near it.
           const RR=P.burst*k;
-          for(let j=rests.length-1;j>=0;j--)if(rests[j].p.distanceTo(s.p)<RR+BR){const r=rests[j];burst(r.p,r.style);if(r.m){scene.remove(r.m.group);models.forget?.(r.m.group);}rests.splice(j,1);}
+          for(let j=rests.length-1;j>=0;j--)if(rests[j].p.distanceTo(s.p)<RR+BR){const r=rests[j];burst(r.p,r.style);if(r.m){scene.remove(r.m.group);r.m.dispose();}rests.splice(j,1);}
           if(intro&&!intro.leaving)for(const b of [...intro.balls]){if(intro.t<b.born)continue;if(rig.localToWorld(ip.copy(b.p)).distanceTo(s.p)<RR+b.R*k)popBall(b);}
           bloom(s.p);done=true;
         }
-        if(s.kind==='firework'&&s.m&&!done&&Math.random()<.6){const f=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:0xffc070,transparent:true}));f.scale.setScalar(.006*k);scene.add(f);
+        if(s.kind==='firework'&&s.m&&!done&&blast.sparks.length<128&&Math.random()<.6){const f=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:0xffc070,transparent:true}));f.scale.setScalar(.006*k);scene.add(f);
           blast.sparks.push({m:f,p:s.p.clone(),v:V((Math.random()-.5)*.3*k,(Math.random()-.5)*.3*k,(Math.random()-.5)*.3*k),t:0,max:.25});}
         if(s.m)s.m.position.copy(s.p);
         if(done||(s.t>P.life&&s.float==null)){if(s.m)scene.remove(s.m);if(s.kind==='bubble'&&!done)at(s.p,()=>g.popSound?.());blast.shots.splice(i,1);continue;}
@@ -803,7 +809,7 @@ export const createReferenceXR=(() => {
         if(s.t>=s.max){scene.remove(s.m);s.m.material.dispose();blast.sparks.splice(i,1);}
       }
     }
-    function clearBlast(){for(const s of [...blast.shots,...blast.sparks])if(s.m)scene.remove(s.m);blast.shots.length=blast.sparks.length=0;if(shotCrowd){shotCrowd.begin();shotCrowd.end();}}
+    function clearBlast(){for(const s of blast.shots)if(s.m)scene.remove(s.m);for(const s of blast.sparks){scene.remove(s.m);s.m.material.dispose();}blast.shots.length=blast.sparks.length=0;if(shotCrowd){shotCrowd.begin();shotCrowd.end();}}
     // A or X: Dahrooj comes back at once.
     function recall(){
       g.clearVolley();if(S.shot){holder=null;g.recall();}
@@ -1032,15 +1038,15 @@ export const createReferenceXR=(() => {
     /* ---------- thrown balls stay in the world ---------- */
     // When a throw is over, that Dahrooj stays where he stopped instead of vanishing: he rolls on,
     // bumps into the others and now and then sets off on his own. The oldest go when there are many.
-    const RESTS_MAX=36,REST_ROOM=26,rests=[];
+    const RESTS_MAX=8,REST_LIFE=12,REST_ROOM=26,rests=[];
     g.setRestHook?.((pos,vel)=>{
       if(!session||climbOn)return;
       // It keeps the reward it was wearing when it was thrown.
       const m=models?models.make(g.style(),{lite:true}):null;if(m){m.setAccessory?.(wornNow());scene.add(m.group);}
-      rests.push({m,style:g.style(),p:pos.clone(),v:vel.clone(),d:0,dv:0,wander:1.5+Math.random()*4,blink:0,next:1+Math.random()*3,mood:null,moodT:0,petT:0});
-      if(rests.length>RESTS_MAX){const o=rests.shift();if(o.m){scene.remove(o.m.group);models.forget?.(o.m.group);}}
+      rests.push({age:0,bornAt:performance.now(),m,style:g.style(),p:pos.clone(),v:vel.clone(),d:0,dv:0,wander:1.5+Math.random()*4,blink:0,next:1+Math.random()*3,mood:null,moodT:0,petT:0});
+      if(rests.length>RESTS_MAX){const o=rests.shift();if(o.m){scene.remove(o.m.group);o.m.dispose();}}
     });
-    function clearRests(){for(const r of rests)if(r.m){scene.remove(r.m.group);models.forget?.(r.m.group);}rests.length=0;}
+    function clearRests(){for(const r of rests)if(r.m){scene.remove(r.m.group);r.m.dispose();}rests.length=0;}
     // Tracks on the grass, snow and ground wherever a ball touches down or rolls.
     function markBall(p,v){
       if(!natureOn()||p.y>BR*1.2)return;
@@ -1049,6 +1055,8 @@ export const createReferenceXR=(() => {
       nature.mark(p.x,p.z,BR*(.85+Math.min(.8,hit*.08)),Math.min(.6,.12+sp*.04+hit*.06));
     }
     function stepRests(dt){
+      const now=performance.now();
+      for(let i=rests.length-1;i>=0;i--){const r=rests[i];r.age=(now-r.bornAt)/1000;if(r.age>=REST_LIFE){r.m?.dispose();rests.splice(i,1);}}
       const G=g.GRAV,cx=0,cz=-10;
       for(const r of rests){
         const p=r.p,v=r.v;v.y-=G*dt;p.addScaledVector(v,dt);
@@ -1086,7 +1094,7 @@ export const createReferenceXR=(() => {
         for(const r of rests){
           if(r.petT>0||handAt.distanceTo(r.p)>BR*1.7)continue;
           r.petT=1.4;r.mood='joy';r.moodT=1.3;r.dv-=4;if(r.p.y<=BR*1.05)r.v.y=2.2;r.blink=0;
-          at(r.p,()=>g.squeak?.(1+Math.random()*.3));buzz(h,.3,40);g.chAdd?.('pet5');
+          at(r.p,()=>g.squeak?.(1+Math.random()*.3));buzz(h,.3,40);
         }
       }
       // Shaking: the holding hand travels a long way over a quarter second but stays in one place.
@@ -1100,7 +1108,7 @@ export const createReferenceXR=(() => {
       for(const r of rests){
         if(!r.m)continue;r.m.group.visible=!climbOn&&!intro;
         const sp=Math.hypot(r.v.x,r.v.z);
-        r.m.update({pos:V(r.p.x,r.p.y-BR*Math.max(0,r.d),r.p.z),toward:eye,faceName:r.moodT>0?r.mood:sp>5?'wide':'open',blink:r.blink>0,squash:[1+r.d*.75,1-r.d]});
+        r.m.update({pos:V(r.p.x,r.p.y-BR*Math.max(0,r.d),r.p.z),toward:eye,faceName:r.moodT>0?r.mood:sp>5?'wide':'open',blink:r.blink>0,squash:[1+r.d*.75,1-r.d]});r.m.group.scale.multiplyScalar(Math.min(1,(REST_LIFE-r.age)/.75));
       }
     }
 
@@ -1253,7 +1261,7 @@ export const createReferenceXR=(() => {
       stepCards(dt);
       stepPlaza(dt);
       // A happy pulse when a throw scores: strong in the throwing hand, softer in the other.
-      {const sc=S.scoredT>0;if(sc&&!scoredBefore){if(curved&&g.mode()==='goal')g.chAdd?.('curve3');buzz(lastThrower,.7,110);for(const h of hands)if(h!==lastThrower)buzz(h,.35,80);}scoredBefore=sc;}
+      {const sc=S.scoredT>0;if(sc&&!scoredBefore){buzz(lastThrower,.7,110);for(const h of hands)if(h!==lastThrower)buzz(h,.35,80);}scoredBefore=sc;}
       if(natureOn()){eyeNow();nature.setPitch?.(g.stage().farZ??targetPoint().z,rig.position.z+3);nature.update(dt,eye);
         // The pond: Motri's white line where each Dahrooj meets the water, and now and then a ring as it bobs.
         if(nature.waterline){
@@ -1400,7 +1408,7 @@ export const createReferenceXR=(() => {
       // For tests: pin the court as if the hit test found this spot and surface normal.
       // Tests: let go of Dahrooj and drop him at P with velocity v, as if thrown there.
       ...(import.meta.env.DEV?{testDrop(P,v){parked=false;holder=null;S.held=false;S.pos.set(...P);S.vel.set(...v);S.side.set(0,0,0);S.shot=true;S.grounded=false;S.shotT=0;S.scoredT=0;S.missT=0;},
-      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {w:MW,h:menuVis(),buttons:[...buttons,...accButtons,resetBtn].map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:plazaOn,shown:plaza.visible,hot:plazaHot,ids:PLAZA.map(p=>p[0])};},setPlaza,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(pcards[i].root.position.clone())).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get throwStyle(){return throwStyle;},
+      testPin(P,n){anchor=anchorFrom(V(...P),V(...n));place();rig.updateMatrixWorld(true);placing=false;g.respawn();},}:{}),get anchor(){return anchor;},get menuLayout(){return {w:MW,h:menuVis(),buttons:[...buttons,...accButtons,resetBtn,...challengePages.map((b,i)=>({...b,kind:'challengePage',id:String(i)}))].map(b=>({...b}))};},get wearing(){return wornNow();},get card(){return cardNow&&{kind:cardNow.kind,title:cardNow.title,shown:card.mesh.visible};},get cardsWaiting(){return cards.map(n=>n.kind);},get plaza(){return {open:plazaOn,shown:plaza.visible,hot:plazaHot,ids:PLAZA.map(p=>p[0])};},setPlaza,plazaCardAt(i){return rig.worldToLocal(plaza.localToWorld(pcards[i].root.position.clone())).toArray();},notify,get rewardsDone(){return doneNow;},get blast(){return blast;},get shotStyle(){return shotStyle;},get nature(){return nature;},get ambience(){return ambience;},get climbing(){return climbOn;},get climb(){return climb3;},get opening(){return !!intro&&!intro.rain;},get rain(){return {on:rainOn,balls:intro?.rain?intro.balls.length:0,drawn:crowd?crowd.count:0};},get introBalls(){return intro?intro.balls.filter(b=>intro.t>=b.born).map(b=>b.p.toArray()):[];},get popped(){return intro?intro.popped:0;},get parked(){return parked;},get menuOpen(){return menuOpen;},get throwStyle(){return throwStyle;},
       // For tests: what each hand reports.
       ...(import.meta.env.DEV?{inspect:()=>hands.map(h=>({connected:!!h.source,hand:h.source?.handedness,samples:h.hist.length,velocity:velocity(h).toArray()}))}:{} )};
   };

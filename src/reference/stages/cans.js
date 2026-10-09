@@ -1,3 +1,4 @@
+import {createThrowAttempt} from '../challenge-rules.js';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 export default function create(ctx){const {T,scene,INK,bar,V,S,audio,sfxOut,bodyOf,shove,miss,pointCollide,BR,hit,react,GRAV,UP,addCount,chProgress,success}=ctx;let {time}=ctx;
 function buildCans(){
@@ -28,14 +29,14 @@ function buildCans(){
     }
     const samples=[];
     for(const s of [-1,1]) for(let k=0;k<8;k++){ const a=k/8*Math.PI*2; samples.push(V(Math.cos(a)*CR,s*CH/2,Math.sin(a)*CR)); }
-    let cleared=false, clangT=0, touched=false, fullShot=false, autoT=0;
+    const attempt=createThrowAttempt();let cleared=false, clangT=0, touched=false, autoT=0;
     function resetCans(){
       const g=0.006, sp=2*CR+g;
       const layout=[[-sp,0],[0,0],[sp,0],[-sp/2,1],[sp/2,1],[0,2]];
       layout.forEach(([x,row],i)=>{ const c=cans[i];
         c.x.set(x,TY+CH/2+row*(CH+0.003)+0.001,TZ); c.v.set(0,0,0); c.w.set(0,0,0); c.q.identity(); c.sleep=true; c.down=false;
         c.mesh.position.copy(c.x); c.mesh.quaternion.copy(c.q); });
-      cleared=false;
+      cleared=false;attempt.reset();
     }
     resetCans();
     const ballBody={x:S.pos,v:S.vel,w:V(0,0,0),invM:1/2.5,invI:0};
@@ -86,10 +87,11 @@ function buildCans(){
     const onTable=c=>c.x.y>TY-0.05 && Math.abs(c.x.x)<TW/2 && Math.abs(c.x.z-TZ)<TD/2;
     return {
       grp, aimZ:TZ,
-      shoot(obj,point,dir){ const c=bodyOf(cans,obj); if(!c) return false; wakeAll(); shove(c,dir,point,4.5); clang(0.7); return true; },
+      shoot(obj,point,dir){ const c=bodyOf(cans,obj); if(!c) return false; attempt.invalidate();wakeAll(); shove(c,dir,point,4.5); clang(0.7); return true; },
       ft:sp=>Math.max(0.8,Math.min(1.6,1.75-sp/2400)),
       behind:P=>P.z<TZ-0.7,
-      onRespawn(){ if(cleared) resetCans(); touched=false; fullShot=false; },
+      onRespawn(){ if(cleared) resetCans(); touched=false; },
+      onThrow(){attempt.launch(S.shotId);},
       touched:()=>touched,
       collide(){
         if(S.shot && !touched && S.pos.z<TZ-1) miss();
@@ -110,7 +112,7 @@ function buildCans(){
             n.divideScalar(d); wakeAll();
             const before=S.vel.dot(n);
             const j=contact(ballBody,c,wp.clone(),n,BR-d,0.35,0.3);
-            if(j>0){ hit(n,Math.max(0,-before)*0.7,wp.clone()); clang(Math.min(1,j/4)); if(!touched && S.shot){ touched=true; fullShot=cans.every(onTable); react('joy',1.3); } }
+            if(j>0){attempt.contact(S.shot?S.shotId:0,cans.every(c=>!c.down)); hit(n,Math.max(0,-before)*0.7,wp.clone()); clang(Math.min(1,j/4)); if(!touched && S.shot){ touched=true; react('joy',1.3); } }
           }
         }
       },
@@ -142,7 +144,7 @@ function buildCans(){
           }
         }
         for(const c of cans){ c.mesh.position.copy(c.x); c.mesh.quaternion.copy(c.q); if(!c.down && !onTable(c)){ c.down=true; addCount('cans'); } }
-        if(!cleared && cans.every(c=>!onTable(c))){ cleared=true; if(S.shot && fullShot) chProgress('cansOne',1); if(S.shot){ S.scoredT=0; S.missT=0; success(); } }
+        if(!cleared && cans.every(c=>!onTable(c))){ cleared=true; if(attempt.complete()) chProgress('cansOne',1); if(S.shot){ S.scoredT=0; S.missT=0; success(); } }
       }
     };
   }

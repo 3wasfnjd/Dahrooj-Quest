@@ -63,7 +63,7 @@ export const challenges=[
   {id:'monsters15',title:'اهزم ١٥ وحش في مرحلة القمة',     en:'Beat 15 monsters on the Summit', goal:15},
   {id:'strike1',  title:'سترايك في البولينغ',               en:'A strike in bowling', goal:1},
   {id:'crates5',  title:'فجّر ٥ صناديق في عالم النظارة',     en:'Blow up 5 crates in the headset world', goal:5},
-  {id:'pet5',     title:'ربّت على دحروج ٥ مرات في النظارة', en:'Pat Dahrooj 5 times in the headset', goal:5},
+  {id:'skyPop5',  title:'فجّر ٥ دحاريج في السماء', en:'Pop 5 Dahroojs above your head', goal:5},
   {id:'curve3',   title:'سجّل ٣ أهداف برمية ملتفة في النظارة', en:'Score 3 curved goals in the headset', goal:3},
   {id:'bricks20', title:'اكسر ٢٠ طوبة في حائط الطوب', en:'Break 20 bricks on the brick wall', goal:20},
   {id:'wall1',    title:'حطّم حائط الطوب كامل', en:'Smash the whole brick wall', goal:1},

@@ -1,3 +1,4 @@
+import {createThrowAttempt} from '../challenge-rules.js';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 export default function create(ctx){const {T,scene,V,S,audio,sfxOut,bodyOf,shove,BR,hit,miss,react,GRAV,UP,addCount,success,toast,xrOnNow,chProgress}=ctx;let {time,xrLang}=ctx;
 function buildBowling(){
@@ -41,7 +42,7 @@ function buildBowling(){
     });
     const samples=[];
     for(const y of [-CH/2,-CH/6,CH/6,CH/2]) for(let k=0;k<8;k++){ const a=k/8*Math.PI*2, r=Math.abs(y)>CH/3?CR*.8:CR; samples.push(V(Math.cos(a)*r,y,Math.sin(a)*r)); }
-    let roll=0, knocked=0, touched=false, clackT=0, struck=false, thrown=false, autoT=0;
+    const attempt=createThrowAttempt();let roll=0, knocked=0, touched=false, clackT=0, struck=false, thrown=false, autoT=0;
     const isDown=p=>p.gone||V(0,1,0).applyQuaternion(p.q).y<0.5||p.x.y<CH/2-.25;
     function setPins(all){
       pins.forEach((p,i)=>{
@@ -50,7 +51,7 @@ function buildBowling(){
         p.x.set(spots[i][0],CH/2+.001,spots[i][1]); p.v.set(0,0,0); p.w.set(0,0,0); p.q.identity(); p.sleep=true; p.down=false; p.gone=false;
         p.mesh.visible=true; p.mesh.position.copy(p.x); p.mesh.quaternion.copy(p.q);
       });
-      if(all){ roll=0; knocked=0; }
+      if(all){ roll=0; knocked=0; attempt.reset(); }
     }
     setPins(true);
     const ballBody={x:S.pos,v:S.vel,w:V(0,0,0),invM:1/2.5,invI:0};
@@ -98,11 +99,12 @@ function buildBowling(){
     const live=()=>pins.filter(p=>!p.gone);
     return {
       grp, aimZ:-9, farZ:BACK+.5, friction:0.97, shotTime:10,
-      shoot(obj,point,dir){ const p=bodyOf(pins,obj); if(!p) return false; for(const q of pins) q.sleep=false; shove(p,dir,point,4); return true; },
+      shoot(obj,point,dir){ const p=bodyOf(pins,obj); if(!p) return false; attempt.invalidate();for(const q of pins) q.sleep=false; shove(p,dir,point,4); return true; },
       pins:()=>pins.map(p=>({down:p.down,gone:p.gone,x:p.x.x,y:p.x.y,z:p.x.z})),
       frame:()=>({roll,knocked}),
       ft:sp=>Math.max(0.55,Math.min(1.1,1.2-sp/3000)),
       behind:P=>P.z<HEAD-0.4,
+      onThrow(){attempt.launch(S.shotId);},
       onRespawn(){
         // After the first roll the fallen pins are swept away; after a strike or the second roll, a fresh rack.
         if(!thrown) return;
@@ -129,7 +131,7 @@ function buildBowling(){
             n.divideScalar(d); for(const p of live()) p.sleep=false;
             const before=S.vel.dot(n);
             const j=contact(ballBody,c,wp.clone(),n,BR-d,0.3,0.3);
-            if(j>0){ hit(n,Math.max(0,-before)*0.5,wp.clone()); clack(Math.min(1,j/3)); if(!touched && S.shot){ touched=true; react('joy',1.3); } }
+            if(j>0){attempt.contact(S.shot?S.shotId:0,pins.every(p=>!p.down&&!p.gone)); hit(n,Math.max(0,-before)*0.5,wp.clone()); clack(Math.min(1,j/3)); if(!touched && S.shot){ touched=true; react('joy',1.3); } }
           }
         }
       },
@@ -167,7 +169,7 @@ function buildBowling(){
           if(c.calm>.6) c.sleep=true;
           if(!c.down && isDown(c)){ c.down=true; knocked++; addCount('bowling'); }
         }
-        if(!struck && S.shot && pins.every(p=>p.down)){ struck=true; S.scoredT=0; S.missT=0; success(); toast(xrOnNow()&&xrLang==='en'?(roll===0?'Strike!':'Spare!'):(roll===0?'سترايك!':'سبير!')); if(roll===0) chProgress('strike1',1); }
+        if(!struck && S.shot && pins.every(p=>p.down)){ struck=true; S.scoredT=0; S.missT=0; success(); toast(xrOnNow()&&xrLang==='en'?(roll===0?'Strike!':'Spare!'):(roll===0?'سترايك!':'سبير!')); if(roll===0&&attempt.complete()) chProgress('strike1',1); }
       }
     };
   }

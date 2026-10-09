@@ -8,7 +8,7 @@ export const CHALLENGES = [
     ['monsters15', 15, 'اهزم ١٥ وحشًا', 'Defeat 15 monsters'],
     ['strike1', 1, 'سترايك', 'Bowl a strike'],
     ['crates5', 5, 'فجّر ٥ صناديق', 'Explode 5 crates'],
-    ['pet5', 5, 'ربّت على دحروج ٥ مرات', 'Pat Dahrooj 5 times'],
+    ['skyPop5', 5, 'فجّر ٥ دحاريج في السماء', 'Pop 5 Dahroojs above your head'],
     ['curve3', 3, '٣ أهداف منحنية', '3 curved goals'],
     ['bricks20', 20, 'اكسر ٢٠ طوبة', 'Break 20 bricks'],
     ['wall1', 1, 'حطّم جدارًا', 'Clear a wall'],

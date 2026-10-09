@@ -1,7 +1,7 @@
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
-export function createReferenceState(ctx){const {T,V,UP,BR,GRAV,S,confetti,whoosh,thump,splash,addCount}=ctx;let stage=ctx.stage,time=0,stageName='goal',hoopStreak=0,restHook=null,waterHook=null;const xrOn=()=>true,outsideView=()=>false,aim={down:false},splats3=[],fxDash=[],VOLLEY_KEYS=['zMax','xMax','shot','shotT','scoredT','missT','mood','moodT','moodNext','idle','restT','hitT','blink','nextBlink','grounded','lastHit','prevZ','prevY','d','dv','wet'],VOLLEY_VECS=['pos','vel','side','axis'],volley=[],VOLLEY_MAX=6;function hit(n,speed,contact){const s=Math.min(1,speed/14);if(s<.05)return;S.axis.copy(n);if(S.d<0)S.d*=.3;S.dv+=4+s*16;S.lastHit=time;thump(s);if(s>.55)S.hitT=.28;}
+export function createReferenceState(ctx){const {T,V,UP,BR,GRAV,S,confetti,whoosh,thump,splash,addCount}=ctx;let stage=ctx.stage,time=0,stageName='goal',nextShotId=0,hoopStreak=0,restHook=null,waterHook=null;const xrOn=()=>true,outsideView=()=>false,aim={down:false},splats3=[],fxDash=[],VOLLEY_KEYS=['shotId','throwCurve','zMax','xMax','shot','shotT','scoredT','missT','mood','moodT','moodNext','idle','restT','hitT','blink','nextBlink','grounded','lastHit','prevZ','prevY','d','dv','wet'],VOLLEY_VECS=['pos','vel','side','axis'],volley=[],VOLLEY_MAX=3;function hit(n,speed,contact){const s=Math.min(1,speed/14);if(s<.05)return;S.axis.copy(n);if(S.d<0)S.d*=.3;S.dv+=4+s*16;S.lastHit=time;thump(s);if(s>.55)S.hitT=.28;}
 function react(kind,dur,next){ S.mood=kind; S.moodT=dur; S.moodNext=next||null; }
-function success(){ if(S.scoredT>0||S.missT>0) return; S.scoredT=1.7; react('joy',1.7); confetti.celebrate(S.pos); if(stageName==='goal'||stageName==='hoop'||stageName==='window') addCount(stageName); }
+function success(){ if(S.scoredT>0||S.missT>0) return; S.scoredT=1.7; react('joy',1.7); confetti.celebrate(S.pos); if(stageName==='goal'||stageName==='hoop'||stageName==='window') addCount(stageName); if(stageName==='goal'&&S.throwCurve)ctx.curvedGoal?.(); }
 function miss(){
     if(stageName==='hoop'){hoopStreak=0;ctx.onHoopMiss?.();}
     if(S.scoredT>0||S.missT>0) return;
@@ -20,7 +20,7 @@ function throwWith(v,curve=0){
     const sp=v.length();
     S.held=false; S.vel.copy(v); S.side.set(0,0,0);
     if(curve){ const f=V(v.x,0,v.z); if(f.lengthSq()>1e-6){ f.normalize(); S.side.set(-f.z,0,f.x).multiplyScalar(Math.max(-1,Math.min(1,curve))*9); } }
-    S.shot=true; S.shotT=0; S.grounded=false; S.prevZ=S.pos.z; S.prevY=S.pos.y;
+    S.shotId=++nextShotId; S.throwCurve=Math.abs(curve)>.12; ctx.noteStyle?.(); S.shot=true; S.shotT=0; S.grounded=false; S.prevZ=S.pos.z; S.prevY=S.pos.y;
     // In AR the player can stand far behind the court: the out-of-bounds lines follow the throw.
     S.zMax=Math.max(6,S.pos.z+3); S.xMax=Math.max(16,Math.abs(S.pos.x)+6);
     S.axis.copy(UP); S.dv-=6+Math.min(1,sp/18)*8;

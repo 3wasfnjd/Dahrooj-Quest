@@ -1,3 +1,4 @@
+import {challengeValue} from './challenge-rules.js';
 import * as Core from '@iwsdk/core';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {createReferenceXR} from './xr-runtime.js';
@@ -17,20 +18,24 @@ export function createCompleteGame(world,store){
  const sound=createReferenceSounds(),confetti=createReferenceConfetti({T,scene,camera,V,BR}),counts={goal:0,hoop:0,window:0,cans:0,bowling:0,bricks:0,fair:0,climb:0};
  let mode='goal',style=store.data.style,stage=null,runtime=null,toastMessage='',toastUntil=0,hoopStreak=0,focused=false,requested='immersive-vr';const cache=new Map(),samples=[],dtSamples=[];
  const toast=text=>{toastMessage=text;toastUntil=performance.now()+2300;};
- const chProgress=(id,value)=>{const c=challenges.find(c=>c.id===id);if(!c)return;const before=store.data.challenges[id]||0;if(value<=before)return;store.data.challenges[id]=Math.min(c.goal,value);store.touch();if(before<c.goal&&value>=c.goal){toast('✓ '+(store.data.language==='en'?c.en:c.title));sound.chime();}};
- const ctx={T,scene,camera,V,UP,BR,GRAV,S,confetti,INK:0x2c2d3d,COL:{ink:'#2c2d3d',coral:'#e2603f'},time:0,xrLang:store.data.language,counts,chState:store.data.challenges,xrOnNow:()=>!!runtime?.presenting,ar:n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]),toast,chProgress,...sound,
+ const chProgress=(id,value)=>{const c=challenges.find(c=>c.id===id);if(!c)return;const before=store.data.challenges[id]||0;const next=challengeValue(id,before,c.goal,value);if(next===before)return;store.data.challenges[id]=next;store.touch();if(before<c.goal&&value>=c.goal){toast('✓ '+(store.data.language==='en'?c.en:c.title));sound.chime();}};
+ for(const id of ['hoop3','fair25'])chProgress(id,0);
+ const resetStreak=()=>{hoopStreak=0;chProgress('hoop3',0);};
+ const noteStyle=()=>{if(!store.data.stylesUsed.includes(style))store.data.stylesUsed.push(style);chProgress('styles5',store.data.stylesUsed.length);store.touch();};
+ const ctx={noteStyle,curvedGoal:()=>chProgress('curve3',(store.data.challenges.curve3||0)+1),T,scene,camera,V,UP,BR,GRAV,S,confetti,INK:0x2c2d3d,COL:{ink:'#2c2d3d',coral:'#e2603f'},time:0,xrLang:store.data.language,counts,chState:store.data.challenges,xrOnNow:()=>!!runtime?.presenting,ar:n=>String(n).replace(/\d/g,d=>'٠١٢٣٤٥٦٧٨٩'[d]),toast,chProgress,...sound,
  addCount(m,reset){counts[m]=reset?0:counts[m]+1;if(m==='goal'&&!reset)chProgress('keeper3',(store.data.challenges.keeper3||0)+1);if(m==='hoop')chProgress('hoop3',++hoopStreak);},pushBody(){} };
- const state=createReferenceState(ctx);Object.assign(ctx,state,stageArt({...ctx,hit:state.hit}));const miss=state.miss;ctx.miss=()=>{if(mode==='hoop')hoopStreak=0;miss();};
- function setMode(id){if(!builders[id])return;state.clearVolley();if(stage)stage.grp.visible=false;mode=id;if(!cache.has(id)){ctx.audio=sound.context;cache.set(id,builders[id](ctx));}stage=cache.get(id);stage.grp.visible=true;state.setStage(stage,id);}
- function setStyle(id){if(!['jelly','fabric','clay','fur','bubble'].includes(id))return;style=id;store.data.style=id;if(!store.data.stylesUsed.includes(id))store.data.stylesUsed.push(id);chProgress('styles5',store.data.stylesUsed.length);store.touch();}
- ctx.onHoopMiss=()=>{hoopStreak=0;};
+ const state=createReferenceState(ctx);Object.assign(ctx,state,stageArt({...ctx,hit:state.hit}));const miss=state.miss;ctx.miss=()=>{if(mode==='hoop')resetStreak();miss();};
+ function setMode(id){if(!builders[id])return;if(mode!==id)resetStreak();state.clearVolley();if(stage)stage.grp.visible=false;mode=id;if(!cache.has(id)){ctx.audio=sound.context;cache.set(id,builders[id](ctx));}stage=cache.get(id);stage.grp.visible=true;state.setStage(stage,id);}
+ function setStyle(id){if(!['jelly','fabric','clay','fur','bubble'].includes(id))return;style=id;store.data.style=id;store.touch();}
+ ctx.onHoopMiss=resetStreak;
  function focus(on){if(focused===on)return;focused=on;sound.focus(on);if(!on)void store.flush();}
  const g={T,scene,camera,renderer,player:world.player,getSession:()=>renderer.xr.getSession(),S,V,UP,BR,GRAV,ground,hemi,sun,lineMat:ctx.lineMat,...sound,...state,focus,
  language:()=>store.data.language,stage:()=>stage,stageName:()=>mode,mode:()=>mode,style:()=>style,setMode,setStyle,drawFace:drawReferenceFace,
  step(dt){ctx.xrLang=store.data.language;state.step(dt);confetti.update(dt);},render(){},resize(){},bump:sound.thump,audio:()=>sound.context,
  shootStage:(o,p,d)=>!!stage?.shoot?.(o,p,d),toast,climbCore,
  climbEvent(e){if(['pop','stomp','kill'].includes(e.type))sound.startPopSound();if(['stomp','kill'].includes(e.type))chProgress('monsters15',(store.data.challenges.monsters15||0)+1);if(e.type==='checkpoint'){sound.chime();toast('نقطة حفظ ✓');}if(e.type==='summit'){sound.chime();ctx.addCount('climb');chProgress('summit1',1);const m=Math.floor(e.time/60),s=Math.round(e.time%60);toast(`وصلت القمة في ${m?ctx.ar(m)+' د ':''}${ctx.ar(s)} ث`);}},
- recall(){if(S.shot&&S.scoredT<=0&&S.missT<=0&&mode==='hoop')hoopStreak=0;state.respawn();},canHold:()=>!S.shot&&!S.scoredT&&!S.missT,
+ recall(){if(S.shot&&S.scoredT<=0&&S.missT<=0&&mode==='hoop')resetStreak();state.respawn();},canHold:()=>!S.shot&&!S.scoredT&&!S.missT,
+ noteStyle,
  challenges:()=>challenges.map(c=>({...c,value:Math.min(c.goal,store.data.challenges[c.id]||0)})),chAdd:id=>chProgress(id,(store.data.challenges[id]||0)+1),
  resetChallenges(){for(const k of Object.keys(store.data.challenges))delete store.data.challenges[k];store.data.stylesUsed=[];hoopStreak=0;store.touch();},
  setLang(lang){store.data.language=lang;store.touch();},texts:()=>({count:counts[mode],toast:performance.now()<toastUntil?toastMessage:'',title:''}),paper:()=>({jelly:'#ddd2c1',fabric:'#bccab1',clay:'#dcae88',fur:'#e3bcae',bubble:'#b1cade'}[style]),

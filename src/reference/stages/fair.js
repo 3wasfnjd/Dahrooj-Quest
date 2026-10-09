@@ -61,8 +61,8 @@ function buildFair(){
         o.type='sine'; o.frequency.value=f; g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(a,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+1.2);
         o.connect(g).connect(out); o.start(t); o.stop(t+1.25); }
     }
-    function score(pts){
-      const curved=S.side.lengthSq()>1;
+    function score(pts,curved=false){
+      if(!F.on||F.time<=0)return;
       if(curved) pts*=2;
       F.score+=pts; for(let i=0;i<pts;i++) addCount('fair');
       chProgress('fair25',F.score);
@@ -119,6 +119,7 @@ function buildFair(){
     return {
       grp, aimZ:FZ, farZ:FZ-1.5, reachZ:-18.5,
       shoot(obj,point,dir){
+        if(!F.on&&F.over<=0){F.on=true;F.time=ROUND;F.score=0;counts.fair=0;chProgress('fair25',0);}if(!F.on)return false;
         const owns=root=>{ for(let x=obj;x;x=x.parent) if(x===root) return true; return false; };
         for(const d of ducks) if(d.down<=0&&owns(d.g)){ launchDuck(d,dir||V(0,0,-1),6.5); squeak(1.35); score(1); return true; }
         for(const b of balloons) if(b.popT<=0&&owns(b.m)){ b.popT=2.2; startPopSound(); confetti.celebrate(b.m.position.clone()); score(2); return true; }
@@ -130,15 +131,15 @@ function buildFair(){
       shotTime:4,
       touched:()=>F.touched,
       onRespawn(){ F.touched=false; },
-      onThrow(){ if(!F.on&&F.over<=0){ F.on=true; F.time=ROUND; F.score=0; counts.fair=0; } },
+      onThrow(){ if(!F.on&&F.over<=0){ F.on=true; F.time=ROUND; F.score=0; counts.fair=0;chProgress('fair25',0); } },
       collide(){
         const P=S.pos;
-        if(!S.shot) return;
-        if(!F.on&&F.over<=0){ F.on=true; F.time=ROUND; F.score=0; counts.fair=0; }
+        if(!S.shot||F.over>0) return;
+        if(!F.on&&F.over<=0){ F.on=true; F.time=ROUND; F.score=0; counts.fair=0;chProgress('fair25',0); }
         for(const d of ducks){ if(d.down>0) continue; d.g.getWorldPosition(wp); wp.y+=0.08;
-          if(sphereHit(wp,d.r,true)){ launchDuck(d,S.vel.clone().normalize(),Math.min(9,S.vel.length()*.55)+3); F.touched=true; squeak(1.35); thump(0.4); score(1); } }
-        for(const b of balloons){ if(b.popT>0) continue; if(sphereHit(b.m.position,b.r,false)){ b.popT=2.2; F.touched=true; startPopSound(); confetti.celebrate(b.m.position.clone()); score(2); } }
-        bellM.getWorldPosition(wp); if(F.swing<0.3&&sphereHit(wp,0.3,true)){ F.swing=1; F.touched=true; ding(); F.bellHits++; chProgress('bell3',(chState.bell3||0)+1); score(5); }
+          if(sphereHit(wp,d.r,true)){ launchDuck(d,S.vel.clone().normalize(),Math.min(9,S.vel.length()*.55)+3); F.touched=true; squeak(1.35); thump(0.4); score(1,S.throwCurve); } }
+        for(const b of balloons){ if(b.popT>0) continue; if(sphereHit(b.m.position,b.r,false)){ b.popT=2.2; F.touched=true; startPopSound(); confetti.celebrate(b.m.position.clone()); score(2,S.throwCurve); } }
+        bellM.getWorldPosition(wp); if(F.swing<0.3&&sphereHit(wp,0.3,true)){ F.swing=1; F.touched=true; ding(); F.bellHits++; chProgress('bell3',(chState.bell3||0)+1); score(5,S.throwCurve); }
         // The stall: the back panel and the counter bounce him back.
         if(P.z-BR<FZ-0.97&&P.z>FZ-1.6&&Math.abs(P.x)<3.2&&P.y<2.6){ P.z=FZ-0.97+BR; if(S.vel.z<0){ hit(V(0,0,1),-S.vel.z,V(P.x,P.y,FZ-0.97)); S.vel.z=-S.vel.z*0.5; S.side.set(0,0,0); } }
         if(Math.abs(P.x)<3.3&&P.z>FZ-0.3&&P.z<FZ+0.7&&P.y-BR<CY+0.08&&P.y>CY-0.3){ P.y=CY+0.08+BR; if(S.vel.y<0){ hit(UP,-S.vel.y,V(P.x,CY+0.08,P.z)); S.vel.y=-S.vel.y*0.45; } }

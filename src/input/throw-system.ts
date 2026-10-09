@@ -65,7 +65,6 @@ export class ThrowSystem extends createSystem({}) {
         // Stroking the held character with the other controller is the pet interaction.
         if (l.tracked && l.position.distanceToSquared(r.position) < 0.2 ** 2 && b.pet <= 0) {
             b.pet = 1.5;
-            c.store.progress('pet5');
             b.visual.expression = 'joy';
             pulse(l, 0.12, 20);
         }

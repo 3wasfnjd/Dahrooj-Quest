@@ -24,12 +24,12 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "90436d8bc9baf1dd6e802efcbd34a231fabb8944cf01e8f73c3ee5ed5653ec71"
+      "sha256": "d8857a2239c86a2179910fba7db487060aa1b76f31fe5000edad61770dc0d625"
     },
     {
       "path": "src/reference/game-state.js",
       "origin": "index.html:headset main ball / volleys / scoring",
-      "sha256": "af87c186a5b2507d2457119a80ef35bca70793df7fae1d631fbc898de6410af8"
+      "sha256": "65599dd488167b3d3e88d8c949442f7e2d770c5f2a0f9b46a12c0dc4805e1994"
     },
     {
       "path": "src/reference/stages/goal.js",
@@ -49,12 +49,12 @@
     {
       "path": "src/reference/stages/cans.js",
       "origin": "index.html:buildCans",
-      "sha256": "a892d10b2dd2dad5313e92f155d277d2d4c5a8bea1b3ff5763906f792a3d66d3"
+      "sha256": "6e6d97a5b2a946b945f4b49756ce9039d8b8af9c07872596a37e88ab20783f6f"
     },
     {
       "path": "src/reference/stages/bowling.js",
       "origin": "index.html:buildBowling",
-      "sha256": "cbf39874fd42e244cd9973dc9204f2370337104c87618f8931a33b08699948d0"
+      "sha256": "2ab16e4dcd056435bc008cddc9edb98888b7aceddeca68e975a234167c7021a8"
     },
     {
       "path": "src/reference/stages/bricks.js",
@@ -64,7 +64,7 @@
     {
       "path": "src/reference/stages/fair.js",
       "origin": "index.html:buildFair",
-      "sha256": "525c615a3067e66ec7e26097936cd5030054d1a3244beecc179a0a6cbb28925b"
+      "sha256": "35b7112950cba9bf4c579cd2713fa6f092aa10848c5c7c8b2be24177733fd077"
     },
     {
       "path": "src/reference/mountain-complete.js",
@@ -74,7 +74,7 @@
     {
       "path": "src/reference/celebration.js",
       "origin": "index.html:confetti/CHALLENGES",
-      "sha256": "cb378cb9c9238cc37a7096b93d775e3b2009d244aeddec2f50e6f7172ebd9cd0"
+      "sha256": "31e98ea32ecc7898057e2198e94d0ec2549251dab87dcc900ab830d6358544d2"
     }
   ],
   "styleOverride": "2026-10-09: owner requested pink jelly, purple fabric, orange clay; fabric and clay are plain color without woven or fingerprint maps. scripts/style-overrides.mjs"
