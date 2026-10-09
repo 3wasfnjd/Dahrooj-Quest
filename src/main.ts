@@ -4,6 +4,8 @@ import {SaveStore} from './save/store';
 import {createCompleteGame} from './reference/complete-game.js';
 import {readDiagnosticOptions} from './rendering/diagnostic-options';
 import {prepareXRQuality,readXRQualityOptions} from './rendering/diagnostic-quality';
+import {automaticQualityEnabled} from './rendering/auto-quality-bridge';
+import {attachAutomaticQuality} from './rendering/automatic-quality';
 const status = document.getElementById('status')!, vr = document.getElementById('enter-vr') as HTMLButtonElement, ar = document.getElementById('enter-ar') as HTMLButtonElement;
 async function boot() {
     if (import.meta.env.DEV && import.meta.env.VITE_XR_AUTOMATION === '1') {
@@ -30,12 +32,14 @@ async function boot() {
     const game=createCompleteGame(world,store);
     const diagnosticOptions=readDiagnosticOptions(location.search);
     const qualityOptions=readXRQualityOptions(location.search);
+    const automatic=automaticQualityEnabled(location.search)?attachAutomaticQuality(world,()=>game.inspectRendering().mode):null;
+    if(automatic)world.addCleanup(()=>automatic.dispose());
     const diagnostics=diagnosticOptions.enabled?(await import('./rendering/render-diagnostics')).attachRenderDiagnostics(world,game,diagnosticOptions):null;
     const supports = await Promise.allSettled([navigator.xr?.isSessionSupported('immersive-vr'), navigator.xr?.isSessionSupported('immersive-ar')]);
     vr.disabled = !(supports[0].status === 'fulfilled' && supports[0].value);
     ar.disabled = !(supports[1].status === 'fulfilled' && supports[1].value);
     status.textContent = store.warning || (vr.disabled && ar.disabled ? 'افتح الرابط في Meta Quest Browser للعب. / Open in Meta Quest Browser.' : 'جاهز للرمي. اختر VR أو MR. / Ready. Choose VR or MR.');
-    const enter = (mode: SessionMode) => { status.textContent = 'جارٍ فتح جلسة XR… / Starting XR…'; prepareXRQuality(world.renderer.xr,qualityOptions); game.start(mode); const started = performance.now(); const timer = setInterval(() => { if (world.renderer.xr.isPresenting) {
+    const enter = (mode: SessionMode) => { status.textContent = 'جارٍ فتح جلسة XR… / Starting XR…'; automatic?.prepare(mode); prepareXRQuality(world.renderer.xr,qualityOptions); game.start(mode); const started = performance.now(); const timer = setInterval(() => { if (world.renderer.xr.isPresenting) {
         clearInterval(timer);
         status.textContent = 'جاهز / Ready';
     }
@@ -45,7 +49,12 @@ async function boot() {
     } }, 500); };
     vr.onclick = () => enter(SessionMode.ImmersiveVR);
     ar.onclick = () => enter(SessionMode.ImmersiveAR);
-    document.getElementById('export-performance')!.onclick = () => diagnostics?diagnostics.download():game.export();
+    document.getElementById('export-performance')!.onclick = () => {
+        if(diagnostics){diagnostics.download();return;}
+        if(!automatic){game.export();return;}
+        const href=URL.createObjectURL(new Blob([JSON.stringify({game:game.report(),automaticQuality:automatic.report()},null,2)],{type:'application/json'}));
+        const a=document.createElement('a');a.href=href;a.download='dahrooj-auto-quality.json';a.click();setTimeout(()=>URL.revokeObjectURL(href),1000);
+    };
     document.getElementById('reset-save')!.onclick = async () => { if (confirm('حذف التقدم والإعدادات المحلية؟ Delete local progress and settings?')) {
         await store.reset();
         location.reload();
