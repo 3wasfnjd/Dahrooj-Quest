@@ -4,9 +4,9 @@ export interface XRQualityOptions {foveation:number;framebufferScale:number}
 
 // Explicit, bounded experiments only. Removing xrdiag restores shipped quality.
 export function readXRQualityOptions(search:string):XRQualityOptions{
- const query=new URLSearchParams(search),enabled=query.get('xrdiag')==='1';
+ const query=new URLSearchParams(search),enabled=query.get('xrdiag')==='1',requestedScale=Number(query.get('xrdiagScale'));
  return {foveation:enabled&&query.get('xrdiagFoveation')==='0'?0:.6,
-  framebufferScale:enabled&&query.get('xrdiagScale')==='1.25'?1.25:1};
+  framebufferScale:enabled&&[1.25,1.5,2].includes(requestedScale)?requestedScale:1};
 }
 
 export function prepareXRQuality(xr:Pick<WebXRManager,'isPresenting'|'setFramebufferScaleFactor'>,quality:XRQualityOptions){
