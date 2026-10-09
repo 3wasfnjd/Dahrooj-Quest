@@ -1,6 +1,7 @@
 import {CanvasTexture,Group,Mesh,MeshBasicMaterial,NoBlending,PlaneGeometry,SRGBColorSpace,Vector3,type World,type PerspectiveCamera,type WebXRManager} from '@iwsdk/core';
 import type {CompleteGame} from '../reference/complete-game.js';
 import type {DiagnosticOptions} from './diagnostic-options';
+import {diagnosticFoveation,readXRQualityOptions} from './diagnostic-quality';
 import {DIAGNOSTIC_PRESETS,initialDiagnosticView,withRenderIsolation,type DiagnosticPreset} from './diagnostic-isolation';
 
 type XRRenderer = WebXRManager & {isMultiview?:boolean};
@@ -16,6 +17,7 @@ function summary(values:number[]){
 export function attachRenderDiagnostics(world:World,game:CompleteGame,options:DiagnosticOptions){
  const {renderer,scene,camera}=world,xr=renderer.xr as XRRenderer;
  const initial=initialDiagnosticView(location.search);
+ const quality=readXRQualityOptions(location.search);
  let preset:DiagnosticPreset=initial.preset,badgeShown=initial.badgeShown,leftDown=false,rightDown=false,lastTime:number|undefined,lastBadge='',build:unknown=null,lastXR:unknown=null;
  const runs:Run[]=[],observations:unknown[]=[],errors:unknown[]=[];
  let lastState:ReturnType<typeof stateRecord>|null=null;
@@ -66,7 +68,7 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
  function reload(disable=false){
   if(xr.isPresenting){find('diag-status').textContent='اخرج من جلسة XR قبل إعادة التحميل.';return;}
   const url=new URL(location.href);
-  if(disable){for(const key of ['xrdiag','xrdiagStereo','xrdiagAA','xrdiagPreset','xrdiagBadge'])url.searchParams.delete(key);}
+  if(disable){for(const key of ['xrdiag','xrdiagStereo','xrdiagAA','xrdiagPreset','xrdiagBadge','xrdiagFoveation','xrdiagScale'])url.searchParams.delete(key);}
   else{url.searchParams.set('xrdiag','1');url.searchParams.set('xrdiagStereo',find<HTMLSelectElement>('diag-stereo').value);url.searchParams.set('xrdiagAA',find<HTMLSelectElement>('diag-aa').value);url.searchParams.set('xrdiagPreset',preset);url.searchParams.set('xrdiagBadge',badgeShown?'1':'0');}
   location.assign(url.href);
  }
@@ -74,6 +76,9 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
  function xrSnapshot(){
   const session=xr.getSession(),views=xr.getCamera().cameras,layer=xr.getBaseLayer();
   return {requestedStereo:options.stereo,actualMultiview:xr.isMultiview===true,oculusMultiviewAvailable:renderer.extensions.has('OCULUS_multiview'),viewCount:views.length,
+   requestedFramebufferScale:quality.framebufferScale,
+   layerWidth:layer&&('textureWidth' in layer?layer.textureWidth:'framebufferWidth' in layer?layer.framebufferWidth:null),
+   layerHeight:layer&&('textureHeight' in layer?layer.textureHeight:'framebufferHeight' in layer?layer.framebufferHeight:null),
    layerType:layer?.constructor.name??null,foveation:xr.getFoveation()??null,layerFoveation:layer&&'fixedFoveation' in layer?layer.fixedFoveation:null,environmentBlendMode:session?.environmentBlendMode??null,
    depthNear:session?.renderState.depthNear??null,depthFar:session?.renderState.depthFar??null,
    views:views.map((view,index)=>({index,viewport:view.viewport?.toArray()??null,position:new Vector3().setFromMatrixPosition(view.matrixWorld).toArray(),projection:view.projectionMatrix.toArray(),near:(view as PerspectiveCamera).near,far:(view as PerspectiveCamera).far})),
@@ -103,7 +108,7 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
  const diagnosticRender:typeof renderer.render=function(renderScene,renderCamera){
   if(renderScene!==scene||!xr.isPresenting||xr.getSession()?.visibilityState!=='visible')return originalRender.call(renderer,renderScene,renderCamera);
   const start=performance.now(),state=game.inspectRendering();
-  const foveation=preset==='no-foveation'?0:.6;if(xr.getFoveation()!==foveation)xr.setFoveation(foveation);
+  const foveation=diagnosticFoveation(preset,quality);if(xr.getFoveation()!==foveation)xr.setFoveation(foveation);
   updateBadge();
   const changed=JSON.stringify(lastState)!==JSON.stringify(stateRecord());lastState=stateRecord();
   try{return withRenderIsolation(scene,preset,{...state,menu:scene.getObjectByName('xr-menu-layer'),badge},()=>originalRender.call(renderer,renderScene,renderCamera));}
@@ -125,7 +130,7 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
   if(previousShaderError)previousShaderError(gl,program,vertex,fragment);else console.error('XR diagnostic shader error',errors.at(-1));
  };
  renderer.debug.onShaderError=shaderError;
- function report(){return {schema:1,createdAt:new Date().toISOString(),build,options,userAgent:navigator.userAgent,
+ function report(){return {schema:1,createdAt:new Date().toISOString(),build,options,quality,userAgent:navigator.userAgent,
   hardwareConfirmation:null,conclusion:'No automatic claim about headset flicker. User observations are separate from software measurements.',
   sampleLimitPerRun:limit,runLimit:80,observationLimit:96,lastXR,runs:runs.map(({key:_key,intervals,renderMs,...run})=>({...run,frameIntervalMs:summary(intervals),cpuRenderMs:summary(renderMs)})),observations,errors};}
  function download(){const href=URL.createObjectURL(new Blob([JSON.stringify(report(),null,2)],{type:'application/json'})),a=document.createElement('a');a.href=href;a.download='dahrooj-render-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(href),1000);}

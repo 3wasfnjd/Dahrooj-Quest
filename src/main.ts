@@ -3,6 +3,7 @@ import {AssetManager, World, SessionMode, ReferenceSpaceType} from '@iwsdk/core'
 import {SaveStore} from './save/store';
 import {createCompleteGame} from './reference/complete-game.js';
 import {readDiagnosticOptions} from './rendering/diagnostic-options';
+import {prepareXRQuality,readXRQualityOptions} from './rendering/diagnostic-quality';
 const status = document.getElementById('status')!, vr = document.getElementById('enter-vr') as HTMLButtonElement, ar = document.getElementById('enter-ar') as HTMLButtonElement;
 async function boot() {
     if (import.meta.env.DEV && import.meta.env.VITE_XR_AUTOMATION === '1') {
@@ -28,12 +29,13 @@ async function boot() {
     world.renderer.xr.setFoveation(0.6);
     const game=createCompleteGame(world,store);
     const diagnosticOptions=readDiagnosticOptions(location.search);
+    const qualityOptions=readXRQualityOptions(location.search);
     const diagnostics=diagnosticOptions.enabled?(await import('./rendering/render-diagnostics')).attachRenderDiagnostics(world,game,diagnosticOptions):null;
     const supports = await Promise.allSettled([navigator.xr?.isSessionSupported('immersive-vr'), navigator.xr?.isSessionSupported('immersive-ar')]);
     vr.disabled = !(supports[0].status === 'fulfilled' && supports[0].value);
     ar.disabled = !(supports[1].status === 'fulfilled' && supports[1].value);
     status.textContent = store.warning || (vr.disabled && ar.disabled ? 'افتح الرابط في Meta Quest Browser للعب. / Open in Meta Quest Browser.' : 'جاهز للرمي. اختر VR أو MR. / Ready. Choose VR or MR.');
-    const enter = (mode: SessionMode) => { status.textContent = 'جارٍ فتح جلسة XR… / Starting XR…'; game.start(mode); const started = performance.now(); const timer = setInterval(() => { if (world.renderer.xr.isPresenting) {
+    const enter = (mode: SessionMode) => { status.textContent = 'جارٍ فتح جلسة XR… / Starting XR…'; prepareXRQuality(world.renderer.xr,qualityOptions); game.start(mode); const started = performance.now(); const timer = setInterval(() => { if (world.renderer.xr.isPresenting) {
         clearInterval(timer);
         status.textContent = 'جاهز / Ready';
     }

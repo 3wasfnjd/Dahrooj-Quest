@@ -43,10 +43,10 @@ for(const kind of ['vr','ar'])test(`${kind}: isolate goal, hoop and window while
  }
  await choose('no-foveation');await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.renderer.xr.getFoveation()===0);
  await choose('baseline');await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.renderer.xr.getFoveation()===.6);
- await button('left','thumbstick');expect(await page.locator('#diag-preset').inputValue()).toBe('no-particles');
+ await button('left','thumbstick');expect(await page.locator('#diag-preset').inputValue()).toBe('no-world');
  // Holding a stick click cannot keep advancing the comparison.
  await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('thumbstick',1));await page.waitForTimeout(600);
- expect(await page.locator('#diag-preset').inputValue()).toBe('no-snow-ground');
+ expect(await page.locator('#diag-preset').inputValue()).toBe('no-particles');
  await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('thumbstick',0));
  await button('right','thumbstick');
  await page.screenshot({path:info.outputPath('diagnostics-'+kind+'.png')});
