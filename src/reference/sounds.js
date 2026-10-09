@@ -1,6 +1,7 @@
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 import {createReferenceMusic} from './music.js';
-export function createReferenceSounds(){let audio=null,soundAt=null,soundRef=1,sfxBus=null,music=null,musicGain=null;
+import {createFireworkAudio} from './firework-audio';
+export function createReferenceSounds(){let audio=null,soundAt=null,soundRef=1,sfxBus=null,music=null,musicGain=null,fireworks=null;
 function sfxDest(){
   if(sfxBus&&sfxBus.context===audio) return sfxBus;
   const g=audio.createGain(); g.gain.value=2.2;
@@ -22,7 +23,7 @@ function setListener(pos,fwd,up,ref){
   else { L.setPosition(pos.x,pos.y,pos.z); L.setOrientation(fwd.x,fwd.y,fwd.z,up.x,up.y,up.z); }
 }
 function ensureAudio(){
-  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)()}catch(_){}}
+  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)();fireworks=createFireworkAudio(audio,sfxOut);void fireworks.load();}catch(_){}}
   else if(audio.state==='suspended') audio.resume();
 }
 function thump(s){
@@ -104,4 +105,6 @@ function startPopSound(){
   g.gain.setValueAtTime(.065,t);g.gain.exponentialRampToValueAtTime(.0001,t+.1);
   o.connect(g).connect(sfxOut());o.start(t);o.stop(t+.11);
 }
-return {sfxDest,sfxOut,playAt,setListener,ensureAudio,thump,squeak,pew,splash,boom,whoosh,swish,chime,startPopSound,get context(){return audio;},unlock(){ensureAudio();if(audio&&!music){musicGain=audio.createGain();musicGain.gain.value=.067;musicGain.connect(audio.destination);music=createReferenceMusic(audio,musicGain);music.start();}},focus(on){if(audio)(on?audio.resume():audio.suspend()).catch(()=>{});}};}
+function fireworkLaunch(){if(fireworks?.play('launch'))return true;whoosh(.35);return false;}
+function fireworkBurst(){if(fireworks?.play('burst'))return true;startPopSound();return false;}
+return {sfxDest,sfxOut,playAt,setListener,ensureAudio,thump,squeak,pew,splash,boom,whoosh,swish,chime,startPopSound,fireworkLaunch,fireworkBurst,get context(){return audio;},unlock(){ensureAudio();if(audio&&!music){musicGain=audio.createGain();musicGain.gain.value=.067;musicGain.connect(audio.destination);music=createReferenceMusic(audio,musicGain);music.start();}},focus(on){if(!on)fireworks?.clear();if(audio)(on?audio.resume():audio.suspend()).catch(()=>{});}};}

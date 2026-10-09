@@ -1,0 +1,22 @@
+Whistle and Explosion Single_Firework
+Author: Rudmer_Rotteveel
+Published: 2016-02-10
+Source: https://freesound.org/people/Rudmer_Rotteveel/sounds/336008/
+Author's license: CC0 1.0 Universal
+License: https://creativecommons.org/publicdomain/zero/1.0/
+Legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+Verified on: 2026-10-09
+
+CC0 permits commercial use, modification and redistribution. Attribution is not
+required; this credit is retained for provenance. No endorsement is implied.
+
+The public HQ preview of the author's recording was used:
+https://cdn.freesound.org/previews/336/336008_4921277-hq.mp3
+Source SHA-256: 662c9cc0565d1256f29145a2ceca6868815df2a193c36cbb1e55858602dc0fa2
+
+Dahrooj edits: mono 44.1 kHz / 64 kbps MP3; two short separate cues.
+firework-launch.mp3: source 0.080-1.125 seconds, tempo 1.25, gain 28,
+8 ms fade-in and final 30 ms fade-out; decoded duration about 0.843 seconds.
+firework-burst.mp3: source 1.135-2.155 seconds, gain 0.8,
+1 ms fade-in and final 40 ms fade-out; decoded duration 1.020 seconds.
+No source recording or audio is requested from third parties during gameplay.

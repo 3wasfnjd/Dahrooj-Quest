@@ -722,7 +722,7 @@ export const createReferenceXR=(() => {
       // Muzzle flash (not for a bubble).
       if(kind_!=='bubble'&&blast.sparks.length<128){const f=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:0xffe9b0,transparent:true}));f.scale.setScalar(.05*k);f.position.copy(p);scene.add(f);
         blast.sparks.push({m:f,p:p.clone(),v:V(0,0,0),t:0,max:.07,flash:true});}
-      at(p,()=>kind_==='bolt'?g.pew?.():kind_==='firework'?g.whoosh(.35):g.whoosh(.18));buzz(h,kind_==='bubble'?.12:.3,22);
+      at(p,()=>kind_==='bolt'?g.pew?.():kind_==='firework'?g.fireworkLaunch():g.whoosh(.18));buzz(h,kind_==='bubble'?.12:.3,22);
     }
     // A little spray of sparks where a shot lands.
     function impact(p,n,color=0xffd27a){
@@ -741,7 +741,7 @@ export const createReferenceXR=(() => {
         const d=V(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar((1.6+Math.random()*1.6)*k);
         blast.sparks.push({m,p:p.clone(),v:d,t:0,max:.5+Math.random()*.35});
       }
-      at(p,()=>g.popSound?.());
+      at(p,()=>g.fireworkBurst());
     }
     const shown=o=>{for(let x=o;x;x=x.parent)if(!x.visible)return false;return true;};
     function skyPop(p){if(p.y>eyeNow().y+.25*scaleNow())g.chAdd?.('skyPop5');}
@@ -1014,7 +1014,7 @@ export const createReferenceXR=(() => {
       session=s;kind=mode;lang=g.language();layoutMenu();anchor=null;arScale=AR_SCALE;arZoom=1;placing=mode==='immersive-ar';menuToggled=false;
       renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
       place();
-      if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,renderer,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
+      if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
       // The world's own sounds: wind, leaves, rain, the pond, birds by day and crickets at night.
       if(nature&&!ambience&&createReferenceAmbience&&g.audio)ambience=createReferenceAmbience({audio:g.audio,nature});
       // Crate blasts clear nearby characters in a 3D radius, never the ball held by the player.

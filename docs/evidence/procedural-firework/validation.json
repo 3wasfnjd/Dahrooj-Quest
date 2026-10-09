@@ -1,0 +1,30 @@
+{
+  "hardwareTested": false,
+  "environment": "Local IWER with Chromium and SwiftShader",
+  "typecheck": "passed",
+  "lint": "passed",
+  "unitTestsPassed": 42,
+  "summitChecksPassed": 142,
+  "xr": [
+    "✓  1 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in vr (21.8s)",
+    "✓  2 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in ar (8.7s)",
+    "✓  3 tests/xr/vegetation-firework.spec.ts:4:1 › procedural park replaces legacy leaf assets with bounded opaque geometry (14.1s)",
+    "✓  1 tests/xr/vegetation-firework.spec.ts:23:1 › recorded firework cues follow launch and explosion while water suppresses the burst (14.2s)"
+  ],
+  "visualReview": [
+    "procedural-park-day.png",
+    "procedural-park-night.png"
+  ],
+  "grassTriangleBudget": 12288,
+  "previousGrassTriangles": 62500,
+  "treeDrawCalls": 2,
+  "audioBytes": 16179,
+  "audioVoiceLimit": 12,
+  "productionBuild": {
+    "bytes": 11561534,
+    "gzipBytes": 6405052,
+    "javascriptBytes": 3423280,
+    "errors": []
+  },
+  "physicalQuestFlicker": "Not yet verified"
+}

@@ -4,7 +4,7 @@
     {
       "path": "src/reference/nature.js",
       "origin": "assets/xr/nature.js",
-      "sha256": "a586535fc89ad23a5f995bc4b550b4883de2a877d55c50292e7164ee29aec83c"
+      "sha256": "1e4b52a0cb89f061514bb2a2185495a90d4e76409bfa54fbb18a0826809aefc6"
     },
     {
       "path": "src/reference/ambience.js",
@@ -19,12 +19,12 @@
     {
       "path": "src/reference/sounds.js",
       "origin": "index.html:original sound functions",
-      "sha256": "a0f001432cdb08cbbb165e5c259c2b37096dc7538dd49ab960feb5997f840ad2"
+      "sha256": "f5ff20f0fdd76e93363c578a9d6965b6e23815590f4d1fd1b7abbf69449154a6"
     },
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "2910cea76ba343221e42a09d8250d5ffee3d855ade55cecfeba5e33ece343264"
+      "sha256": "05d6ea8e64e27424ed70328521ddf2a28506c547dc8193f238bf73699bf01c28"
     },
     {
       "path": "src/reference/game-state.js",

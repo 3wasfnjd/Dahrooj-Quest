@@ -1,12 +1,13 @@
 import {referenceShader} from './render-color.js';
+import {createProceduralVegetation} from './procedural-vegetation';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 import * as Core from '@iwsdk/core';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 const THREE={...Core,GLTFLoader};
 /* Motri's world around Dahrooj in the headset (VR). Aboden Games.
    A port of Motri / Folio 2025 by Bruno Simon (MIT) from Three.js r183 TSL to r128 GLSL, with Motri's
-   own models and values: grass (Grass.js), oak, birch and cherry trees with their foliage (Trees.js,
-   Foliage.js, foliageSDF.png and the tree models, Draco removed), bushes (Bushes.js), wind (Wind.js),
+   remaining props and environment values. Trees, bushes and grass are now original procedural
+   geometry in procedural-vegetation.ts; no legacy tree models or leaf masks are loaded. Wind (Wind.js),
    rain lines and falling snow (RainLines.js), snow on the ground (Snow.js), day cycles and their
    presets (DayCycles.js), seasons (YearCycles.js), weather (Weather.js), lighting
    (Ligthing.js, MeshDefaultMaterial.js), the fog and background gradient (Fog.js), the stone floor
@@ -59,11 +60,8 @@ export const createReferenceNature=(() => {
     const t=new T.DataTexture(data,size,size,T.RGBAFormat);t.wrapS=t.wrapT=T.RepeatWrapping;t.magFilter=t.minFilter=T.LinearFilter;t.needsUpdate=true;return t;
   }
 
-  return (_T,{scene,renderer,hemi,sun,lineMat,court={x:0,z:-10}})=>{
+  return (_T,{scene,hemi,sun,lineMat,court={x:0,z:-10}})=>{
     const root=new T.Group();root.name='xr-nature';root.visible=false;scene.add(root);
-    // Use the active XR target's MSAA when available; keep a hard-cutout fallback without MSAA.
-    const layer=renderer?.xr.getBaseLayer(),target=renderer?.getRenderTarget();
-    const coverageAA=target?.samples>0||(typeof layer?.antialias==='boolean'?layer.antialias:!!renderer?.getContext().getContextAttributes()?.antialias);
     let seed=7;const rng=()=>(seed=(seed*16807)%2147483647)/2147483647;
     const perlin=perlinTexture();
     // The same noise on the CPU (bilinear, wrapping), so the game's physics sees the pond's real shore.
@@ -208,151 +206,14 @@ export const createReferenceNature=(() => {
           gl_FragColor=vec4(motriShade(c,vec3(0.,1.,0.),shadowAt(vWorld)*.85*(1.-wet*.4)),1.);}`});
     const ground=new T.Mesh(new T.CircleGeometry(300,64).rotateX(-Math.PI/2),groundMat);ground.position.y=-.02;root.add(ground);
 
-    /* ---------- Grass.js: three vertices per blade, turned to the camera, bent by the wind ---------- */
-    {
-      // 250 x 250 blades (62,500 triangles) keeps the headset's frame budget; the blades are a little wider to match.
-      const subdivisions=250,size=60,count=subdivisions*subdivisions,fragment=size/subdivisions;
-      const position=new Float32Array(count*9),heightRandomness=new Float32Array(count*3),corner=new Float32Array(count*3);
-      for(let iX=0;iX<subdivisions;iX++)for(let iZ=0;iZ<subdivisions;iZ++){
-        const i=iX*subdivisions+iZ,fx=(iX/subdivisions-.5)*size+fragment*.5+court.x,fz=(iZ/subdivisions-.5)*size+fragment*.5+court.z;
-        const x=fx+(rng()-.5)*fragment,z=fz+(rng()-.5)*fragment,r=rng();
-        for(let v=0;v<3;v++){position.set([x,0,z],i*9+v*3);heightRandomness[i*3+v]=r;corner[i*3+v]=v;}
-      }
-      const geo=new T.BufferGeometry();
-      geo.setAttribute('position',new T.BufferAttribute(position,3));geo.setAttribute('heightRandomness',new T.BufferAttribute(heightRandomness,1));geo.setAttribute('corner',new T.BufferAttribute(corner,1));
-      const mat=referenceShader(T,{uniforms:{...U,uColor:{value:grassColor},uDirt:{value:dirtColor},uPitch:{value:new T.Vector4(court.x,court.z+1,11,17)},bladeWidth:{value:.13},bladeHeight:{value:.6},bladeHeightRandomness:{value:.6}},side:T.DoubleSide,
-        vertexShader:WIND+`
-          attribute float heightRandomness,corner;uniform float bladeWidth,bladeHeight,bladeHeightRandomness;uniform vec3 uCam;uniform vec4 uPitch;
-          varying vec4 vClip;varying float vDist;varying float vTip;varying float vTrack;varying float vShadow;varying float vVar;`+TRACK+SLAB+POND_GLSL+SHADOW+`
-          void main(){
-            vec3 p=position;float tip=corner<.5?1.:0.;vTip=tip;
-            // Fade fine blades into the existing ground colour before they become distant pixel noise.
-            float distanceFade=1.-smoothstep(12.,24.,length(p.xz-uCam.xz));
-            if(distanceFade<=0.){gl_Position=vec4(2.,2.,2.,1.);return;}
-            float heightVariation=texture2D(uPerlin,p.xz*.0321).r+.5;
-            float h=bladeHeight*(bladeHeightRandomness*heightRandomness+(1.-bladeHeightRandomness))*heightVariation*distanceFade;
-            // On the pitch the grass is mown short so Dahrooj and the lines stay visible; Motri's height around it.
-            vec2 q=abs(p.xz-uPitch.xy)-uPitch.zw;h*=mix(.28,1.,smoothstep(0.,3.,max(q.x,q.y)));
-            // Pressed flat where a ball rolled.
-            vTrack=trackAt(p.xz);h*=1.-vTrack*.85;
-            // No grass on the stone (Grass.js hides blades where the terrain has none).
-            float slab=slabAt(p.xz);h*=1.-smoothstep(.35,.7,slab);if(slab>.7)p.y-=100.;
-            // None in the pond or on its sand.
-            float pd=pondAt(p.xz);h*=1.-smoothstep(-.16,-.08,pd);if(pd>-.08)p.y-=100.;
-            // The drop shadow at the root, and a gentle patchiness in the colour.
-            vShadow=shadowAt(p.xz);vVar=texture2D(uPerlin,p.xz*.012).r;
-            vec2 shape=corner<.5?vec2(0.,1.):corner<1.5?vec2(1.,0.):vec2(-1.,0.);
-            vec3 offset=vec3(shape.x*bladeWidth,shape.y*h,0.);
-            float a=atan(p.z-uCam.z,p.x-uCam.x)-1.5707963;
-            offset.xz=vec2(offset.x*cos(a)-offset.z*sin(a),offset.x*sin(a)+offset.z*cos(a));
-            vec2 w=windOffset(p.xz)*tip*h*2.;p+=offset;p.xz+=w;
-            ${OUT}
-          }`,
-        fragmentShader:SHADE+'uniform vec3 uColor,uDirt;varying float vTip;varying float vTrack;varying float vShadow;varying float vVar;void main(){vec3 c=mix(uColor*(.93+.14*vVar),uDirt,clamp(vTrack*1.2,0.,.8));gl_FragColor=vec4(motriShade(c,vec3(0.,1.,0.),max(1.-vTip,vShadow*.85)),1.);}'});
-      const grass=new T.Mesh(geo,mat);grass.frustumCulled=false;grass.name='xr-grass';root.add(grass);
-    }
-
-    /* ---------- Foliage.js: 80 leaf planes per clump, cut out by the foliage SDF that the wind turns ---------- */
-    const foliageTexture=new T.TextureLoader().load(BASE+'textures/foliageSDF.png');
-    const foliageGeometry=(()=>{
-      const planes=[];let s=11;const r=()=>(s=(s*16807)%2147483647)/2147483647;
-      for(let i=0;i<80;i++){
-        const plane=new T.PlaneGeometry(.8,.8);
-        const position=V(0,0,0).setFromSpherical(new T.Spherical(1-Math.pow(r(),3),Math.PI*2*r(),Math.PI*r()));
-        plane.rotateZ(r()*9999);plane.translate(position.x,position.y,position.z);
-        const normal=position.clone().normalize(),n=plane.attributes.normal,pa=plane.attributes.position;
-        for(let k=0;k<4;k++){const m=V(pa.getX(k),pa.getY(k),pa.getZ(k)).lerp(normal,.85);n.setXYZ(k,m.x,m.y,m.z);}
-        planes.push(plane);
-      }
-      // Merge (BufferGeometryUtils is not part of the r128 core build).
-      let vc=0,ic=0;for(const p of planes){vc+=p.attributes.position.count;ic+=p.index.count;}
-      const pos=new Float32Array(vc*3),nor=new Float32Array(vc*3),uv=new Float32Array(vc*2),idx=new Uint16Array(ic);let vo=0,io=0;
-      for(const p of planes){pos.set(p.attributes.position.array,vo*3);nor.set(p.attributes.normal.array,vo*3);uv.set(p.attributes.uv.array,vo*2);
-        for(let k=0;k<p.index.count;k++)idx[io+k]=p.index.array[k]+vo;vo+=p.attributes.position.count;io+=p.index.count;}
-      const g=new T.BufferGeometry();g.setAttribute('position',new T.BufferAttribute(pos,3));g.setAttribute('normal',new T.BufferAttribute(nor,3));g.setAttribute('uv',new T.BufferAttribute(uv,2));g.setIndex(new T.BufferAttribute(idx,1));
-      return g;
-    })();
-    function foliage(matrices,colorA,colorB){
-      const mat=referenceShader(T,{uniforms:{...U,uFoliage:{value:foliageTexture},uColorA:{value:C(colorA)},uColorB:{value:C(colorB)},threshold:{value:.3},uCoverageAA:{value:coverageAA?1:0}},side:T.DoubleSide,alphaToCoverage:coverageAA,transparent:false,depthWrite:true,
-        vertexShader:WIND+`
-          varying vec4 vClip;varying float vDist;varying vec2 vUv;varying vec3 vNormal;varying float vTurn;
-          void main(){vUv=uv;
-            vNormal=normalize(mat3(modelMatrix*instanceMatrix)*normal);
-            vTurn=length(windOffset(position.xz))*2.2;
-            vec4 mv=viewMatrix*modelMatrix*instanceMatrix*vec4(position,1.);vDist=-mv.z;gl_Position=projectionMatrix*mv;vClip=gl_Position;}`,
-        fragmentShader:SHADE+`
-          uniform sampler2D uFoliage;uniform vec3 uColorA,uColorB;uniform float threshold,uCoverageAA;varying vec2 vUv;varying vec3 vNormal;varying float vTurn;
-          void main(){
-            vec2 c=vUv-.5;float s=sin(vTurn),k=cos(vTurn);vec2 ruv=vec2(c.x*k-c.y*s,c.x*s+c.y*k)+.5;
-            float edge=texture2D(uFoliage,ruv).r-threshold-.1;
-            float width=max(fwidth(edge),.01);
-            float coverage=uCoverageAA>.5?smoothstep(-width,width,edge):step(0.,edge);
-            if(coverage<.001)discard;
-            vec3 n=normalize(vNormal);if(!gl_FrontFacing)n=-n;
-            vec3 base=mix(uColorA,uColorB,smoothstep(0.,1.,dot(n,uLightDir)));
-            gl_FragColor=vec4(motriShade(base,n,0.),coverage);}`});
-      const mesh=new T.InstancedMesh(foliageGeometry,mat,matrices.length);
-      matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.computeBoundingSphere();mesh.name='xr-foliage';root.add(mesh);return mesh;
-    }
-    // Clumps face the player's usual view at a random roll, as Foliage.js faces the default camera.
-    const toward=V(0,6,8);
-    function clump(pos,size){
-      const o=new T.Object3D(),angle=Math.PI*2*rng();o.up.set(Math.sin(angle),Math.cos(angle),0);
-      o.position.copy(pos);o.lookAt(toward);o.scale.setScalar(size);o.updateMatrix();return o.matrix.clone();
-    }
-
-    /* ---------- Trees.js with Motri's oak, birch and cherry models ---------- */
-    // Spots around the court, clear of the pitch, which in the headset reaches back past the player (z up to ~20).
-    const spots=[];
-    for(let i=0;i<90&&spots.length<42;i++){
-      const a=rng()*Math.PI*2,r=20+rng()*30,x=court.x+Math.cos(a)*r,z=court.z+Math.sin(a)*r;
-      if(Math.abs(x-court.x)<14&&z>-30&&z<26)continue;
-      if(pondAt(x,z)>-.45)continue;
-      spots.push({x,z,rot:rng()*Math.PI*2,scale:.85+rng()*.4});
-    }
-    // A wood behind the target, beyond the stone.
-    for(let i=0;i<24;i++)spots.push({x:court.x+(rng()-.5)*40,z:-28-rng()*18,rot:rng()*Math.PI*2,scale:.8+rng()*.5});
+    /* ---------- Original lightweight procedural trees, bushes and grass ---------- */
+    const vegetation=createProceduralVegetation({root,court,uniforms:U,shade:SHADE,track:TRACK,slab:SLAB,pond:POND_GLSL,shadow:SHADOW,grassColor,pondAt,
+      castShadow(x,z,h,r){shadowCasters.push(c=>{stick(c,x,z,0,h,.3,.8);blob(c,x,z,h,r,.8);});}});
+    const spots=vegetation.spots;
+    // The remaining benches, lamps and crates still use their audited palette material.
     const bodyMat=map=>referenceShader(T,{uniforms:{...U,uMap:{value:map}},
       vertexShader:'varying vec4 vClip;varying float vDist;varying vec2 vUv;varying vec3 vNormal;void main(){vUv=uv;vNormal=normalize(mat3(modelMatrix*instanceMatrix)*normal);vec4 mv=viewMatrix*modelMatrix*instanceMatrix*vec4(position,1.);vDist=-mv.z;gl_Position=projectionMatrix*mv;vClip=gl_Position;}',
       fragmentShader:SHADE+'uniform sampler2D uMap;varying vec2 vUv;varying vec3 vNormal;void main(){vec3 base=texture2D(uMap,vUv).rgb;gl_FragColor=vec4(motriShade(base,normalize(vNormal),0.),1.);}'});
-    const TREES=[['oakTreesVisual.glb','#b4b536','#d8cf3b'],['birchTreesVisual.glb','#ff4f2b','#ff903f'],['cherryTreesVisual.glb','#ff6d6d','#ff9990']];
-    let treesLoaded=0;
-    if(T.GLTFLoader){
-      const loader=new T.GLTFLoader();
-      TREES.forEach(([file,colorA,colorB],kind)=>loader.load(BASE+'models/'+file,gltf=>{
-        const mine=spots.filter((_,i)=>i%3===kind);let body=null;const leaves=[];
-        gltf.scene.updateMatrixWorld(true);
-        gltf.scene.traverse(o=>{if(!o.isMesh)return;const name=o.name+' '+(o.parent?o.parent.name:'');
-          if(name.includes('treeBody'))body=o;else if(name.includes('treeLeaves'))leaves.push(o);});
-        if(!body)return;
-        const bodies=new T.InstancedMesh(body.geometry,bodyMat(body.material.map),mine.length);
-        const refs=mine.map(s=>new T.Matrix4().compose(V(s.x,0,s.z),new T.Quaternion().setFromAxisAngle(V(0,1,0),s.rot),V(s.scale,s.scale,s.scale)));
-        refs.forEach((m,i)=>bodies.setMatrixAt(i,m.clone().multiply(body.matrixWorld)));bodies.frustumCulled=false;bodies.name='xr-trees';root.add(bodies);
-        const mats=[];
-        refs.forEach((ref,i)=>{
-          const s=mine[i],crown=[];
-          for(const leaf of leaves){
-            const pos=V(0,0,0),q=new T.Quaternion(),sc=V(1,1,1);ref.clone().multiply(leaf.matrixWorld).decompose(pos,q,sc);mats.push(clump(pos,sc.x));crown.push([pos.x,pos.y,pos.z,sc.x]);
-          }
-          // Its shadow: the trunk up to the lowest leaves, then a soft blob for each clump of leaves.
-          const low=crown.reduce((m,c)=>Math.min(m,c[1]),9);
-          shadowCasters.push(c=>{stick(c,s.x,s.z,0,low,.32*s.scale,.8);for(const [x,y,z,r] of crown)blob(c,x,z,y,r*1.2,.85);});
-        });
-        foliage(mats,colorA,colorB);treesLoaded++;staticDirty=shadowDirty=true;
-      }));
-    }
-    /* ---------- Bushes.js: foliage clumps on their own, in the oak colours ---------- */
-    {
-      const mats=[];
-      for(let i=0;i<60&&mats.length<46;i++){
-        const a=rng()*Math.PI*2,r=15+rng()*24,x=court.x+Math.cos(a)*r,z=court.z+Math.sin(a)*r;
-        if(Math.abs(x-court.x)<12&&z>-29&&z<25)continue;
-        if(pondAt(x,z)>-.3)continue;
-        const y=.6+rng()*.7,size=.9+rng()*.3;mats.push(clump(V(x,y,z),size));
-        shadowCasters.push(c=>blob(c,x,z,y*.6,size,.8));
-      }
-      foliage(mats,'#b4b536','#d8cf3b');
-    }
 
     /* ---------- Flowers.js: little white flowers in the grass, eight to a patch, swaying with the blades ---------- */
     // Planes a little larger than Motri's (the headset sees the world at half size). They hide on the stone,
@@ -723,7 +584,7 @@ export const createReferenceNature=(() => {
       },
       get settings(){return {time:state.time,weather:state.weather};},
       get weather(){return state.w;},
-      get treesLoaded(){return treesLoaded;},
+      get vegetation(){return vegetation.stats;},
       // The pond for the game's physics: how far inside the water (x, z) is (0 on land); a white line where a
       // ball of radius r centred y above the surface meets the water; rings from a splash (strength 0-1).
       waterAt,
