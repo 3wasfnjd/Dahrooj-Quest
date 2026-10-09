@@ -3,7 +3,9 @@ import {test,expect} from '@playwright/test';
 for(const kind of ['vr','ar'] as const)test(`settings, challenges and mode cards remain opaque after playing in ${kind}`,async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);
+ await page.evaluate(()=>(window as any).IWER_DEVICE.stereoEnabled=true);
  await page.locator('#enter-'+kind).click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
+ expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.renderer.xr.getCamera().cameras.length)).toBe(2);
  await page.evaluate(kind=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;if(kind==='ar')r.testPin([0,0,-2],[0,1,0]);else r.nature.set({time:'day',weather:'snow'});},kind);
  await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('trigger',1));
  await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.blast.fired>=3);
@@ -22,10 +24,11 @@ for(const kind of ['vr','ar'] as const)test(`settings, challenges and mode cards
     const pixels=canvas.getContext('2d').getImageData(80,80,canvas.width-160,h-160).data;
     for(let i=3;i<pixels.length;i+=4)interiorAlpha=Math.min(interiorAlpha,pixels[i]);
    }
-   out.push({name:o.name,transparent:m.transparent,opacity:m.opacity,depthWrite:m.depthWrite,depthTest:m.depthTest,isolated:m.customProgramCacheKey()==='dahrooj-menu-depth-v1',interiorAlpha});
+   let group=o.parent;while(group&&!group.isGroup)group=group.parent;
+   out.push({name:o.name,opaque:m.blending===0&&m.opacity===1,lateQueue:m.transparent,groupOrder:group?.renderOrder,opacity:m.opacity,depthWrite:m.depthWrite,depthTest:m.depthTest,isolated:m.customProgramCacheKey()==='dahrooj-menu-opaque-layer-v2',interiorAlpha});
   });return out;
  },name);
- const solid=(items:any[])=>{expect(items.length).toBeGreaterThan(0);for(const m of items){expect(m.transparent).toBe(false);expect(m.opacity).toBe(1);expect(m.depthWrite).toBe(true);expect(m.depthTest).toBe(true);expect(m.isolated).toBe(true);expect(m.interiorAlpha).toBe(255);}};
+ const solid=(items:any[])=>{expect(items.length).toBeGreaterThan(0);for(const m of items){expect(m.opaque).toBe(true);expect(m.lateQueue).toBe(true);expect(m.groupOrder).toBe(1000);expect(m.opacity).toBe(1);expect(m.depthWrite).toBe(true);expect(m.depthTest).toBe(true);expect(m.isolated).toBe(true);expect(m.interiorAlpha).toBe(255);}};
  await press('right','b-button');
  await page.waitForFunction(()=>{const g=(window as any).__DAHROOJ_REFERENCE__.game;return g.runtime.menuOpen&&!g.runtime.challengesOpen&&g.world.scene.getObjectByName('xr-menu').scale.x>=.99;});
  const settings=await surfaces('xr-menu');solid(settings);

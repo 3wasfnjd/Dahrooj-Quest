@@ -34,7 +34,7 @@ test('mode picker keeps depth isolated after gameplay and snow has no animated g
  const data=await page.evaluate(()=>{
   const g=(window as any).__DAHROOJ_REFERENCE__.game,s=g.world.scene,plaza=s.getObjectByName('xr-plaza'),snow=s.getObjectByName('xr-snow-ground'),rain=s.getObjectByName('xr-weather-particles');
   const materials:any[]=[];plaza.traverse((o:any)=>{if(o.isMesh)materials.push(o.material);});
-  return {cards:plaza.children.length,isolated:materials.every(m=>m.customProgramCacheKey()==='dahrooj-menu-depth-v1'),snowDepth:snow.material.depthWrite,particleDepth:rain.material.depthWrite,glitter:snow.material.fragmentShader.includes('pow(glitter'),visible:snow.visible};
+  return {cards:plaza.children.length,isolated:materials.every(m=>m.customProgramCacheKey()==='dahrooj-menu-opaque-layer-v2'),snowDepth:snow.material.depthWrite,particleDepth:rain.material.depthWrite,glitter:snow.material.fragmentShader.includes('pow(glitter'),visible:snow.visible};
  });
  expect(data).toEqual({cards:9,isolated:true,snowDepth:false,particleDepth:false,glitter:false,visible:true});
  await page.screenshot({path:info.outputPath('snow-and-mode-picker.png')});expect(errors).toEqual([]);

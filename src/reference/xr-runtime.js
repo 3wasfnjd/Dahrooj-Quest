@@ -1,5 +1,5 @@
 import {rainSpawn,guideRain} from './rain-field';
-import {menuDepth} from './menu-depth';
+import {menuDepth,menuGroup} from './menu-depth';
 import {ballImpactSpeed} from './ball-impact';
 import {createScorePopup} from './score-popup';
 import {GOAL_AIM_Z} from './court-layout.js';
@@ -45,6 +45,7 @@ export const createReferenceXR=(() => {
     let climbOn=false,climb3=null,climbSpot=null,climbUnit=CLIMB_AR,climbZoom=1;
     const modeNow=()=>rainOn?'rain':climbOn?'climb':g.mode();
     const rig=g.player;rig.name='xr-rig';
+    const menuLayer=menuGroup(new T.Group());menuLayer.name='xr-menu-layer';rig.add(menuLayer);
     const ray=new T.Raycaster(),wp=V(0,0,0),wq=new T.Quaternion(),fwd=V(0,0,0),eye=V(0,0,0),UP=V(0,1,0);
     const scaleNow=()=>rig.scale.x;
     // Game seconds per real second, so a ball falls at 9.8 m/s² in the room.
@@ -101,7 +102,7 @@ export const createReferenceXR=(() => {
       const canvas=document.createElement('canvas');canvas.width=px;canvas.height=py;
       const tex=new T.CanvasTexture(canvas);tex.colorSpace=T.SRGBColorSpace;tex.generateMipmaps=false;tex.minFilter=T.LinearFilter;tex.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
       const material=new T.MeshBasicMaterial({map:tex,transparent:!opaque,alphaTest:opaque?.5:0,depthTest:opaque,depthWrite:opaque,fog:false,toneMapped:false});
-      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),opaque?menuDepth(material):material);
+      const mesh=new T.Mesh(new T.PlaneGeometry(w,h),opaque?menuDepth(material,true):material);
       mesh.renderOrder=3;return {canvas,ctx:canvas.getContext('2d'),tex,mesh,key:''};
     }
     function round(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
@@ -192,7 +193,7 @@ export const createReferenceXR=(() => {
     // The menu rides on the left hand: flip it palm-up or raise it. Point with the right hand to pick.
     // Solid paper: no scene blending. Alpha cutout only trims the rounded outside corners.
     const MW=768,MH=1200,MENU_W=.24,MENU_H=MENU_W*MH/MW;
-    const menu=panel(MENU_W,MENU_H,MW,MH,true);rig.add(menu.mesh);menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);menu.mesh.name='xr-menu';menu.mesh.renderOrder=20;
+    const menu=panel(MENU_W,MENU_H,MW,MH,true);menuLayer.add(menu.mesh);menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);menu.mesh.name='xr-menu';menu.mesh.renderOrder=20;
     const challengeList=createChallengeList(T,{parent:menu.mesh,panelWidth:MENU_W,panelHeight:MENU_H,pixelsWidth:MW,pixelsHeight:MH,font});
     const buttons=[],PAD=36,IN=MW-PAD*2;
     // Positions go right to left in Arabic and left to right in English (see layoutMenu).
@@ -1168,7 +1169,7 @@ export const createReferenceXR=(() => {
       ['bowling','بولينغ','Bowling','سترايك!','Strike!'],['bricks','الطوب','Bricks','اكسر القلعة','Break the castle'],
       ['fair','ملاهي','Fair','٦٠ ثانية نقاط','60 seconds of points'],['climb','الجبل','Summit','اوصل القمة','Reach the top'],
       ['rain','مطر دحاريج','Dahrooj Rain','فجّرها كلها','Pop them all']];
-    const plaza=new T.Group();plaza.name='xr-plaza';plaza.visible=false;rig.add(plaza);
+    const plaza=new T.Group();plaza.name='xr-plaza';plaza.visible=false;menuLayer.add(plaza);
     let plazaOn=false,plazaK=0,plazaHot=-1,plazaPick=null;
     const pm=(c,o={})=>menuDepth(new T.MeshStandardMaterial({color:c,roughness:.8,...o,toneMapped:false,fog:false}));
     const PM={cream:pm(0xfffaf2),ink:pm(0x2c2d3d),coral:pm(0xe2603f),gold:pm(0xf2c14e),leaf:pm(0x7bbf8a),wood:pm(0xc98f5c),stone:pm(0xd9a67e),brown:pm(0x7b5536),sky:pm(0x6fa8d6),grey:pm(0xb9ad9c,{metalness:.4})};
@@ -1204,7 +1205,7 @@ export const createReferenceXR=(() => {
       else if(id==='rain'){const cloud=new T.Group();for(const [x,y,rr] of [[-.03,0,.022],[0,.008,.028],[.03,0,.022]])cloud.add(ball(rr,PM.cream,x,y,0));cloud.position.y=.13;add(cloud);
         const drops=[PM.ink,PM.coral,PM.brown,PM.sky].map((m,i)=>{const d=ball(.011,m,(i-1.5)*.025,.1,0);add(d);return d;});
         a.push(t=>{drops.forEach((d,i)=>{const k=(t*.7+i*.27)%1;d.position.y=.11-k*.1;d.scale.setScalar(k>.9?Math.max(.01,(1-k)*10):1);});cloud.position.x=Math.sin(t)*.006;});}
-      g.traverse(o=>{if(o.isMesh)o.castShadow=false;});
+      g.traverse(o=>{if(o.isMesh){o.castShadow=false;o.renderOrder=60;}});
       return {g,step:t=>a.forEach(f=>f(t))};
     }
     // The card: a rounded paper pane with the miniature standing in front of it and its name underneath.
@@ -1212,15 +1213,16 @@ export const createReferenceXR=(() => {
     const cardShape=(()=>{const w=CARD_W,h=CARD_H,r=.035,sh=new T.Shape();sh.moveTo(-w/2+r,-h/2);sh.lineTo(w/2-r,-h/2);sh.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);sh.lineTo(w/2,h/2-r);sh.quadraticCurveTo(w/2,h/2,w/2-r,h/2);
       sh.lineTo(-w/2+r,h/2);sh.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);sh.lineTo(-w/2,-h/2+r);sh.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return new T.ShapeGeometry(sh,8);})();
     const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
-      // Solid surfaces write the reserved UI depth so later world particles cannot paint over them.
-      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2eddf,depthWrite:true,fog:false,toneMapped:false})));pane.renderOrder=50;root.add(pane);
-      const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,depthWrite:true,fog:false,toneMapped:false})));ring.visible=false;ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
+      // Backdrops replace world depth only at covered pixels; miniatures then use full real depth precision.
+      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2eddf,depthWrite:true,fog:false,toneMapped:false}),true));pane.renderOrder=50;root.add(pane);
+      const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,depthWrite:true,fog:false,toneMapped:false}),true));ring.visible=false;ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
       const m=mini(id);m.g.position.set(0,-.012,.05);m.g.scale.setScalar(1.22);root.add(m.g);
       const lc=document.createElement('canvas');lc.width=512;lc.height=192;const lt=new T.CanvasTexture(lc);lt.colorSpace=T.SRGBColorSpace;lt.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),menuDepth(new T.MeshBasicMaterial({map:lt,alphaTest:.5,depthWrite:true,fog:false,toneMapped:false})));label.position.set(0,-CARD_H/2+.045,.012);label.renderOrder=51;root.add(label);
+      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),menuDepth(new T.MeshBasicMaterial({map:lt,alphaTest:.5,depthWrite:true,fog:false,toneMapped:false})));label.position.set(0,-CARD_H/2+.045,.012);label.renderOrder=70;root.add(label);
       plaza.add(root);
       return {id,ar,en,subAr,subEn,root,pane,ring,mini:m,lc,lt,key:'',hot:0,i};
     });
+    menuGroup(plaza);
     function drawLabel(c){
       const key=lang;if(c.key===key)return;c.key=key;const x=c.lc.getContext('2d');x.setTransform(2,0,0,2,0,0);x.clearRect(0,0,256,96);x.textAlign='center';x.direction=tr('rtl','ltr');
       x.fillStyle=INK;x.font=font(800,44);x.fillText(tr(c.ar,c.en),128,48);x.fillStyle='rgba(44,45,61,.85)';x.font=font(600,24);x.fillText(tr(c.subAr,c.subEn),128,82);c.lt.needsUpdate=true;
@@ -1328,7 +1330,7 @@ export const createReferenceXR=(() => {
       else if(kind==='immersive-vr'){const p=g.paper();if(p!==paper){paper=p;floor.material.color.set(p);scene.background=new T.Color(p);}}
       g.setWater?.(natureOn()&&nature.waterAt?waterApi:null);
       ambience?.update(dt,natureOn()&&!climbOn,eye);
-      // Jelly Dahroojs show the world around them: refresh their capture of it (VR only; AR has no world to capture).
+      // The shared jelly highlight follows the sun; updateProbe does not capture or re-render the world.
       models?.updateProbe?.(renderer,scene,S.pos,{sun:g.sun,on:natureOn()&&g.style()==='jelly',dt,skip:[grassMesh||(grassMesh=scene.getObjectByName('xr-grass'))]});
       if(placedFor!==g.mode())place();
       if(st.useStone){const want=natureOn()&&!!nature.stoneMaterial;if(st.stoneOn!==want){st.stoneOn=want;st.useStone(want?c=>nature.stoneMaterial(c):null);}}

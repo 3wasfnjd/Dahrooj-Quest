@@ -1,0 +1,81 @@
+{
+  "hardwareTested": false,
+  "environment": "Chromium/SwiftShader WebGL2; IWER with separate stereo views (2), not physical Quest multiview",
+  "typecheck": "passed",
+  "lint": "passed",
+  "unitTestsPassed": 42,
+  "summitChecksPassed": 142,
+  "baseline": {
+    "commit": "7e532dd6501e36ee7a9981137cec0ded4ff11297",
+    "separationMetres": 0.001,
+    "surfaceZ": [
+      -1.1,
+      -1.101
+    ],
+    "cameraZRange": [
+      -0.1,
+      0.098
+    ],
+    "cameraPositions": 100,
+    "depthBits": 24,
+    "wrong": 33,
+    "correct": 67
+  },
+  "after": {
+    "depthBits": 24,
+    "wrong": 0,
+    "correct": 100
+  },
+  "worldMenuPixelReadback": {
+    "centre": [
+      0,
+      255,
+      0,
+      255
+    ],
+    "outside": [
+      178,
+      0,
+      0,
+      255
+    ],
+    "depth": [
+      248,
+      248,
+      248,
+      255
+    ]
+  },
+  "xr": [
+    "✓  1 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in vr (24.9s)",
+    "✓  2 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in ar (9.6s)",
+    "✓  3 tests/xr/menu-depth-probe.spec.ts:3:1 › menu surfaces keep correct depth separation across 100 viewer positions (2.7s)",
+    "✓  4 tests/xr/menu-depth-probe.spec.ts:26:1 › opaque menus cover world effects without changing their real depth or passthrough alpha (2.4s)",
+    "✓  5 tests/xr/opaque-menus.spec.ts:3:40 › settings, challenges and mode cards remain opaque after playing in vr (50.8s)",
+    "✓  6 tests/xr/opaque-menus.spec.ts:3:40 › settings, challenges and mode cards remain opaque after playing in ar (12.0s)"
+  ],
+  "visualReview": [
+    "hovered-card-vr.png",
+    "opaque-settings-vr.png (stereo)",
+    "opaque-challenges-ar.png (stereo)"
+  ],
+  "ui": {
+    "alphaBlending": false,
+    "outputAlpha": 1,
+    "preservesProjectionDepth": true,
+    "extraRenderPasses": 0,
+    "extraRenderTargets": 0,
+    "sortGroup": 1000,
+    "backgroundDepthFunction": "AlwaysDepth",
+    "contentDepthFunction": "LessEqualDepth"
+  },
+  "regeneration": "Runtime, nature and sounds match generated source ignoring license-banner placement",
+  "productionBuild": {
+    "bytes": 11619923,
+    "gzipBytes": 6438231,
+    "javascriptBytes": 3426816,
+    "errors": []
+  },
+  "productionFileCount": 122,
+  "physicalQuestFlicker": "Pending; controlled precision regression fixed, not proof that all reported headset flicker is resolved."
+}
