@@ -17,13 +17,21 @@ export function createScorePopup(){
   c.font=`800 ${size}px Dahrooj, sans-serif`;
   size*=Math.min(1,640/Math.max(1,c.measureText(text).width));c.font=`800 ${size}px Dahrooj, sans-serif`;
   const m=c.measureText(text),y=(384+m.actualBoundingBoxAscent-m.actualBoundingBoxDescent)/2-9;
-  // A dark rose edge, soft depth and a glossy pink face keep digits readable against sky and trees.
-  c.lineJoin='round';c.lineWidth=14;c.strokeStyle='#65274e';c.fillStyle='#aa286d';
-  c.strokeText(text,384,y+8);c.fillText(text,384,y+8);
-  const jelly=c.createLinearGradient(0,y-m.actualBoundingBoxAscent,0,y+m.actualBoundingBoxDescent);
-  jelly.addColorStop(0,'#fff5fc');jelly.addColorStop(.22,'#ffc4e5');jelly.addColorStop(.5,'#ff83c3');
-  jelly.addColorStop(.56,'#ef5daf');jelly.addColorStop(1,'#c92f88');
-  c.lineWidth=5;c.strokeStyle='#ffe0f4';c.strokeText(text,384,y);c.fillStyle=jelly;c.fillText(text,384,y);
+  // A stable hue per numeral, spanning the spectrum; each face retains the jelly highlight.
+  const hues=[0,30,55,95,140,180,215,245,280,325];
+  const widths=[...text].map(digit=>c.measureText(digit).width);
+  let x=384-widths.reduce((sum,width)=>sum+width,0)/2;
+  c.lineJoin='round';
+  for(let i=0;i<text.length;i++){
+   const digit=text[i],hue=hues[+digit],cx=x+widths[i]/2;
+   c.lineWidth=14;c.strokeStyle=`hsl(${hue} 55% 22%)`;c.fillStyle=`hsl(${hue} 70% 35%)`;
+   c.strokeText(digit,cx,y+8);c.fillText(digit,cx,y+8);
+   const jelly=c.createLinearGradient(0,y-m.actualBoundingBoxAscent,0,y+m.actualBoundingBoxDescent);
+   jelly.addColorStop(0,`hsl(${hue} 95% 96%)`);jelly.addColorStop(.22,`hsl(${hue} 95% 80%)`);
+   jelly.addColorStop(.5,`hsl(${hue} 90% 64%)`);jelly.addColorStop(.56,`hsl(${hue} 85% 54%)`);jelly.addColorStop(1,`hsl(${hue} 75% 42%)`);
+   c.lineWidth=5;c.strokeStyle=`hsl(${hue} 90% 88%)`;c.strokeText(digit,cx,y);c.fillStyle=jelly;c.fillText(digit,cx,y);
+   x+=widths[i];
+  }
   texture.needsUpdate=true;root.userData.value=value;
  }
  return {

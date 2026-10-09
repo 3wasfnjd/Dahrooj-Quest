@@ -4,7 +4,7 @@
     {
       "path": "src/reference/nature.js",
       "origin": "assets/xr/nature.js",
-      "sha256": "561e040664000499d53272a479b10427b958c63b24993d9c89c50c2dfa7beb58"
+      "sha256": "a5d8a79a4ef9042ebdb06c9df8c48c1aae8672d4db9ca358fa53129d76b989f3"
     },
     {
       "path": "src/reference/ambience.js",
@@ -24,12 +24,12 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "36c6c9efb855c87424259b08fbb5212d0bb1901b70e668782bc9adabbd267d8b"
+      "sha256": "4644d1de581782adf3e3bafcd6a0a152e773455e84124d4ec7acb0ab0f90e082"
     },
     {
       "path": "src/reference/game-state.js",
       "origin": "index.html:headset main ball / volleys / scoring",
-      "sha256": "65599dd488167b3d3e88d8c949442f7e2d770c5f2a0f9b46a12c0dc4805e1994"
+      "sha256": "3cd80376e15ea9ac0018b4f30a05dfdf90ec06484a62ce33a01e1dab04e4c61e"
     },
     {
       "path": "src/reference/stages/goal.js",
@@ -49,7 +49,7 @@
     {
       "path": "src/reference/stages/cans.js",
       "origin": "index.html:buildCans",
-      "sha256": "8f42e1d871415258d242ace5758687706b402ebc1c6e9a5d3fb3d318411bddca"
+      "sha256": "09be2ba916dfbdd8356cdba603071a734f5561e7e70db822042341ca3769a57c"
     },
     {
       "path": "src/reference/stages/bowling.js",
@@ -64,7 +64,7 @@
     {
       "path": "src/reference/stages/fair.js",
       "origin": "index.html:buildFair",
-      "sha256": "35b7112950cba9bf4c579cd2713fa6f092aa10848c5c7c8b2be24177733fd077"
+      "sha256": "5f0160d6a6601676007e8aa856223e41e655ff49f26b9710c9cdc8fe425cce85"
     },
     {
       "path": "src/reference/mountain-complete.js",

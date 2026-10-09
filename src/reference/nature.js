@@ -25,7 +25,7 @@ export const createReferenceNature=(() => {
   const DAY={
     day:{lightColor:C('#fff1dd'),lightIntensity:1.35,shadowColor:C('#8b9cae'),fogColorA:C('#dcebf4'),fogColorB:C('#83b7e0'),fogNearRatio:.5,fogFarRatio:2,temperature:5},
     dusk:{lightColor:C('#ffd5b2'),lightIntensity:1.05,shadowColor:C('#7c7694'),fogColorA:C('#e1b8ad'),fogColorB:C('#7a8dab'),fogNearRatio:.5,fogFarRatio:2,temperature:0},
-    night:{lightColor:C('#c4d6ff'),lightIntensity:.9,shadowColor:C('#525f7a'),fogColorA:C('#384a69'),fogColorB:C('#172b4a'),fogNearRatio:.65,fogFarRatio:2.4,temperature:-7.5},
+    night:{lightColor:C('#b6caff'),lightIntensity:.45,shadowColor:C('#263447'),fogColorA:C('#152740'),fogColorB:C('#050e23'),fogNearRatio:.65,fogFarRatio:2.4,temperature:-7.5},
     dawn:{lightColor:C('#ffe0c2'),lightIntensity:1.15,shadowColor:C('#8891a8'),fogColorA:C('#f2d4bd'),fogColorB:C('#9dbbda'),fogNearRatio:.5,fogFarRatio:2,temperature:0}
   };
   const DAY_KEYS=[[DAY.day,0],[DAY.day,.15],[DAY.dusk,.25],[DAY.night,.35],[DAY.night,.6],[DAY.dawn,.8],[DAY.day,.9]];
@@ -74,7 +74,7 @@ export const createReferenceNature=(() => {
       uLightColor:{value:C('#ffffff')},uLightIntensity:{value:1},uShadowColor:{value:C('#6d3fff')},
       uLightDir:{value:V(Math.sin(phi)*Math.sin(theta),Math.cos(phi),Math.sin(phi)*Math.cos(theta)).normalize()},
       uFogA:{value:C('#00ffff')},uFogB:{value:C('#9b89ff')},uFogNear:{value:20},uFogFar:{value:50},
-      uHorizon:{value:C('#9ff')},uZenith:{value:C('#9b89ff')},uSunDir:{value:V(.3,.5,-.8).normalize()},uStars:{value:0},
+      uHorizon:{value:C('#9ff')},uZenith:{value:C('#9b89ff')},uSunDir:{value:V(.3,.5,-.8).normalize()},uStars:{value:0},uNight:{value:0},
       uPerlin:{value:perlin},uTime:{value:0},
       uWindDir:{value:new T.Vector2(Math.sin(Math.PI*.6),Math.cos(Math.PI*.6))},uWindStrength:{value:.5},uWindTime:{value:0},uCam:{value:V(0,0,0)}
     };
@@ -100,16 +100,16 @@ export const createReferenceNature=(() => {
     const sky=new T.Mesh(new T.SphereGeometry(100,32,16),referenceShader(T,{uniforms:U,side:T.BackSide,depthWrite:false,fog:false,
       vertexShader:'varying vec3 vDir;void main(){vDir=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
       fragmentShader:[
-        'uniform vec3 uHorizon,uZenith,uFogA,uSunDir,uLightColor;uniform float uStars;varying vec3 vDir;',
+        'uniform vec3 uHorizon,uZenith,uFogA,uSunDir,uLightColor;uniform float uStars,uNight;varying vec3 vDir;',
         'float hash(vec3 p){p=fract(p*.3183099+.1);p*=17.;return fract(p.x*p.y*p.z*(p.x+p.y+p.z));}',
         'void main(){vec3 d=normalize(vDir);float h=clamp(d.y,0.,1.);',
         'vec3 col=mix(uHorizon,uZenith,pow(h,.6));',
         'col=mix(col,uFogA,.18*(1.-h)*(.5+.5*d.x));',
-        'float s=max(dot(d,uSunDir),0.);col+=uLightColor*(pow(s,600.)*1.5+pow(s,10.)*.25);',
+        'float s=max(dot(d,uSunDir),0.);col+=uLightColor*(pow(s,mix(600.,1800.,uNight))*mix(1.5,.65,uNight)+pow(s,10.)*mix(.25,.018,uNight));',
         // Stars at night (DayCycles.js night interval).
         'col+=step(.9965,hash(floor(d*220.)))*smoothstep(.05,.3,d.y)*uStars;',
         'col=mix(col,uHorizon,step(d.y,.0));gl_FragColor=vec4(col,1.);}'].join('\n')}));
-    sky.renderOrder=-10;sky.frustumCulled=false;root.add(sky);
+    sky.name='xr-sky';sky.renderOrder=-10;sky.frustumCulled=false;root.add(sky);
 
     /* ---------- tracks: where Dahrooj rolls and lands, as Motri's Tracks.js does for the wheels ---------- */
     // A black canvas over the field; white where a ball pressed the grass, dug the snow or marked the ground.
@@ -519,11 +519,11 @@ export const createReferenceNature=(() => {
         mesh.rotation.x=Math.random()*Math.PI*2;mesh.rotation.y=Math.random()*Math.PI*2;root.add(mesh);
         fires.push({mesh,mat,t:0,radius});
       }
-      function explode(c){
-        if(c.exploded)return;c.exploded=true;c.fuse=.4;
+      function explode(c,byPlayer=true){
+        if(c.exploded)return;c.exploded=true;c.byPlayer=byPlayer;c.fuse=.4;
       }
       // Ball against prop: push it out, bounce it, shove light props and light the fuse on crates.
-      out.collide=(p,v,r)=>{
+      out.collide=(p,v,r,byPlayer=true)=>{
         let hit=false;
         for(const o of out.obstacles){
           const it=o.it;if(p.y-r>o.h)continue;
@@ -538,10 +538,15 @@ export const createReferenceNature=(() => {
             v.x-=nx*vn*1.5;v.z-=nz*vn*1.5;hit=true;
           }
         }
+        return out.collideCrates(p,v,r,byPlayer)||hit;
+      };
+      out.collideCrates=(p,v,r,byPlayer=true)=>{
+        let hit=false;
         // Crates are solid boxes: Dahrooj bounces off their sides and can land on top. Until the
         // fuse burns down they stay where they are; then they're gone.
         for(const c of out.crates){
-          if(c.exploded&&!(c.fuse>0))continue;const half=.53*CRATE*(c.k??1);
+          if(c.exploded&&!(c.fuse>0))continue;const half=.53*CRATE*(c.k??1),bound=half*Math.SQRT2+r;
+          if(Math.abs(p.x-c.x)>bound||Math.abs(p.z-c.z)>bound||p.y+r<c.y||p.y-r>c.y+half*2)continue;
           const cs=Math.cos(c.rot),sn=Math.sin(c.rot),dx=p.x-c.x,dy=p.y-(c.y+half),dz=p.z-c.z;
           const lx=dx*cs-dz*sn,lz=dx*sn+dz*cs;
           const qx=clamp(lx,-half,half),qy=clamp(dy,-half,half),qz=clamp(lz,-half,half);
@@ -555,7 +560,7 @@ export const createReferenceNature=(() => {
           p.x+=nx*push;p.y+=ny*push;p.z+=nz*push;
           const vn=v.x*nx+v.y*ny+v.z*nz;
           if(vn<0){const k=ny>.7&&vn>-1.4?1:1.4;v.x-=nx*vn*k;v.y-=ny*vn*k;v.z-=nz*vn*k;hit=true;}
-          explode(c);
+          explode(c,byPlayer);
         }
         return hit;
       };
@@ -583,9 +588,9 @@ export const createReferenceNature=(() => {
           }
           if(c.fuse>0){c.fuse-=dt;if(c.fuse<=0){
             const at=V(c.x,c.y+.53*CRATE,c.z);fireball(at,3.5);c.k=0;crateItem?.sync(crateSpots.indexOf(c));c.back=25;
-            api.mark(c.x,c.z,1.6,.9);out.onExplode?.(at,3.5);
+            api.mark(c.x,c.z,1.6,.9);out.onExplode?.(at,3.5,c.byPlayer!==false);
             // Crates next to it go up too, one after the other.
-            for(const o of out.crates)if(!o.exploded&&Math.hypot(o.x-c.x,o.z-c.z,o.y-c.y)<1.8)explode(o);}}
+            for(const o of out.crates)if(!o.exploded&&Math.hypot(o.x-c.x,o.z-c.z,o.y-c.y)<1.8)explode(o,c.byPlayer!==false);}}
           // Back after a while, popping in.
           if(c.exploded&&c.fuse<=0){c.back-=dt;if(c.back<=0){Object.assign(c,c.home,{exploded:false,k:.01,vy:0});}}
           if(!c.exploded&&c.k!=null&&c.k<1){c.k=Math.min(1,c.k+dt*3);crateItem?.sync(crateSpots.indexOf(c));}
@@ -641,11 +646,11 @@ export const createReferenceNature=(() => {
         index.set([l*4,l*4+3,l*4+2,l*4+2,l*4+1,l*4],l*6);
       }
       const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(position,3));geo.setAttribute('offset',new T.BufferAttribute(offset,2));geo.setAttribute('random',new T.BufferAttribute(random,1));geo.setIndex(new T.BufferAttribute(index,1));
-      const mat=referenceShader(T,{uniforms:rainU,transparent:true,side:T.DoubleSide,
+      const mat=referenceShader(T,{uniforms:rainU,transparent:true,depthWrite:false,side:T.DoubleSide,forceSinglePass:true,
         vertexShader:`
           attribute vec2 offset;attribute float random;uniform float thickness,elevation,incline,size,len,localTime,visibleRatio;uniform vec2 center;
-          varying vec4 vClip;varying float vDist;
-          void main(){vec3 p=position;vec2 tangent=vec2(.707,-.707);
+          varying vec4 vClip;varying float vDist;varying vec2 vFlake;
+          void main(){vFlake=offset;vec3 p=position;vec2 tangent=vec2(.707,-.707);
             p.xz*=size;p.xz-=center;float halfSize=size*.5;p.x=mod(p.x+halfSize,size)-halfSize;p.z=mod(p.z+halfSize,size)-halfSize;p.xz+=center;
             p.xz+=tangent*offset.x*thickness;
             float progress=mod(localTime+random,1.);
@@ -653,30 +658,30 @@ export const createReferenceNature=(() => {
             p.y+=step(visibleRatio,fract(random*99.))*99.;
             p.xz+=tangent*p.y*incline*-1.;p.y-=.3;
             ${OUT}}`,
-        fragmentShader:SHADE+'void main(){gl_FragColor=vec4(motriShade(vec3(1.),vec3(0.,1.,0.),0.),1.);}'});
-      const m=new T.Mesh(geo,mat);m.frustumCulled=false;m.renderOrder=1;root.add(m);return m;
+        fragmentShader:SHADE+'varying vec2 vFlake;void main(){vec2 edge=min(vFlake,1.-vFlake);float alpha=smoothstep(0.,.25,edge.x)*smoothstep(0.,.18,edge.y)*.65;gl_FragColor=vec4(motriShade(vec3(.82,.86,.9),vec3(0.,1.,0.),0.),alpha);}'});
+      const m=new T.Mesh(geo,mat);m.name='xr-weather-particles';m.frustumCulled=false;m.renderOrder=1;root.add(m);return m;
     })();
 
-    /* ---------- Snow.js: snow that builds up on the ground in noisy drifts, with glitter ---------- */
+    /* ---------- Snow.js: soft, stable snow drifts without animated glitter ---------- */
     const snowU={...U,snowElevation:{value:-1},center:{value:new T.Vector2()}};
     const snowGround=(()=>{
       const geo=new T.PlaneGeometry(60,60,160,160).rotateX(-Math.PI/2);
-      const mat=referenceShader(T,{uniforms:snowU,transparent:true,
+      const mat=referenceShader(T,{uniforms:snowU,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1,
         vertexShader:`
           uniform sampler2D uPerlin;uniform float snowElevation;uniform vec2 center;varying vec4 vClip;varying float vDist;varying float vDelta;varying vec2 vWorld;
           float elev(vec2 p){return snowElevation+smoothstep(0.,1.,texture2D(uPerlin,p*.1).r*texture2D(uPerlin,p*.07).r);}
           void main(){vec3 p=position;p.xz+=center;float e=elev(p.xz);vDelta=e;vWorld=p.xz;
             // Drifts stay low so Dahrooj can still roll: a quarter of Motri's height.
-            p.y=max(e,0.)*.25+.01;${OUT}}`,
+            p.y=max(e,0.)*.25+.025;${OUT}}`,
         fragmentShader:SHADE+`
           uniform sampler2D uPerlin;uniform float uTime;varying float vDelta;varying vec2 vWorld;`+TRACK+`
           float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
           // Dug out where balls rolled through.
           void main(){float alpha=smoothstep(.022,.5,vDelta)*(1.-trackAt(vWorld)*.9);if(alpha<.1)discard;
-            vec3 col=motriShade(vec3(1.),vec3(0.,1.,0.),0.);
-            float glitter=abs(mod(hash(floor(vWorld*.2*64.))*2.+uTime*.024,2.)-1.)*clamp(texture2D(uPerlin,vWorld*.05).r*2.,0.,1.);
-            col+=pow(glitter,1000.)*2.;gl_FragColor=vec4(col,alpha);}`});
-      const m=new T.Mesh(geo,mat);m.frustumCulled=false;m.visible=false;root.add(m);return m;
+            float grain=texture2D(uPerlin,vWorld*.18).r;
+            vec3 col=motriShade(vec3(.86,.9,.94)*(.96+grain*.04),vec3(0.,1.,0.),0.);
+            gl_FragColor=vec4(col,alpha);}`});
+      const m=new T.Mesh(geo,mat);m.name='xr-snow-ground';m.frustumCulled=false;m.visible=false;root.add(m);return m;
     })();
 
     /* ---------- Weather.js on Cycles: temperature, humidity, clouds, wind, rain and snow ---------- */
@@ -762,8 +767,9 @@ export const createReferenceNature=(() => {
         U.uLightColor.value.copy(d.lightColor);U.uShadowColor.value.copy(d.shadowColor);
         U.uFogA.value.copy(d.fogColorA);U.uFogB.value.copy(d.fogColorB);
         // A gentler sky than the raw fog colours: a pale horizon and a deep top, greyer when it rains.
-        const cloud=clamp(w.rain*1.2,0,1),grey=C('#9aa0b0');
-        U.uHorizon.value.copy(d.fogColorA).lerp(C('#ffffff'),.35).lerp(grey,cloud*.5);
+        const night=clamp(Math.min((dayP-.22)/.08,(.75-dayP)/.08),0,1),cloud=clamp(w.rain*1.2,0,1),grey=C('#9aa0b0').lerp(C('#142036'),night);
+        U.uNight.value=night;
+        U.uHorizon.value.copy(d.fogColorA).lerp(C('#ffffff'),.35*(1-night)+.012*night).lerp(grey,cloud*.5);
         U.uZenith.value.copy(d.fogColorB).lerp(d.fogColorA,.15).lerp(grey.clone().multiplyScalar(.7),cloud*.6);
         const sa=dayP*Math.PI*2;U.uSunDir.value.set(Math.cos(sa)*.6,.25+.5*Math.abs(Math.cos(sa*.5)),-.75).normalize();
         if(eye)sky.position.copy(eye);
@@ -773,13 +779,13 @@ export const createReferenceNature=(() => {
         // The game's own objects take Motri's light too.
         // The game's own models (Dahrooj, the goal, the keeper) take Motri's light, but never go dark:
         // at night a pale moonlight and a warm lantern around the player keep them readable.
-        const k=d.lightIntensity>2?1/3:1,night=clamp(Math.min((dayP-.22)/.08,(.75-dayP)/.08),0,1);
+        const k=d.lightIntensity>2?1/3:1;
         if(hemi){hemi.color.copy(d.lightColor).lerp(C('#ffffff'),.35+night*.25);hemi.groundColor.copy(d.shadowColor).lerp(C('#c1c8d6'),.6);
           hemi.intensity=Math.max(1.65,1.4*d.lightIntensity*k);}
         if(sun){sun.color.copy(d.lightColor).lerp(C('#c9d4ff'),night*.6);sun.intensity=Math.max(1.15,1.6*d.lightIntensity*k);}
         state.night=night;moon.intensity=night*.45;lantern.intensity=night*1.1;if(eye)lantern.position.set(eye.x,eye.y+.5,eye.z-1.5);
         // Motri's own pieces are lit a little brighter at night too.
-        U.uLightIntensity.value=d.lightIntensity*(1-night*.35)+night*.6;
+        U.uLightIntensity.value=d.lightIntensity*(1-night*.35)+night*.18;
         props.update(dt,night);water.update(dt);
         // Drop shadows: redrawn a few times a second at most, and only after something moved.
         shadowWait-=dt;if(shadowDirty&&shadowWait<=0){shadowDirty=false;shadowWait=.15;bakeShadows(props.castShadows||(()=>{}));}

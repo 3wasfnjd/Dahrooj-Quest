@@ -41,7 +41,7 @@
     {
       "file": "src/reference/stages/cans.js",
       "origin": "index.html:buildCans",
-      "sha256": "8f42e1d871415258d242ace5758687706b402ebc1c6e9a5d3fb3d318411bddca"
+      "sha256": "09be2ba916dfbdd8356cdba603071a734f5561e7e70db822042341ca3769a57c"
     },
     {
       "file": "src/reference/stages/bowling.js",
@@ -56,7 +56,7 @@
     {
       "file": "src/reference/stages/fair.js",
       "origin": "index.html:buildFair",
-      "sha256": "35b7112950cba9bf4c579cd2713fa6f092aa10848c5c7c8b2be24177733fd077"
+      "sha256": "5f0160d6a6601676007e8aa856223e41e655ff49f26b9710c9cdc8fe425cce85"
     },
     {
       "file": "src/reference/stage-art.js",

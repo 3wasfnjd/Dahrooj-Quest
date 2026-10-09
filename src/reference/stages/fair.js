@@ -1,4 +1,5 @@
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
+import {collideSolidBox} from '../solid-box';
 export default function create(ctx){const {T,scene,groundLine,rbox,xrOnNow,COL,ar,audio,sfxOut,S,addCount,chProgress,toast,V,GRAV,thump,BR,hit,squeak,startPopSound,confetti,chState,counts,UP,chime}=ctx;let {xrLang,time}=ctx;
 function buildFair(){
     const grp=new T.Group(); scene.add(grp);
@@ -21,10 +22,11 @@ function buildFair(){
     const scallop=new T.CircleGeometry(SR,16,0,Math.PI);
     for(let i=0;i<12;i++){ const sc=new T.Mesh(scallop,i%2?coralD:creamD); sc.position.set(-3.4+SR+i*2*SR,-0.01,0.955); sc.scale.set(1,0.8,1); sc.castShadow=true; awn.add(sc); }
     // The sign: time left and points, drawn on a board under the awning.
-    const signC=document.createElement('canvas'); signC.width=512; signC.height=128; const sg=signC.getContext('2d'), signT=new T.CanvasTexture(signC);
+    const signC=document.createElement('canvas');signC.width=1024;signC.height=256;const sg=signC.getContext('2d'),signT=new T.CanvasTexture(signC);
+    signT.colorSpace=T.SRGBColorSpace;signT.generateMipmaps=false;signT.minFilter=T.LinearFilter;
     // It stands on top of the awning, like a fairground crest.
-    add(rbox(2.6,0.66,0.12,0.05,cream),0,4.05,FZ-0.35);
-    const sign=new T.Mesh(new T.PlaneGeometry(2.4,0.6),new T.MeshBasicMaterial({map:signT,transparent:true})); sign.position.set(0,4.05,FZ-0.28); grp.add(sign);
+    add(rbox(2.7,0.76,0.14,0.05,mat(0x243133,{roughness:.85})),0,4.05,FZ-0.35);
+    const sign=new T.Mesh(new T.PlaneGeometry(2.5,0.625),new T.MeshBasicMaterial({map:signT,toneMapped:false,fog:false}));sign.name='xr-fair-screen';sign.position.set(0,4.05,FZ-0.268);grp.add(sign);
     // Targets. Ducks run along a rail on the counter, balloons float above them, the bell hangs at the side.
     const duckMat=mat(0xf2c14e,{roughness:0.4}), beakMat=coral, eyeMat=mat(0x1b1c26,{roughness:0.2});
     function duck(){ const g=new T.Group(); const b=new T.Mesh(new T.SphereGeometry(0.2,22,16),duckMat); b.scale.set(1.25,0.9,1); g.add(b);
@@ -49,10 +51,20 @@ function buildFair(){
     try{ F.best=+localStorage.getItem('dahrooj-fair-best')||0; }catch(_){}
     function drawSign(){
       const en=xrOnNow()&&xrLang==='en', key=[Math.ceil(F.time),F.score,F.best,F.on,en].join('|'); if(key===F.shownKey) return; F.shownKey=key;
-      sg.clearRect(0,0,512,128); sg.fillStyle=COL.ink; sg.textAlign='center'; sg.font='800 64px "Dahrooj",Tahoma,sans-serif';
-      const t=Math.ceil(F.time), left=F.on?(en?`${t}s`:`${ar(t)} ث`):(en?'Throw to start':'ارمِ وابدأ');
-      sg.fillText(left,128,84); sg.fillStyle=COL.coral||'#e2603f'; sg.fillText(en?String(F.score):ar(F.score),384,84);
-      sg.font='600 22px Tahoma,sans-serif'; sg.fillStyle='rgba(44,45,61,.6)'; sg.fillText(en?`best ${F.best}`:`أفضل ${ar(F.best)}`,384,118);
+      // Cached retro LED display: steady light, no flashing scanlines or new textures.
+      sg.fillStyle='#081816';sg.fillRect(0,0,1024,256);
+      sg.fillStyle='#112520';for(let y=8;y<256;y+=12)for(let x=8;x<1024;x+=12){sg.beginPath();sg.arc(x,y,1.1,0,Math.PI*2);sg.fill();}
+      sg.fillStyle='#486052';sg.fillRect(507,24,3,208);
+      sg.textAlign='center';sg.direction=en?'ltr':'rtl';sg.font='700 31px "Dahrooj",Tahoma,sans-serif';
+      sg.fillStyle='#b7dec3';sg.fillText(en?'TIME':'الوقت',252,42);sg.fillText(en?'SCORE':'النقاط',766,42);
+      const segments=[0x3f,0x06,0x5b,0x4f,0x66,0x6d,0x7d,0x07,0x7f,0x6f];
+      const bars=[[7,0,44,9],[52,8,9,43],[52,59,9,43],[7,101,44,9],[0,59,9,43],[0,8,9,43],[7,51,44,9]];
+      function led(value,cx,color){const text=String(value).padStart(2,'0'),scale=Math.min(1,410/(text.length*76));sg.save();sg.translate(cx-text.length*76*scale/2,67);sg.scale(scale,scale);
+        for(let i=0;i<text.length;i++)for(let j=0;j<7;j++){sg.fillStyle=(segments[+text[i]]&(1<<j))?color:'#18312a';const b=bars[j];sg.fillRect(i*76+b[0],b[1],b[2],b[3]);}sg.restore();}
+      led(Math.max(0,Math.ceil(F.time)),252,'#ffcb62');led(F.score,766,'#79f5b3');
+      sg.fillStyle='#c9d8b2';sg.font='600 29px "Dahrooj",Tahoma,sans-serif';
+      sg.fillText(F.on?(en?'SECONDS':'ثانية'):(en?'THROW TO START':'ارمِ وابدأ'),252,229);
+      sg.fillText(en?`BEST ${F.best}`:`أفضل ${ar(F.best)}`,766,229);
       signT.needsUpdate=true;
     }
     function ding(){
@@ -115,9 +127,13 @@ function buildFair(){
       if(bounce){ tmp.divideScalar(d); P.copy(c).addScaledVector(tmp,BR+r); const vn=S.vel.dot(tmp); if(vn<0){ hit(tmp,-vn,c.clone().addScaledVector(tmp,r)); S.vel.addScaledVector(tmp,-1.5*vn); } }
       return true;
     }
-    const wp=V(0,0,0);
+    const wp=V(0,0,0),bodyPrev=V(),bodyNormal=V();
+    function collideBody(p,v,r,previous){
+      // Counter and lower cabinet are solid on every face, with a sweep for hard throws.
+      return collideSolidBox(p,v,r,previous,stall[1].c,stall[1].h,bodyNormal);
+    }
     return {
-      grp, aimZ:FZ, farZ:FZ-1.5, reachZ:-18.5,
+      grp, aimZ:FZ, farZ:FZ-1.5, reachZ:-18.5,collideBody,
       shoot(obj,point,dir){
         if(!F.on&&F.over<=0){F.on=true;F.time=ROUND;F.score=0;counts.fair=0;chProgress('fair25',0);}if(!F.on)return false;
         const owns=root=>{ for(let x=obj;x;x=x.parent) if(x===root) return true; return false; };
@@ -134,7 +150,10 @@ function buildFair(){
       onThrow(){ if(!F.on&&F.over<=0){ F.on=true; F.time=ROUND; F.score=0; counts.fair=0;chProgress('fair25',0); } },
       collide(){
         const P=S.pos;
-        if(!S.shot||F.over>0) return;
+        if(!S.shot)return;
+        bodyPrev.set(S.prevX??P.x,S.prevY??P.y,S.prevZ??P.z);
+        const incoming=S.vel.length();if(collideBody(P,S.vel,BR,bodyPrev)){hit(bodyNormal,incoming,P);S.side.set(0,0,0);}
+        if(F.over>0)return;
         if(!F.on&&F.over<=0){ F.on=true; F.time=ROUND; F.score=0; counts.fair=0;chProgress('fair25',0); }
         for(const d of ducks){ if(d.down>0) continue; d.g.getWorldPosition(wp); wp.y+=0.08;
           if(sphereHit(wp,d.r,true)){ launchDuck(d,S.vel.clone().normalize(),Math.min(9,S.vel.length()*.55)+3); F.touched=true; squeak(1.35); thump(0.4); score(1,S.throwCurve); } }
@@ -142,7 +161,7 @@ function buildFair(){
         bellM.getWorldPosition(wp); if(F.swing<0.3&&sphereHit(wp,0.3,true)){ F.swing=1; F.touched=true; ding(); F.bellHits++; chProgress('bell3',(chState.bell3||0)+1); score(5,S.throwCurve); }
         // The stall: the back panel and the counter bounce him back.
         if(P.z-BR<FZ-0.97&&P.z>FZ-1.6&&Math.abs(P.x)<3.2&&P.y<2.6){ P.z=FZ-0.97+BR; if(S.vel.z<0){ hit(V(0,0,1),-S.vel.z,V(P.x,P.y,FZ-0.97)); S.vel.z=-S.vel.z*0.5; S.side.set(0,0,0); } }
-        if(Math.abs(P.x)<3.3&&P.z>FZ-0.3&&P.z<FZ+0.7&&P.y-BR<CY+0.08&&P.y>CY-0.3){ P.y=CY+0.08+BR; if(S.vel.y<0){ hit(UP,-S.vel.y,V(P.x,CY+0.08,P.z)); S.vel.y=-S.vel.y*0.45; } }
+
       },
       update(dt){
         // The round clock.

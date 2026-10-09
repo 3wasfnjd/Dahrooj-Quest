@@ -7,6 +7,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   iwer:
+    strategy:
+      fail-fast: false
+      matrix: {shard: [1, 2, 3, 4]}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -16,13 +19,15 @@ jobs:
         with: {node-version: '24', cache: npm}
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      - run: npm run test:xr
-      - run: npm run build
-      - run: npm run test:production
+      - run: npm run test:xr -- --shard=${{ matrix.shard }}/4
+      - if: matrix.shard == 1
+        run: npm run build
+      - if: matrix.shard == 1
+        run: npm run test:production
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: iwer-reports-not-hardware-evidence
+          name: iwer-reports-shard-${{ matrix.shard }}-not-hardware-evidence
           path: |
             reports/
             test-results/

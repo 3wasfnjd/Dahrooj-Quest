@@ -1,3 +1,5 @@
+import {menuDepth} from './menu-depth';
+import {ballImpactSpeed} from './ball-impact';
 import {createScorePopup} from './score-popup';
 import {GOAL_AIM_Z} from './court-layout.js';
 import {createChallengeList} from './challenge-list.js';
@@ -436,7 +438,8 @@ export const createReferenceXR=(() => {
       start.tex.needsUpdate=true;
     }
     function beginIntro(rain=false){const st=g.stage();if(st&&st.grp)st.grp.visible=false;intro={t:0,frames:0,balls:[],shots:[],sparks:[],ready:false,leaving:0,popped:0,spawned:false,gap:0,rain,centre:null};}
-    const SPARK=new T.SphereGeometry(1,8,6);let ballIds=0;
+    const SPARK=new T.SphereGeometry(1,8,6);let ballIds=0,nextAmbientPop=0;
+    const rainPropP=V(0,0,0),rainPropV=V(0,0,0),rainRotation=new T.Quaternion(),rainInverse=new T.Quaternion();
     // How many and how far: the room in mixed reality, a wider ring in the open VR world.
     const crowdSize=()=>kind==='immersive-ar'?{n:72,R:2.6}:{n:100,R:4.4};
     const STYLE_COLORS=DAHROOJ_COLORS;
@@ -490,16 +493,18 @@ export const createReferenceXR=(() => {
     // flies true, then drops, bounces and rolls, popping the balls it touches.
     // The trigger fires a shot (the blaster's, in the chosen style) along the hand's ray.
     function fireIntro(h){if(!intro||intro.leaving)return;fireBlast(h,true);}
-    function popBall(b){
-      const I=intro;skyPop(roomPoint(b.p));I.balls.splice(I.balls.indexOf(b),1);I.popped++;
-      for(let k=0;k<10&&I.sparks.length<80;k++){
+    function popBall(b,byPlayer=true){
+      const I=intro;if(!I||b.popped)return;const index=I.balls.indexOf(b);if(index<0)return;
+      b.popped=true;if(byPlayer){skyPop(roomPoint(b.p));I.popped++;}I.balls.splice(index,1);
+      for(let k=0;k<(byPlayer?10:4)&&I.sparks.length<80;k++){
         const m=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:k%3?STYLE_COLORS[b.style]:0xfffaf2,transparent:true}));m.scale.setScalar(.012+Math.random()*.01);rig.add(m);
         const a=Math.random()*Math.PI*2,e=Math.random()*Math.PI-Math.PI/2,v=1+Math.random()*1.6;
         I.sparks.push({m,p:b.p.clone(),v:V(Math.cos(a)*Math.cos(e)*v,Math.sin(e)*v+1,Math.sin(a)*Math.cos(e)*v),t:0,max:.45+Math.random()*.3});
       }
-      at(roomPoint(b.p),()=>g.popSound?.());buzz(hands.find(x=>x.lastShot&&clock-x.lastShot<3),.35,40);g.chAdd?.('pop20');
-      // In the rain another one is already on its way.
-      if(I.rain)dropBall(.3+Math.random()*1.5);
+      if(byPlayer||clock>=nextAmbientPop){at(roomPoint(b.p),()=>g.popSound?.());nextAmbientPop=clock+.12;}
+      if(byPlayer){buzz(hands.find(x=>x.lastShot&&clock-x.lastShot<3),.35,40);g.chAdd?.('pop20');}
+      // Environmental impacts leave a visible gap instead of immediately filling the crowd again.
+      if(I.rain)dropBall(byPlayer?.3+Math.random()*1.5:4+Math.random()*4);
     }
     // Room physics in metres: gravity, the floor, wandering and hopping, and the balls pushing each other.
     function stepIntro(dt){
@@ -511,6 +516,8 @@ export const createReferenceXR=(() => {
       if(!I.balls.length){I.gap+=dt;if(I.gap>1)spawnIntro();}
       if(I.rain){const {n}=crowdSize();while(I.balls.length<n)dropBall(Math.random()*2);}
       const {R:ROOM}=crowdSize(),live=I.balls.filter(b=>I.t>=b.born),{pos:head}=headLocal(),c=I.centre;
+      const rainProps=I.rain&&natureOn()?nature.props:null,propScale=scaleNow();
+      if(rainProps){rig.getWorldQuaternion(rainRotation);rainInverse.copy(rainRotation).invert();}
       for(const b of live){
         const r=b.R,grounded=b.p.y<=r+.001&&Math.abs(b.v.y)<.01;
         b.v.y-=REAL_G*dt;
@@ -534,6 +541,12 @@ export const createReferenceXR=(() => {
         if(od>ROOM+.4){b.p.x=c.x+ox/od*(ROOM+.4);b.p.z=c.z+oz/od*(ROOM+.4);}
         b.dv+=(-b.d*320-b.dv*12)*dt;b.d=clamp(b.d+b.dv*dt,-.3,.45);
         b.hit=Math.max(0,b.hit-dt);b.next-=dt;if(b.next<=0){b.blink=.14;b.next=2+Math.random()*3;}b.blink=Math.max(0,b.blink-dt);
+        if(rainProps){
+          // Only six crate colliders, with broad-phase rejection; no full prop scan for the crowd.
+          rig.localToWorld(rainPropP.copy(b.p));rainPropV.copy(b.v).applyQuaternion(rainRotation).multiplyScalar(propScale);
+          rainProps.collideCrates(rainPropP,rainPropV,b.R*propScale,false);
+          b.p.copy(rig.worldToLocal(rainPropP));b.v.copy(rainPropV).applyQuaternion(rainInverse).divideScalar(propScale);
+        }
       }
       // Pushing apart, on a coarse grid so a big crowd stays cheap.
       const cell=new Map(),key=(x,z)=>(Math.floor(x/.3)*73856093)^(Math.floor(z/.3)*19349663);
@@ -541,7 +554,8 @@ export const createReferenceXR=(() => {
       const n=V(0,0,0),rel=V(0,0,0);
       for(const a of live){const gx=Math.floor(a.p.x/.3),gz=Math.floor(a.p.z/.3);
         for(let ix=-1;ix<=1;ix++)for(let iz=-1;iz<=1;iz++){const l=cell.get(((gx+ix)*73856093)^((gz+iz)*19349663));if(!l)continue;
-          for(const b of l){if(b===a||a.id>b.id)continue;
+          for(const b of l){if(b===a||a.id>b.id||a.popped||b.popped)continue;
+            if(I.rain&&ballImpactSpeed(a.p,a.v,b.p,b.v,a.R+b.R,dt)>=2.4){popBall(a,false);popBall(b,false);continue;}
             n.copy(b.p).sub(a.p);const len=n.length(),min=a.R+b.R;if(!(len>0&&len<min))continue;
             n.divideScalar(len);const push=(min-len)/2;a.p.addScaledVector(n,-push);b.p.addScaledVector(n,push);
             const rv=rel.copy(b.v).sub(a.v).dot(n);if(rv<0){a.v.addScaledVector(n,rv*.8);b.v.addScaledVector(n,-rv*.8);}}}}
@@ -725,15 +739,15 @@ export const createReferenceXR=(() => {
     }
     const shown=o=>{for(let x=o;x;x=x.parent)if(!x.visible)return false;return true;};
     function skyPop(p){if(p.y>eyeNow().y+.25*scaleNow())g.chAdd?.('skyPop5');}
-    function burst(p,style){
-      skyPop(p);
+    function burst(p,style,byPlayer=true){
+      if(byPlayer)skyPop(p);
       const k=scaleNow();
-      for(let i=0;i<14&&blast.sparks.length<128;i++){
+      for(let i=0;i<(byPlayer?14:6)&&blast.sparks.length<128;i++){
         const m=new T.Mesh(SPARK,new T.MeshBasicMaterial({color:i%3?STYLE_COLORS[style]||0xfffaf2:0xfffaf2,transparent:true}));m.scale.setScalar((.012+Math.random()*.012)*k);scene.add(m);
         const a=Math.random()*Math.PI*2,e=Math.random()*Math.PI-Math.PI/2,v=(1.2+Math.random()*1.8)*k;
         blast.sparks.push({m,p:p.clone(),v:V(Math.cos(a)*Math.cos(e)*v,Math.sin(e)*v+k,Math.sin(a)*Math.cos(e)*v),t:0,max:.45+Math.random()*.3});
       }
-      blast.popped++;at(p,()=>g.popSound?.());buzz(leftHand(),.35,40);g.chAdd?.('pop20');
+      blast.popped++;if(byPlayer||clock>=nextAmbientPop){at(p,()=>g.popSound?.());nextAmbientPop=clock+.12;}if(byPlayer){buzz(leftHand(),.35,40);g.chAdd?.('pop20');}
     }
     const ip=V(0,0,0);
     function stepBlast(dt){
@@ -997,14 +1011,16 @@ export const createReferenceXR=(() => {
       if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
       // The world's own sounds: wind, leaves, rain, the pond, birds by day and crickets at night.
       if(nature&&!ambience&&createReferenceAmbience&&g.audio)ambience=createReferenceAmbience({audio:g.audio,nature});
-      // A crate going up throws every Dahrooj nearby into the air.
-      if(nature?.props&&!nature.props.onExplode)nature.props.onExplode=(boomAt,R)=>{
-        at(boomAt,()=>g.boom?.());for(const h of hands)buzz(h,.9,180);g.chAdd?.('crates5');
-        const blast=(p,v)=>{const d=V(p.x-boomAt.x,0,p.z-boomAt.z),l=d.length();if(l>R)return;const k=1-l/R;
-          if(l>.01)v.addScaledVector(d.divideScalar(l),9*k);v.y+=6*k;p.y=Math.max(p.y,BR+.01);};
-        for(const r of rests)blast(r.p,r.v);
-        for(const b of g.volley())blast(b.pos,b.vel);
-        if(S.shot&&!S.held)blast(S.pos,S.vel);
+      // Crate blasts clear nearby characters in a 3D radius, never the ball held by the player.
+      if(nature?.props&&!nature.props.onExplode)nature.props.onExplode=(boomAt,R,byPlayer=true)=>{
+        at(boomAt,()=>g.boom?.());for(const h of hands)buzz(h,.9,180);if(byPlayer)g.chAdd?.('crates5');
+        const reach=(R+BR)*(R+BR);
+        for(let i=rests.length-1;i>=0;i--)if(rests[i].p.distanceToSquared(boomAt)<=reach)popRest(i);
+        const flying=g.volley();for(let i=flying.length-1;i>=0;i--)if(flying[i].pos.distanceToSquared(boomAt)<=reach){burst(flying[i].pos,g.style(),false);flying.splice(i,1);}
+        if(S.shot&&!S.held&&S.pos.distanceToSquared(boomAt)<=reach){burst(S.pos,g.style(),false);holder=null;g.recall();}
+        const scale=scaleNow();
+        if(intro?.rain)for(let i=intro.balls.length-1;i>=0;i--){const b=intro.balls[i];if(intro.t<b.born)continue;rig.localToWorld(rainPropP.copy(b.p));if(rainPropP.distanceToSquared(boomAt)<=(R+b.R*scale)**2)popBall(b,false);}
+        for(let i=blast.shots.length-1;i>=0;i--){const shot=blast.shots[i];if(shot.kind==='mini'&&shot.p.distanceToSquared(boomAt)<=(R+shot.r)**2){burst(shot.p,shot.look,false);if(shot.m)scene.remove(shot.m);blast.shots.splice(i,1);}}
       };
       if(nature)nature.enable(mode==='immersive-vr');
       floor.visible=mode==='immersive-vr'&&!nature;
@@ -1053,12 +1069,13 @@ export const createReferenceXR=(() => {
       if(sp<.25&&hit<1)return;
       nature.mark(p.x,p.z,BR*(.85+Math.min(.8,hit*.08)),Math.min(.6,.12+sp*.04+hit*.06));
     }
+    const restPrev=V();
     function stepRests(dt){
       const now=performance.now();
       for(let i=rests.length-1;i>=0;i--){const r=rests[i];r.age=(now-r.bornAt)/1000;if(r.age>=REST_LIFE){r.m?.dispose();rests.splice(i,1);}}
       const G=g.GRAV,cx=0,cz=-10;
       for(const r of rests){
-        const p=r.p,v=r.v;v.y-=G*dt;p.addScaledVector(v,dt);
+        const p=r.p,v=r.v;restPrev.copy(p);v.y-=G*dt;p.addScaledVector(v,dt);g.stage()?.collideBody?.(p,v,BR,restPrev);
         let grounded=false;
         // In the pond it floats half under and paddles slowly back to the shore (the pull back to the field below).
         const wet=natureOn()&&nature.waterAt&&nature.waterAt(p.x,p.z)>0;
@@ -1078,11 +1095,34 @@ export const createReferenceXR=(() => {
         r.next-=dt;if(r.next<=0){r.blink=.14;r.next=2+Math.random()*3;}r.blink=Math.max(0,r.blink-dt);
         markBall(p,v);
       }
-      for(let i=0;i<rests.length;i++)for(let j=i+1;j<rests.length;j++){
-        const a=rests[i],b=rests[j],n=b.p.clone().sub(a.p),l=n.length();
-        if(l>0&&l<BR*2){n.divideScalar(l);const push=(BR*2-l)/2;a.p.addScaledVector(n,-push);b.p.addScaledVector(n,push);
-          const rel=b.v.clone().sub(a.v).dot(n);if(rel<0){a.v.addScaledVector(n,rel*.9);b.v.addScaledVector(n,-rel*.9);}}
+    }
+    function popRest(index){const r=rests[index];burst(r.p,r.style,false);if(r.m){scene.remove(r.m.group);r.m.dispose();}rests.splice(index,1);}
+    const contactBodies=[],contactDead=new Uint8Array(12),contactNormal=V(0,0,0);
+    function stepWorldContacts(dt){
+      // Eight leftovers, three previous throws and the current throw: at most 66 pairs.
+      const flying=g.volley(),restCount=rests.length,flyingCount=flying.length;
+      contactBodies.length=0;contactDead.fill(0);
+      for(const r of rests)contactBodies.push(r);for(const b of flying)contactBodies.push(b);
+      if(S.shot&&!S.held)contactBodies.push(S);
+      const threshold=2.4*scaleNow()/timeK(); // metres per real second, also at AR scale
+      for(let i=0;i<contactBodies.length;i++)for(let j=i+1;j<contactBodies.length;j++){
+        if(contactDead[i]||contactDead[j])continue;
+        const a=contactBodies[i],b=contactBodies[j],ap=a.p||a.pos,av=a.v||a.vel,bp=b.p||b.pos,bv=b.v||b.vel;
+        if(ballImpactSpeed(ap,av,bp,bv,BR*2,dt)>=threshold){contactDead[i]=contactDead[j]=1;continue;}
+        contactNormal.copy(bp).sub(ap);const length=contactNormal.length();
+        if(length>0&&length<BR*2){
+          contactNormal.divideScalar(length);const push=(BR*2-length)/2;ap.addScaledVector(contactNormal,-push);bp.addScaledVector(contactNormal,push);
+          const rel=(bv.x-av.x)*contactNormal.x+(bv.y-av.y)*contactNormal.y+(bv.z-av.z)*contactNormal.z;
+          if(rel<0){av.addScaledVector(contactNormal,rel*.9);bv.addScaledVector(contactNormal,-rel*.9);}
+        }
       }
+      // Remove after detection, in reverse order, so a character can pop only once this frame.
+      for(let i=contactBodies.length-1;i>=0;i--)if(contactDead[i]){
+        const b=contactBodies[i];
+        if(i<restCount)popRest(i);
+        else{burst(b.pos,g.style(),false);if(i<restCount+flyingCount)flying.splice(i-restCount,1);else{holder=null;g.recall();}}
+      }
+      contactBodies.length=0;
     }
     /* ---------- Dahrooj feels you: pat one and he giggles; shake the one in your hand and he gets dizzy ---------- */
     const handAt=V(0,0,0);
@@ -1123,7 +1163,7 @@ export const createReferenceXR=(() => {
       ['rain','مطر دحاريج','Dahrooj Rain','فجّرها كلها','Pop them all']];
     const plaza=new T.Group();plaza.name='xr-plaza';plaza.visible=false;rig.add(plaza);
     let plazaOn=false,plazaK=0,plazaHot=-1,plazaPick=null;
-    const pm=(c,o={})=>new T.MeshStandardMaterial({color:c,roughness:.5,...o});
+    const pm=(c,o={})=>menuDepth(new T.MeshStandardMaterial({color:c,roughness:.8,...o,toneMapped:false,fog:false}));
     const PM={cream:pm(0xfffaf2),ink:pm(0x2c2d3d),coral:pm(0xe2603f),gold:pm(0xf2c14e),leaf:pm(0x7bbf8a),wood:pm(0xc98f5c),stone:pm(0xd9a67e),brown:pm(0x7b5536),sky:pm(0x6fa8d6),grey:pm(0xb9ad9c,{metalness:.4})};
     const box=(w,h,d,m,x,y,z)=>{const o=new T.Mesh(new T.BoxGeometry(w,h,d),m);o.position.set(x,y,z);return o;};
     const ball=(r,m,x,y,z)=>{const o=new T.Mesh(new T.SphereGeometry(r,16,12),m);o.position.set(x,y,z);return o;};
@@ -1167,11 +1207,11 @@ export const createReferenceXR=(() => {
     const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
       // Drawn in a fixed order (ring, pane, label) and the see-through ones don't write depth: otherwise, looking
       // down at a card, the label's clear edges could hide the pane behind them.
-      const root=new T.Group(),pane=new T.Mesh(cardShape,new T.MeshBasicMaterial({color:0xfffaf2,transparent:true,opacity:.98,depthWrite:false,fog:false,toneMapped:false}));pane.renderOrder=6;root.add(pane);
-      const ring=new T.Mesh(cardShape,new T.MeshBasicMaterial({color:0xf2c14e,transparent:true,opacity:0,depthWrite:false}));ring.scale.setScalar(1.06);ring.position.z=-.002;ring.renderOrder=5;root.add(ring);
+      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2eddf,transparent:true,opacity:.98,depthWrite:false,fog:false,toneMapped:false})));pane.renderOrder=50;root.add(pane);
+      const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,transparent:true,opacity:0,depthWrite:false,fog:false,toneMapped:false})));ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
       const m=mini(id);m.g.position.set(0,-.012,.05);m.g.scale.setScalar(1.22);root.add(m.g);
       const lc=document.createElement('canvas');lc.width=512;lc.height=192;const lt=new T.CanvasTexture(lc);lt.colorSpace=T.SRGBColorSpace;lt.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
-      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),new T.MeshBasicMaterial({map:lt,transparent:true,depthWrite:false,fog:false,toneMapped:false}));label.position.set(0,-CARD_H/2+.045,.003);label.renderOrder=7;root.add(label);
+      const label=new T.Mesh(new T.PlaneGeometry(CARD_W*.92,CARD_W*.92*96/256),menuDepth(new T.MeshBasicMaterial({map:lt,transparent:true,depthWrite:false,fog:false,toneMapped:false})));label.position.set(0,-CARD_H/2+.045,.012);label.renderOrder=51;root.add(label);
       plaza.add(root);
       return {id,ar,en,subAr,subEn,root,pane,ring,mini:m,lc,lt,key:'',hot:0,i};
     });
@@ -1210,7 +1250,7 @@ export const createReferenceXR=(() => {
       pcards.forEach((c,i)=>{
         const hot=i===plazaHot||(plazaPick&&plazaPick.c===c);c.hot+=((hot?1:0)-c.hot)*Math.min(1,dt*10);
         const appear=clamp(plazaK*1.6-i*.08,0,1),e=appear<1?1-Math.pow(1-appear,3):1;
-        c.root.position.copy(c.home);c.root.position.y+=Math.sin(clock*1.3+i)*.012;
+        c.root.position.copy(c.home);
         // The pointed card comes toward you.
         c.root.position.multiplyScalar(1-.12*c.hot);
         c.root.scale.setScalar(Math.max(.001,e*(1+.14*c.hot)));
@@ -1363,7 +1403,7 @@ export const createReferenceXR=(() => {
       if(climbOn){eyeNow();climb3.update(dt,{style:g.style(),eye,onEvent:climbEvent});}
       else{
         g.step(dt*timeK());
-        stepRests(dt*timeK());feelHands(dt);
+        stepRests(dt*timeK());stepWorldContacts(dt*timeK());feelHands(dt);
         if(!S.held)markBall(S.pos,S.vel);
         for(const b of g.volley())markBall(b.pos,b.vel);
         // Motri's props: Dahrooj bounces off poles and benches, shoves lanterns and sets off crates.

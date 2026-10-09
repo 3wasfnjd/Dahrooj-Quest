@@ -1,16 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- The legacy JS test boundary intentionally exposes original runtime objects. */
-import {test,expect} from '@playwright/test';
+import {test,expect,type Page} from '@playwright/test';
 import {mkdir,writeFile} from 'node:fs/promises';
 // The test bridge is a development-only module; gameplay runs the production reference code.
-test('original world, nine modes, five styles, throw controls, projectiles and focus',async({page},info)=>{
+async function openVR(page:Page){
  const errors:string[]=[],external:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text().slice(0,400));});page.on('request',r=>{if(/^https?:/.test(r.url())&&!r.url().startsWith('http://127.0.0.1:5173'))external.push(r.url());});
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
  await page.waitForTimeout(1200);expect(errors).toEqual([]);
 
  const action=async(kind:string,id:string)=>page.evaluate(({kind,id})=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;if(kind==='mode'){r.choosePlaza(r.plaza.ids.indexOf(id));return;}const i=r.menuLayout.buttons.findIndex((b:any)=>b.kind===kind&&b.id===id);if(i<0)throw Error('Missing menu item '+id);r.action(i);},{kind,id});
+ return {errors,external,action};
+}
+test('original world, nine modes and five styles',async({page},info)=>{
+ const {errors,external,action}=await openVR(page);
  for(const mode of ['goal','hoop','window','cans','bowling','bricks','fair','climb','rain']){await action('mode',mode);await page.waitForTimeout(350);expect(errors,mode).toEqual([]);}
  await action('mode','goal');
  for(const style of ['jelly','fabric','clay','fur','bubble']){await action('style',style);await page.waitForTimeout(120);}
+ expect(errors).toEqual([]);expect(external).toEqual([]);
+ await page.screenshot({path:info.outputPath('reference-world.png')});await mkdir('reports',{recursive:true});await writeFile('reports/simulator-performance.json',await page.evaluate(()=>JSON.stringify((window as any).__DAHROOJ_REFERENCE__.game.report(),null,2)));
+});
+test('throw controls, four projectiles and XR focus',async({page})=>{
+ const {errors,external,action}=await openVR(page);
  for(const method of ['trigger','hand','sling']){await action('throw',method);expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.throwStyle)).toBe(method);}
  await action('throw','trigger');
  await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.right.updateButtonValue('trigger',1));await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.holding);await page.waitForTimeout(500);await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.right.updateButtonValue('trigger',0));await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.S.shot);
@@ -18,7 +27,7 @@ test('original world, nine modes, five styles, throw controls, projectiles and f
  const streak=await page.evaluate(()=>{const g=(window as any).__DAHROOJ_REFERENCE__.game;g.setMode('hoop');g.state.respawn();g.ctx.success();g.state.respawn();g.state.miss();g.state.respawn();g.ctx.success();return g.store.data.challenges.hoop3;});expect(streak).toBe(1);
  await page.evaluate(()=>(window as any).IWER_DEVICE.updateVisibilityState('visible-blurred'));await page.waitForFunction(()=>!(window as any).__DAHROOJ_REFERENCE__.game.focused);const before=await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.state.time);await page.waitForTimeout(350);expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.state.time)).toBe(before);
  await page.evaluate(()=>(window as any).IWER_DEVICE.updateVisibilityState('visible'));await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.focused);
- await page.screenshot({path:info.outputPath('reference-world.png')});await mkdir('reports',{recursive:true});await writeFile('reports/simulator-performance.json',await page.evaluate(()=>JSON.stringify((window as any).__DAHROOJ_REFERENCE__.game.report(),null,2)));expect(errors).toEqual([]);expect(external).toEqual([]);
+ expect(errors).toEqual([]);expect(external).toEqual([]);
 });
 test('original mixed reality placement and session recovery',async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-ar').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.placing);

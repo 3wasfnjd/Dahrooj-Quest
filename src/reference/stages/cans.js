@@ -14,7 +14,7 @@ function buildCans(){
     const canGeo=new T.CylinderGeometry(CR,CR,CH,28);
     const labelGeo=new T.CylinderGeometry(CR*1.01,CR*1.01,CH*0.56,28,1,true);
     const rimGeo=new T.TorusGeometry(CR*0.97,0.012,6,28);
-    const tinMat=new T.MeshStandardMaterial({color:0xeeeae3,metalness:0.12,roughness:0.48});
+    const tinMat=new T.MeshStandardMaterial({color:0xa4a9ad,metalness:0.18,roughness:0.6});
     const labelMats=[new T.MeshStandardMaterial({color:0xff805c,roughness:0.6,emissive:0xff805c,emissiveIntensity:.035}),new T.MeshStandardMaterial({color:0x57b8f0,roughness:0.6,emissive:0x57b8f0,emissiveIntensity:.035})];
     const rimMat=new T.MeshBasicMaterial({color:INK});
     const m=1, invI=1/(m*(3*CR*CR+CH*CH)/12);

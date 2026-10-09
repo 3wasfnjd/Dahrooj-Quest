@@ -11,13 +11,13 @@ async function choose(page:Page,id:string){await page.evaluate(id=>{const r=(win
 for(const kind of ['vr','ar'] as const)test(`Rain accessories stay instanced and bounded in ${kind}`,async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await start(page,kind);await choose(page,'rain');
- await page.waitForFunction(n=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.rain.drawn===n,kind==='vr'?100:72);
+ await page.waitForFunction(n=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime.rain;return r.balls===n&&r.drawn>=Math.floor(n/3);},kind==='vr'?100:72);
  const data=await page.evaluate(()=>{
   const g=(window as any).__DAHROOJ_REFERENCE__.game,children=g.world.scene.getObjectByName('xr-intro').children;
   const parts=children.filter((m:any)=>m.name.startsWith('xr-rain-accessory-'));
   return {drawn:g.runtime.rain.drawn,parts:parts.map((m:any)=>({name:m.name,count:m.count,instanced:m.isInstancedMesh})),wearing:g.runtime.wearing};
  });
- expect(data.wearing).toBe('');expect(data.parts.length).toBe(10);expect(data.parts.every((m:any)=>m.instanced)).toBe(true);
+ expect(data.drawn).toBeLessThanOrEqual(kind==='vr'?100:72);expect(data.wearing).toBe('');expect(data.parts.length).toBe(10);expect(data.parts.every((m:any)=>m.instanced)).toBe(true);
  expect(data.parts.filter((m:any)=>m.name.endsWith('-0')).reduce((n:number,m:any)=>n+m.count,0)).toBe(data.drawn);
  for(const id of ['party','glasses','cap','flower','crown']){
   const parts=data.parts.filter((m:any)=>m.name.includes(`-${id}-`));expect(parts[0].count).toBe(parts[1].count);

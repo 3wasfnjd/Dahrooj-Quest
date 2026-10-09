@@ -1,0 +1,27 @@
+{
+  "environment": "Local Chromium with IWER and SwiftShader, not Quest hardware",
+  "unitTestsPassed": 40,
+  "summitChecksPassed": 142,
+  "passedXR": [
+    [
+      "✓   1 tests/xr/fair-display.spec.ts:9:40 › fair cabinet blocks a full-speed throw in vr (15.3s)",
+      "✓   2 tests/xr/fair-display.spec.ts:9:40 › fair cabinet blocks a full-speed throw in ar (7.5s)",
+      "✓   3 tests/xr/fair-display.spec.ts:24:1 › mode picker keeps depth isolated after gameplay and snow has no animated glitter (16.3s)",
+      "✓   5 tests/xr/night-cleanup.spec.ts:10:1 › automatic four-minute cycle reaches a dark night and returns to day (15.4s)",
+      "✓   6 tests/xr/night-cleanup.spec.ts:27:40 › hard Dahrooj collisions clear bodies and gentle contact survives in vr (14.5s)",
+      "✓   7 tests/xr/night-cleanup.spec.ts:27:40 › hard Dahrooj collisions clear bodies and gentle contact survives in ar (7.2s)",
+      "✓   8 tests/xr/night-cleanup.spec.ts:42:1 › crate explosions clear nearby Dahroojs while protecting held and out-of-range bodies (10.0s)",
+      "✓   9 tests/xr/rain-score-blaster.spec.ts:11:40 › Rain accessories stay instanced and bounded in vr (20.6s)",
+      "✓  10 tests/xr/rain-score-blaster.spec.ts:11:40 › Rain accessories stay instanced and bounded in ar (8.5s)",
+      "✓  11 tests/xr/rain-score-blaster.spec.ts:29:1 › score is glossy digits that animate once per increase and then disappear (31.2s)",
+      "✓  12 tests/xr/rain-score-blaster.spec.ts:51:1 › holding the mini blaster keeps a steady cadence beyond the 16-shot budget (13.1s)"
+    ],
+    [
+      "✓  1 tests/xr/fair-display.spec.ts:42:1 › jelly score numerals cover the spectrum in one cached texture (12.2s)",
+      "✓  2 tests/xr/gameplay.spec.ts:13:1 › original world, nine modes and five styles (37.6s)",
+      "✓  3 tests/xr/gameplay.spec.ts:21:1 › throw controls, four projectiles and XR focus (37.5s)"
+    ]
+  ],
+  "initialFailure": "Score hue histogram covered 7 of 8 sectors; palette updated and the same assertion passed on rerun.",
+  "hardwareTested": false
+}
