@@ -1,0 +1,14 @@
+// Legacy style IDs remain readable; selectable styles are now these three.
+export const PLAYABLE_STYLES = ['jelly','fur','bubble'] as const;
+export const JELLY_COLORS = [
+ {id:'pink',ar:'وردي',en:'Pink',hex:0xff69b4},
+ {id:'red',ar:'أحمر',en:'Red',hex:0xff505c},
+ {id:'orange',ar:'برتقالي',en:'Orange',hex:0xff9b3d},
+ {id:'yellow',ar:'أصفر',en:'Yellow',hex:0xffdf45},
+ {id:'green',ar:'أخضر',en:'Green',hex:0x58db83},
+ {id:'blue',ar:'أزرق',en:'Blue',hex:0x58b9ff},
+ {id:'purple',ar:'بنفسجي',en:'Purple',hex:0xb878ff},
+] as const;
+export type JellyColorId = typeof JELLY_COLORS[number]['id'];
+export function jellyColor(value:unknown){return JELLY_COLORS.find(c=>c.id===value)??JELLY_COLORS[0];}
+export function playableStyle(value:unknown):typeof PLAYABLE_STYLES[number]{return value==='fur'||value==='fabric'?'fur':value==='bubble'?'bubble':'jelly';}

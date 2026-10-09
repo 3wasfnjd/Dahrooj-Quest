@@ -35,6 +35,10 @@ async function boot() {
     const automatic=automaticQualityEnabled(location.search)?attachAutomaticQuality(world,()=>game.inspectRendering().mode):null;
     if(automatic)world.addCleanup(()=>automatic.dispose());
     const diagnostics=diagnosticOptions.enabled?(await import('./rendering/render-diagnostics')).attachRenderDiagnostics(world,game,diagnosticOptions):null;
+    // Runtime entry sets its legacy foveation; restore the fixed setting before drawing.
+    if(!automatic&&!diagnostics)world.addCleanup(world.onXRFrame(()=>{
+        if(world.renderer.xr.getFoveation()!==qualityOptions.foveation)world.renderer.xr.setFoveation(qualityOptions.foveation);
+    }));
     const supports = await Promise.allSettled([navigator.xr?.isSessionSupported('immersive-vr'), navigator.xr?.isSessionSupported('immersive-ar')]);
     vr.disabled = !(supports[0].status === 'fulfilled' && supports[0].value);
     ar.disabled = !(supports[1].status === 'fulfilled' && supports[1].value);

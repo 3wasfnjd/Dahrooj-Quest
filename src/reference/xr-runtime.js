@@ -1,3 +1,4 @@
+import {JELLY_COLORS,jellyColor} from '../core/appearance';
 import {rainSpawn,guideRain} from './rain-field';
 import {menuDepth,menuGroup} from './menu-depth';
 import {ballImpactSpeed} from './ball-impact';
@@ -25,12 +26,12 @@ export const createReferenceXR=(() => {
   const GAIN=2, SLING_K=23, SLING_MIN=.06, SLING_MAX=.65, MIN_THROW=1, MAX_SPEED=46, SPAN=.04;
   // Headset texts in Arabic and English: [id, Arabic, English].
   const MODES=[['goal','مرمى','Goal'],['hoop','سلة','Hoop'],['window','شباك','Window'],['cans','علب','Cans'],['bowling','بولينغ','Bowling'],['bricks','الطوب','Bricks'],['fair','ملاهي','Fair'],['climb','الجبل','Summit'],['rain','مطر دحاريج','Dahrooj Rain']];
-  const STYLES=[['jelly','جيلي','Jelly'],['fabric','قماش','Fabric'],['clay','صلصال','Clay'],['fur','فرو','Fur'],['bubble','فقاعة','Bubble']];
+  const STYLES=[['jelly','جيلي','Jelly'],['fur','فرو','Fur'],['bubble','فقاعة','Bubble']];
   const XR_MODES=new Set(MODES.map(m=>m[0]));
   let lang='ar';try{if(localStorage.getItem('dahrooj-lang')==='en')lang='en';}catch(_){}
   const tr=(ar,en)=>lang==='en'?en:ar;
   const LABEL=id=>{const m=MODES.find(m=>m[0]===id);return m?tr(m[1],m[2]):'';};
-  const INK='#2c2d3d',PAPER='#d0d0d0';
+  const INK='#2c2d3d',PAPER='#ffffff';
   const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 
   return g=>{
@@ -83,6 +84,7 @@ export const createReferenceXR=(() => {
     function makeSprite(){const s=new T.Sprite(new T.SpriteMaterial({transparent:true,depthWrite:false}));s.visible=false;s.renderOrder=2;scene.add(s);return s;}
     const ballSprite=makeSprite();
     const models=createReferenceCharacter?createReferenceCharacter(T,{radius:BR,drawFace:g.drawFace,renderer}):null;
+    models?.setJellyColor(g.jellyColor());
     let ballModel=null;const volleyModels=[];
     function model(slot,style,face){
       if(!slot||slot.style!==style||slot.face!==face){
@@ -108,10 +110,10 @@ export const createReferenceXR=(() => {
     function round(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
     const font=(w,s)=>`${w} ${s}px "Dahrooj","Grandstander",Tahoma,sans-serif`;
 
-    // One paper look for every pane (score board, notifications): soft shadow, cream body, a hairline edge and,
+    // One paper look for every pane (score board, notifications): soft shadow, white body, a hairline edge and,
     // when given, a coloured band on the reading side.
     function paperCard(c,x,y,w,h,r,accent,rtl){
-      c.save();c.shadowColor='rgba(20,20,30,.32)';c.shadowBlur=24;c.shadowOffsetY=7;c.fillStyle='rgba(184,184,184,.96)';round(c,x,y,w,h,r);c.fill();c.restore();
+      c.save();c.shadowColor='rgba(20,20,30,.32)';c.shadowBlur=24;c.shadowOffsetY=7;c.fillStyle='rgba(255,255,255,.96)';round(c,x,y,w,h,r);c.fill();c.restore();
       if(accent){c.save();round(c,x,y,w,h,r);c.clip();c.fillStyle=accent;c.fillRect(rtl?x+w-14:x,y,14,h);c.restore();}
       c.lineWidth=3;c.strokeStyle='rgba(44,45,61,.12)';round(c,x,y,w,h,r);c.stroke();
     }
@@ -192,7 +194,7 @@ export const createReferenceXR=(() => {
     }
     // The menu rides on the left hand: flip it palm-up or raise it. Point with the right hand to pick.
     // Solid paper: no scene blending. Alpha cutout only trims the rounded outside corners.
-    const MW=768,MH=1200,MENU_W=.24,MENU_H=MENU_W*MH/MW;
+    const MW=768,MH=1320,MENU_W=.24,MENU_H=MENU_W*MH/MW;
     const menu=panel(MENU_W,MENU_H,MW,MH,true);menuLayer.add(menu.mesh);menu.mesh.visible=false;menu.mesh.scale.setScalar(.01);menu.mesh.name='xr-menu';menu.mesh.renderOrder=20;
     const challengeList=createChallengeList(T,{parent:menu.mesh,panelWidth:MENU_W,panelHeight:MENU_H,pixelsWidth:MW,pixelsHeight:MH,font});
     const buttons=[],PAD=36,IN=MW-PAD*2;
@@ -205,7 +207,8 @@ export const createReferenceXR=(() => {
     // The blaster's shot styles (and the opening's and the rain's shots).
     const SHOTS=[['bolt','برق','Bolt'],['mini','دحروج','Mini'],['bubble','فقاعة','Bubble'],['firework','ألعاب نارية','Firework']];
     let shotStyle='bolt';try{const v=localStorage.getItem('dahrooj-shot');if(SHOTS.some(x=>x[0]===v))shotStyle=v;}catch(_){}
-    STYLES.forEach(([id,ar,en],i)=>buttons.push({kind:'style',id,ar,en,i,y:182,w:128,h:140}));
+    STYLES.forEach(([id,ar,en],i)=>buttons.push({kind:'style',id,ar,en,i,y:182,w:224,h:122}));
+    JELLY_COLORS.forEach((color,i)=>buttons.push({kind:'jellyColor',id:color.id,ar:color.ar,en:color.en,i,y:316,w:88,h:42}));
     [['trigger','زناد','Trigger'],['hand','يد','Hand'],['sling','نبيطة','Sling']].forEach(([id,ar,en],i)=>buttons.push({kind:'throw',id,ar,en,i,y:396,w:224,h:92}));
     SHOTS.forEach(([id,ar,en],i)=>buttons.push({kind:'shot',id,ar,en,i,y:562,w:166,h:120}));
     buttons.push({kind:'time',id:'time',i:0,y:736,w:342,h:92});
@@ -217,15 +220,15 @@ export const createReferenceXR=(() => {
     function layoutMenu(){
       const rtl=lang!=='en';
       for(const b of buttons){
-        const step=b.kind==='mode'?177.3:b.kind==='style'?142:b.kind==='shot'?176.7:b.kind==='throw'||b.kind==='place'||b.kind==='lang'||b.kind==='exit'?236:354,
-          n=b.kind==='mode'||b.kind==='shot'?4:b.kind==='style'?5:b.kind==='time'||b.kind==='weather'?2:3,col=b.kind==='mode'?b.i%4:b.i;
+        const step=b.kind==='mode'?177.3:b.kind==='jellyColor'?100:b.kind==='style'?236:b.kind==='shot'?176.7:b.kind==='throw'||b.kind==='place'||b.kind==='lang'||b.kind==='exit'?236:354,
+          n=b.kind==='mode'||b.kind==='shot'?4:b.kind==='jellyColor'?7:b.kind==='style'?3:b.kind==='time'||b.kind==='weather'?2:3,col=b.kind==='mode'?b.i%4:b.i;
         b.x=PAD+(rtl?n-1-col:col)*step;
         if(b.kind==='place'||b.kind==='lang'||b.kind==='exit')b.y=kind==='immersive-ar'?720:866;
       }
     }
-    function layoutAcc(){const rtl=lang!=='en';for(const b of accButtons)b.x=PAD+(rtl?accButtons.length-1-b.i:b.i)*118;resetBtn.x=rtl?PAD:MW-PAD-resetBtn.w;}
+    function layoutAcc(){const rtl=lang!=='en';for(const b of accButtons){b.x=PAD+(rtl?3-b.i%4:b.i%4)*177;b.y=972+Math.floor(b.i/4)*128;}resetBtn.x=rtl?PAD:MW-PAD-resetBtn.w;}
     layoutMenu();
-    const buttonShown=b=>b.kind==='time'||b.kind==='weather'?kind!=='immersive-ar':true;
+    const buttonShown=b=>b.kind==='jellyColor'?g.style()==='jelly':b.kind==='time'||b.kind==='weather'?kind!=='immersive-ar':true;
     // No free play in the headset, so its challenge stays on the web.
     const headsetChallenges=()=>(g.challenges?g.challenges():[]).filter(c=>c.id!=='free25');
     let chOpen=false,menuFresh=false;
@@ -233,8 +236,8 @@ export const createReferenceXR=(() => {
     function stopGameplayInput(){for(const h of hands){release(h,true);h.hover=-1;h.plaza=-1;h.scrollDrag=null;}}
     function toggleMenu(challenges){const on=!(menuToggled&&chOpen===challenges);setPlaza(false);menuToggled=on;chOpen=challenges;menuFresh=on;menu.key='';if(on)stopGameplayInput();}
     // Rewards: every few challenges done unlocks something for Dahrooj to wear, picked under the challenges (X).
-    const ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10]];
-    const accButtons=ACCESSORIES.map(([id,ar,en,need],i)=>({kind:'acc',id,ar,en,need,i,y:972,w:106,h:118}));
+    const ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14]];
+    const accButtons=ACCESSORIES.map(([id,ar,en,need],i)=>({kind:'acc',id,ar,en,need,i,y:972,w:164,h:118}));
     // Starting the challenges over takes two presses: the first asks to be sure.
     const resetBtn={kind:'reset',id:'reset',y:132,w:190,h:56};let resetArm=0;
     function resetPress(){
@@ -266,31 +269,33 @@ export const createReferenceXR=(() => {
     // Little drawings of each reward for the buttons.
     function drawAcc(c,id,cx,cy,locked){
       c.save();c.globalAlpha*=locked?.35:1;
-      const bg=c.createRadialGradient(cx-8,cy-8,3,cx,cy,26);bg.addColorStop(0,'#c4c4c4');bg.addColorStop(1,'#c9b8a2');c.fillStyle=bg;c.beginPath();c.arc(cx,cy+6,24,0,7);c.fill();
-      for(const ex of [-8,8]){c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx+ex,cy+3,5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy+4,2.6,0,7);c.fill();}
+      const bg=c.createRadialGradient(cx-8,cy-8,3,cx,cy,26);bg.addColorStop(0,'#ffffff');bg.addColorStop(1,'#c9b8a2');c.fillStyle=bg;c.beginPath();c.arc(cx,cy+6,24,0,7);c.fill();
+      for(const ex of [-8,8]){c.fillStyle='#ffffff';c.beginPath();c.arc(cx+ex,cy+3,5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy+4,2.6,0,7);c.fill();}
       if(id==='party'){c.fillStyle='#e2603f';c.beginPath();c.moveTo(cx-12,cy-14);c.lineTo(cx+12,cy-14);c.lineTo(cx+3,cy-40);c.closePath();c.fill();c.fillStyle='#f2c14e';c.beginPath();c.arc(cx+3,cy-41,4,0,7);c.fill();}
       else if(id==='glasses'){c.fillStyle='#1b2233';for(const ex of [-9,9]){c.beginPath();c.ellipse(cx+ex,cy+3,8,6,0,0,7);c.fill();}c.fillRect(cx-2,cy+1,4,2);}
       else if(id==='cap'){c.fillStyle='#c8442f';c.beginPath();c.arc(cx,cy-6,21,Math.PI,0);c.fill();c.fillRect(cx-4,cy-8,28,5);}
       else if(id==='flower'){c.fillStyle='#ff7f9a';for(let k=0;k<5;k++){const a=k/5*Math.PI*2;c.beginPath();c.arc(cx+14+Math.cos(a)*6,cy-14+Math.sin(a)*6,4.5,0,7);c.fill();}c.fillStyle='#f2c14e';c.beginPath();c.arc(cx+14,cy-14,3.5,0,7);c.fill();}
       else if(id==='crown'){c.fillStyle='#e5ad2e';c.beginPath();c.moveTo(cx-15,cy-14);c.lineTo(cx-15,cy-32);c.lineTo(cx-7,cy-22);c.lineTo(cx,cy-36);c.lineTo(cx+7,cy-22);c.lineTo(cx+15,cy-32);c.lineTo(cx+15,cy-14);c.closePath();c.fill();}
+      else if(id==='headphones'){c.strokeStyle='#7862cc';c.lineWidth=6;c.beginPath();c.arc(cx,cy-4,24,Math.PI,0);c.stroke();c.fillStyle='#7862cc';for(const sd of [-1,1]){round(c,cx+sd*23-5,cy-7,10,22,5);c.fill();}}
+      else if(id==='scarf'){c.strokeStyle='#46aaa9';c.lineWidth=10;c.beginPath();c.ellipse(cx,cy+21,19,5,0,0,Math.PI);c.stroke();c.fillStyle='#46aaa9';c.fillRect(cx+5,cy+22,10,19);}
       c.restore();
     }
     const STYLE_DOTS=DAHROOJ_SWATCHES;
     // Opaque paper gradient. Button highlights are composited onto this solid canvas base.
     function menuPaper(c,W,H,R){
-      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#a6a6a6');gr.addColorStop(1,'#969696');
+      let gr=c.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#ffffff');gr.addColorStop(1,'#f5f5f5');
       c.fillStyle=gr;round(c,6,6,W-12,H-12,R);c.fill();
       c.save();round(c,6,6,W-12,H-12,R);c.clip();
-      gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(196,196,196,.12)');gr.addColorStop(.35,'rgba(196,196,196,0)');gr.addColorStop(.62,'rgba(196,196,196,0)');gr.addColorStop(.7,'rgba(196,196,196,.04)');gr.addColorStop(.78,'rgba(196,196,196,0)');
+      gr=c.createLinearGradient(0,0,W,H*.55);gr.addColorStop(0,'rgba(255,255,255,.12)');gr.addColorStop(.35,'rgba(255,255,255,0)');gr.addColorStop(.62,'rgba(255,255,255,0)');gr.addColorStop(.7,'rgba(255,255,255,.04)');gr.addColorStop(.78,'rgba(255,255,255,0)');
       c.fillStyle=gr;c.fillRect(0,0,W,H);c.restore();
-      c.lineWidth=4;c.strokeStyle='rgba(196,196,196,.85)';round(c,8,8,W-16,H-16,R-2);c.stroke();
+      c.lineWidth=4;c.strokeStyle='rgba(255,255,255,.85)';round(c,8,8,W-16,H-16,R-2);c.stroke();
       c.lineWidth=2;c.strokeStyle='rgba(44,45,61,.16)';round(c,4,4,W-8,H-8,R+2);c.stroke();
     }
     function drawMenu(hover){
       if(!menu.mesh.visible)return;
       const sky=nature?nature.settings:{time:'auto',weather:'auto'};
       const chs=headsetChallenges();
-      const key=[resetArm>0,wornNow(),doneNow,modeNow(),g.style(),throwStyle,kind,sky.time,sky.weather,hover.join(','),chOpen,lang,chs.map(c=>c.value).join(',')].join('|');if(key===menu.key)return;menu.key=key;
+      const key=[resetArm>0,wornNow(),doneNow,modeNow(),g.style(),g.jellyColor(),throwStyle,kind,sky.time,sky.weather,hover.join(','),chOpen,lang,chs.map(c=>c.value).join(',')].join('|');if(key===menu.key)return;menu.key=key;
       const c=menu.ctx,VH=menuVis();c.clearRect(0,0,MW,MH);
       // Only the visible height is drawn; settings are shorter than challenges.
       menuPaper(c,MW,VH,64);
@@ -305,8 +310,8 @@ export const createReferenceXR=(() => {
         c.font=font(700,30);c.fillStyle='rgba(44,45,61,.85)';c.fillText(tr(`التحديات · ${done} من ${chs.length}`,`Challenges · ${done} of ${chs.length}`),MW/2,164);
         // Reset, on the far side of the heading.
         {const b=resetBtn,hot=hover.includes(2000),armed=resetArm>0;
-          c.fillStyle=armed?'#c8442f':hot?'rgba(196,196,196,.95)':'rgba(196,196,196,.55)';round(c,b.x,b.y,b.w,b.h,b.h/2);c.fill();
-          if(!armed){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(196,196,196,.9)';c.stroke();}
+          c.fillStyle=armed?'#c8442f':hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,b.h/2);c.fill();
+          if(!armed){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();}
           c.textAlign='center';c.fillStyle=armed?PAPER:INK;c.font=font(800,armed?24:26);c.fillText(armed?tr('متأكد؟ اضغط ثانية','Sure? Press again'):tr('↺ تصفير','↺ Reset'),b.x+b.w/2,b.y+b.h/2+9);}
         challengeList.rows(chs,lang);
         const v=challengeList.view;c.fillStyle='rgba(44,45,61,.16)';c.fillRect(v.x+v.w+9,v.y,6,v.h);
@@ -317,8 +322,8 @@ export const createReferenceXR=(() => {
         const worn=wornNow();
         accButtons.forEach((b,k)=>{
           const open=accOpen(b),on=b.id===worn,hot=hover.includes(1000+k);
-          c.fillStyle=on?INK:hot?'rgba(196,196,196,.95)':'rgba(196,196,196,.55)';round(c,b.x,b.y,b.w,b.h,28);c.fill();
-          if(!on){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(196,196,196,.9)';c.stroke();}
+          c.fillStyle=on?INK:hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.55)';round(c,b.x,b.y,b.w,b.h,28);c.fill();
+          if(!on){c.lineWidth=2;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();}
           if(b.id)drawAcc(c,b.id,b.x+b.w/2,b.y+52,!open);
           else{c.fillStyle=on?PAPER:INK;c.font=font(800,40);c.fillText('—',b.x+b.w/2,b.y+66);}
           c.fillStyle=on?PAPER:INK;c.font=font(700,open?21:20);c.fillText(open?tr(b.ar,b.en):tr(`يحتاج ${b.need}`,`needs ${b.need}`),b.x+b.w/2,b.y+106);
@@ -333,33 +338,36 @@ export const createReferenceXR=(() => {
           :b.kind==='time'?tr('الوقت: ','Time: ')+named(TIMES,sky.time):b.kind==='weather'?tr('الطقس: ','Weather: ')+named(WEATHERS,sky.weather):tr(b.ar,b.en);
         // Time and weather belong to the VR world; the room has its own.
         if((b.kind==='time'||b.kind==='weather')&&!natureOn())c.globalAlpha=.35;
-        const on=(b.kind==='mode'&&b.id===modeNow())||(b.kind==='style'&&b.id===g.style())||(b.kind==='shot'&&b.id===shotStyle)||(b.kind==='throw'&&b.id===throwStyle),hot=hover.includes(i);
+        const on=(b.kind==='jellyColor'&&b.id===g.jellyColor())||(b.kind==='mode'&&b.id===modeNow())||(b.kind==='style'&&b.id===g.style())||(b.kind==='shot'&&b.id===shotStyle)||(b.kind==='throw'&&b.id===throwStyle),hot=hover.includes(i);
         const r=b.kind==='style'?36:b.h/2;
         // Painted button highlights; the canvas underneath remains fully opaque.
         if(on){c.fillStyle=INK;round(c,b.x,b.y,b.w,b.h,r);c.fill();}
         else{
-          const bg=c.createLinearGradient(0,b.y,0,b.y+b.h);bg.addColorStop(0,hot?'rgba(196,196,196,.95)':'rgba(196,196,196,.62)');bg.addColorStop(1,hot?'rgba(196,196,196,.7)':'rgba(196,196,196,.3)');
+          const bg=c.createLinearGradient(0,b.y,0,b.y+b.h);bg.addColorStop(0,hot?'rgba(255,255,255,.95)':'rgba(255,255,255,.62)');bg.addColorStop(1,hot?'rgba(255,255,255,.7)':'rgba(255,255,255,.3)');
           c.fillStyle=bg;round(c,b.x,b.y,b.w,b.h,r);c.fill();
-          c.lineWidth=2.5;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(196,196,196,.9)';c.stroke();
+          c.lineWidth=2.5;c.strokeStyle=hot?'rgba(44,45,61,.35)':'rgba(255,255,255,.9)';c.stroke();
         }
         if(b.kind==='style'){
           // A little Dahrooj in that style: a shaded body with two eyes.
-          const [a,d]=STYLE_DOTS[b.id]||['#888','#444'],cx=b.x+b.w/2,cy=b.y+52;
+          const [a,d]=b.id==='jelly'?[new T.Color(jellyColor(g.jellyColor()).hex).lerp(new T.Color(0xffffff),.4).getStyle(),new T.Color(jellyColor(g.jellyColor()).hex).getStyle()]:STYLE_DOTS[b.id]||['#888','#444'],cx=b.x+b.w/2,cy=b.y+52;
           const bg=c.createRadialGradient(cx-10,cy-12,4,cx,cy,32);bg.addColorStop(0,a);bg.addColorStop(1,d);
           c.fillStyle=bg;c.beginPath();c.arc(cx,cy,30,0,7);c.fill();c.lineWidth=2;c.strokeStyle='rgba(44,45,61,.25)';c.stroke();
-          for(const ex of [-9,9]){c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx+ex,cy-3,6.5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy-2,3.3,0,7);c.fill();}
-          c.fillStyle=on?PAPER:INK;c.font=font(800,28);c.fillText(label,cx,b.y+122);
+          for(const ex of [-9,9]){c.fillStyle='#ffffff';c.beginPath();c.arc(cx+ex,cy-3,6.5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy-2,3.3,0,7);c.fill();}
+          c.fillStyle=on?PAPER:INK;c.font=font(800,28);c.fillText(label,cx,b.y+110);
+        }else if(b.kind==='jellyColor'){
+          c.fillStyle=new T.Color(jellyColor(b.id).hex).getStyle();round(c,b.x+7,b.y+7,b.w-14,b.h-14,14);c.fill();
+          c.fillStyle=INK;c.font=font(800,18);c.fillText((on?'✓ ':'')+label,b.x+b.w/2,b.y+28);
         }else if(b.kind==='shot'){
           // A little picture of the shot: a gold streak, a mini Dahrooj, a bubble, a burst.
           const cx=b.x+b.w/2,cy=b.y+46,ink=on?PAPER:INK;
           if(b.id==='bolt'){const gr=c.createLinearGradient(cx-44,cy+14,cx+40,cy-14);gr.addColorStop(0,'rgba(255,210,122,0)');gr.addColorStop(1,'#ffd27a');
-            c.strokeStyle=gr;c.lineWidth=9;c.lineCap='round';c.beginPath();c.moveTo(cx-44,cy+14);c.lineTo(cx+34,cy-12);c.stroke();c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx+36,cy-12,8,0,7);c.fill();}
+            c.strokeStyle=gr;c.lineWidth=9;c.lineCap='round';c.beginPath();c.moveTo(cx-44,cy+14);c.lineTo(cx+34,cy-12);c.stroke();c.fillStyle='#ffffff';c.beginPath();c.arc(cx+36,cy-12,8,0,7);c.fill();}
           else if(b.id==='mini'){const bg=c.createRadialGradient(cx-6,cy-8,3,cx,cy,22);bg.addColorStop(0,DAHROOJ_SWATCHES.jelly[0]);bg.addColorStop(1,DAHROOJ_SWATCHES.jelly[1]);c.fillStyle=bg;c.beginPath();c.arc(cx,cy,22,0,7);c.fill();
             c.strokeStyle=ink;c.globalAlpha*=.35;c.lineWidth=3;c.setLineDash([3,7]);c.beginPath();c.moveTo(cx-48,cy+18);c.quadraticCurveTo(cx-34,cy-20,cx-24,cy);c.stroke();c.setLineDash([]);c.globalAlpha=1;}
-          else if(b.id==='bubble'){const bg=c.createRadialGradient(cx-8,cy-8,4,cx,cy,26);bg.addColorStop(0,'rgba(196,196,196,.9)');bg.addColorStop(.6,'rgba(190,225,255,.35)');bg.addColorStop(1,'rgba(240,170,255,.55)');
-            c.fillStyle=bg;c.beginPath();c.arc(cx,cy,26,0,7);c.fill();c.lineWidth=2.5;c.strokeStyle='rgba(120,160,220,.7)';c.stroke();c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx-9,cy-10,5,0,7);c.fill();}
+          else if(b.id==='bubble'){const bg=c.createRadialGradient(cx-8,cy-8,4,cx,cy,26);bg.addColorStop(0,'rgba(255,255,255,.9)');bg.addColorStop(.6,'rgba(190,225,255,.35)');bg.addColorStop(1,'rgba(240,170,255,.55)');
+            c.fillStyle=bg;c.beginPath();c.arc(cx,cy,26,0,7);c.fill();c.lineWidth=2.5;c.strokeStyle='rgba(120,160,220,.7)';c.stroke();c.fillStyle='#ffffff';c.beginPath();c.arc(cx-9,cy-10,5,0,7);c.fill();}
           else{const cols=['#e2603f','#f2c14e','#6fa8d6','#7bbf8a','#c9a2e6'];for(let k=0;k<10;k++){const a=k/10*Math.PI*2;c.strokeStyle=cols[k%5];c.lineWidth=5;c.lineCap='round';
-            c.beginPath();c.moveTo(cx+Math.cos(a)*9,cy+Math.sin(a)*9);c.lineTo(cx+Math.cos(a)*26,cy+Math.sin(a)*26);c.stroke();}c.fillStyle='#c4c4c4';c.beginPath();c.arc(cx,cy,6,0,7);c.fill();}
+            c.beginPath();c.moveTo(cx+Math.cos(a)*9,cy+Math.sin(a)*9);c.lineTo(cx+Math.cos(a)*26,cy+Math.sin(a)*26);c.stroke();}c.fillStyle='#ffffff';c.beginPath();c.arc(cx,cy,6,0,7);c.fill();}
           c.fillStyle=ink;c.font=font(800,label.length>8?24:28);c.fillText(label,cx,b.y+104);
         }else{
           c.fillStyle=on?PAPER:INK;c.font=font(800,label.length>10?32:38);c.fillText(label,b.x+b.w/2,b.y+b.h/2+13);
@@ -372,7 +380,7 @@ export const createReferenceXR=(() => {
         :rainOn?[tr('الزنادين يطلقون على الدحاريج','Either trigger shoots at the Dahroojs'),tr('Y الأنماط · X التحديات','Y modes · X challenges')]
         :throwStyle==='sling'?[tr('اسحب دحروج بالزناد اليمين ثم أفلت','Pull Dahrooj back with the right trigger, let go'),tr('A يرجّع دحروج · Y الأنماط · X التحديات','A calls him back · Y modes · X challenges')]
         :[tr('الزناد اليمين للرمي · اليسار يطلق','Right trigger throws · left trigger shoots'),tr('A يرجّع دحروج · Y الأنماط · X التحديات','A calls him back · Y modes · X challenges')];
-      const hy=chOpen?1150:menuVisH()-86;c.fillText(hint[0],MW/2,hy);c.fillText(hint[1],MW/2,hy+42);
+      const hy=chOpen?1270:menuVisH()-86;c.fillText(hint[0],MW/2,hy);c.fillText(hint[1],MW/2,hy+42);
       menu.tex.needsUpdate=true;
     }
     function menuHit(uv){
@@ -387,6 +395,7 @@ export const createReferenceXR=(() => {
       const b=buttons[i];if(!b)return;
       if(b.kind==='mode'){holder=null;if(b.id==='rain'){setClimb(false);setRain(true);}else{setRain(false);if(b.id==='climb')setClimb(true);else{setClimb(false);g.setMode(b.id);}}}
       else if(b.kind==='style')g.setStyle(b.id);
+      else if(b.kind==='jellyColor'){g.setJellyColor(b.id);models?.setJellyColor(b.id);}
       else if(b.kind==='throw'){holder=null;throwStyle=b.id;}
       else if(b.kind==='shot'){shotStyle=b.id;shotChosen=true;try{localStorage.setItem('dahrooj-shot',b.id);}catch(_){}}
       else if(b.kind==='exit')session?.end();
@@ -422,7 +431,7 @@ export const createReferenceXR=(() => {
     /* ---------- the opening: Dahrooj balls rain all around you, then a start button ---------- */
     // The same rain is a mode of its own, Dahrooj Rain (rain: true): no start button, and it never stops.
     // Every ball and shot is drawn by one crowd (a handful of instanced draws), so there can be lots.
-    const INTRO_R=.11,INTRO_STYLES=['jelly','fabric','clay','fur','bubble'],RAIN_ACCESSORIES=['party','glasses','cap','flower','crown'],CROWD_MAX=120;
+    const INTRO_R=.11,INTRO_STYLES=['jelly','fur','bubble'],RAIN_ACCESSORIES=['party','glasses','cap','flower','crown','headphones','scarf'],CROWD_MAX=120;
     const crowd=models?.crowd?models.crowd(CROWD_MAX,true):null;
     const introGroup=crowd?crowd.group:new T.Group();introGroup.name='xr-intro';rig.add(introGroup);
     const start=panel(.56,.28,1024,512);start.mesh.name='xr-start';start.mesh.visible=false;rig.add(start.mesh);
@@ -452,7 +461,7 @@ export const createReferenceXR=(() => {
       const raw=INTRO_R*(.75+Math.random()*.5),rad=I.rain&&raw>INTRO_R?INTRO_R+(raw-INTRO_R)*.5:raw,sp=.2+Math.random()*.5,dirA=Math.random()*Math.PI*2;
       // Pick once per spawn; cosmetics never change the player's unlocks or add physics bodies.
       const accessory=I.rain?RAIN_ACCESSORIES[Math.random()*RAIN_ACCESSORIES.length|0]:'';
-      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*5|0],R:rad,accessory,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
+      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*INTRO_STYLES.length|0],R:rad,accessory,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
         pending:I.rain,born:I.t+delay,gx:Math.cos(dirA)*sp,gz:Math.sin(dirA)*sp,hop:.5+Math.random()*2.5,d:0,dv:0,hit:0,blink:0,next:1+Math.random()*3});
     }
     function spawnIntro(){
@@ -702,7 +711,12 @@ export const createReferenceXR=(() => {
     const styleFor=fromIntro=>shotChosen?shotStyle:fromIntro?'mini':'bolt';
     const shotGeo=new T.CylinderGeometry(.006,.006,1,6,1,true).rotateX(Math.PI/2),shotMat=new T.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:.95,depthWrite:false});
     const headGeo=new T.SphereGeometry(.012,10,8),headMat=new T.MeshBasicMaterial({color:0xfff4d6});
-    const rocketMat=new T.MeshBasicMaterial({color:0xffb347});
+    const rocketMat=new T.MeshBasicMaterial({color:0xfff0b0,toneMapped:false});
+    const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=64;
+    const glowCtx=glowCanvas.getContext('2d'),glowGradient=glowCtx.createRadialGradient(32,32,0,32,32,32);
+    glowGradient.addColorStop(0,'rgba(255,250,210,1)');glowGradient.addColorStop(.22,'rgba(255,190,60,.75)');glowGradient.addColorStop(1,'rgba(255,110,20,0)');
+    glowCtx.fillStyle=glowGradient;glowCtx.fillRect(0,0,64,64);
+    const rocketGlow=new T.SpriteMaterial({map:new T.CanvasTexture(glowCanvas),color:0xffcc77,transparent:true,blending:T.AdditiveBlending,depthWrite:false,depthTest:true,toneMapped:false});
     // Mini Dahroojs and bubbles are drawn by a crowd in the scene (game units).
     const shotCrowd=models?.crowd?models.crowd(96):null;if(shotCrowd)scene.add(shotCrowd.group);
     const FIRE_COLS=[0xe2603f,0xf2c14e,0x6fa8d6,0x7bbf8a,0xc9a2e6,0xfffaf2];
@@ -718,7 +732,7 @@ export const createReferenceXR=(() => {
       let m=null;
       if(kind_==='bolt'){m=new T.Group();const tr=new T.Mesh(shotGeo,shotMat),hd=new T.Mesh(headGeo,headMat);
         tr.scale.set(k,k,.35*k);tr.position.z=-.175*k;hd.scale.setScalar(k);m.add(tr,hd);m.position.copy(p);m.lookAt(p.clone().add(dir));scene.add(m);}
-      else if(kind_==='firework'){m=new T.Mesh(headGeo,rocketMat);m.scale.setScalar(1.4*k);m.position.copy(p);scene.add(m);}
+      else if(kind_==='firework'){m=new T.Mesh(headGeo,rocketMat);const glow=new T.Sprite(rocketGlow);glow.scale.set(.13,.13,1);m.add(glow);m.scale.setScalar(1.4*k);m.position.copy(p);scene.add(m);}
       const look=INTRO_STYLES[(blast.fired)%INTRO_STYLES.length];
       blast.shots.push({kind:kind_,m,p,v:dir.clone().multiplyScalar(P.speed*k),dir:dir.clone(),t:0,r:P.r*k,look,wob:Math.random()*6,fromIntro});
       // Muzzle flash (not for a bubble).
@@ -1214,7 +1228,7 @@ export const createReferenceXR=(() => {
       sh.lineTo(-w/2+r,h/2);sh.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);sh.lineTo(-w/2,-h/2+r);sh.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return new T.ShapeGeometry(sh,8);})();
     const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
       // Backdrops replace world depth only at covered pixels; miniatures then use full real depth precision.
-      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xa6a6a6,depthWrite:true,fog:false,toneMapped:false}),true));pane.renderOrder=50;root.add(pane);
+      const root=new T.Group(),pane=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xffffff,depthWrite:true,fog:false,toneMapped:false}),true));pane.renderOrder=50;root.add(pane);
       const ring=new T.Mesh(cardShape,menuDepth(new T.MeshBasicMaterial({color:0xf2c14e,depthWrite:true,fog:false,toneMapped:false}),true));ring.visible=false;ring.scale.setScalar(1.06);ring.position.z=-.012;ring.renderOrder=49;root.add(ring);
       const m=mini(id);m.g.position.set(0,-.012,.05);m.g.scale.setScalar(1.22);root.add(m.g);
       const lc=document.createElement('canvas');lc.width=512;lc.height=192;const lt=new T.CanvasTexture(lc);lt.colorSpace=T.SRGBColorSpace;lt.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());

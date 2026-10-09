@@ -1,8 +1,8 @@
 /* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export function createReferenceRain(T,capacity){const V=(x=0,y=0,z=0)=>new T.Vector3(x,y,z),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),REAL_G=9.8,INTRO_R=.11,INTRO_STYLES=['jelly','fabric','clay','fur','bubble'];let ballIds=0;const intro={balls:[],t:0,centre:V()},crowdSize=()=>({R:4.4}),g={},at=()=>{},roomPoint=p=>p;    function dropBall(delay){
+export function createReferenceRain(T,capacity){const V=(x=0,y=0,z=0)=>new T.Vector3(x,y,z),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),REAL_G=9.8,INTRO_R=.11,INTRO_STYLES=['jelly','fur','bubble'];let ballIds=0;const intro={balls:[],t:0,centre:V()},crowdSize=()=>({R:4.4}),g={},at=()=>{},roomPoint=p=>p;    function dropBall(delay){
       const I=intro,{R}=crowdSize(),c=I.centre,a=Math.random()*Math.PI*2,dist=.55+Math.sqrt(Math.random())*(R-.55);
       const rad=INTRO_R*(.75+Math.random()*.5),sp=.2+Math.random()*.5,dirA=Math.random()*Math.PI*2;
-      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*5|0],R:rad,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
+      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*INTRO_STYLES.length|0],R:rad,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
         born:I.t+delay,gx:Math.cos(dirA)*sp,gz:Math.sin(dirA)*sp,hop:.5+Math.random()*2.5,d:0,dv:0,hit:0,blink:0,next:1+Math.random()*3});
     }
 

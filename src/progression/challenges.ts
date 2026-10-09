@@ -3,7 +3,7 @@ export const CHALLENGES = [
     ['hoop3', 3, '٣ سلات متتابعة', '3 hoops in a row'],
     ['windowMin', 1, 'أصغر شباك', 'Smallest window'],
     ['cansOne', 1, 'كل العلب برمية', 'Clear cans in one throw'],
-    ['styles5', 5, 'الستايلات الخمسة', 'Play all 5 styles'],
+    ['styles5', 3, 'الستايلات الثلاثة', 'Play all 3 styles'],
     ['summit1', 1, 'قمة الجبل', 'Reach the summit'],
     ['monsters15', 15, 'اهزم ١٥ وحشًا', 'Defeat 15 monsters'],
     ['strike1', 1, 'سترايك', 'Bowl a strike'],
@@ -17,4 +17,4 @@ export const CHALLENGES = [
     ['pop20', 20, 'فرقع ٢٠ دحروج', 'Pop 20 Dahroojs'],
 ] as const;
 export type ChallengeId = typeof CHALLENGES[number][0];
-export const UNLOCKS = { party: 1, glasses: 3, cap: 5, flower: 7, crown: 10 } as const;
+export const UNLOCKS = { party: 1, glasses: 3, cap: 5, flower: 7, crown: 10, headphones: 12, scarf: 14 } as const;

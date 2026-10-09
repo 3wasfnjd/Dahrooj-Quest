@@ -1,0 +1,35 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Exercise the actual reference meshes with a drawing-only canvas stub. */
+import {afterEach,describe,expect,it,vi} from 'vitest';
+import * as T from '@iwsdk/core';
+import {createReferenceCharacter} from '../../src/reference/character.js';
+import {JELLY_COLORS} from '../../src/core/appearance';
+afterEach(()=>vi.unstubAllGlobals());
+function character(){
+ const context=new Proxy({},{get:(_target,key)=>key==='createLinearGradient'||key==='createRadialGradient'?()=>({addColorStop(){}}):()=>{},set:()=>true});
+ vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>context})});
+ return createReferenceCharacter(T,{radius:.24,drawFace(){}});
+}
+describe('character appearance on real Three geometry',()=>{
+ it('updates existing main and instanced jelly uniforms for every saved colour',()=>{
+  const models=character(),main=models.make('jelly'),crowd=models.crowd(8,true);
+  for(const color of JELLY_COLORS){
+   models.setJellyColor(color.id);expect(models.mats.jelly.uniforms.uTint.value.getHex()).toBe(color.hex);
+   crowd.begin();crowd.add('jelly',new T.Vector3(),.24,null,[1,1],'open','headphones');crowd.end();
+   const body=crowd.group.children.find((m:any)=>m.material.uniforms?.uTint) as T.Mesh<T.BufferGeometry,T.ShaderMaterial>;
+   expect(body.material.uniforms.uTint).toBe(models.mats.jelly.uniforms.uTint);
+  }
+  expect(main.group.children.length).toBeGreaterThan(0);
+ });
+ it('switches every accessory on all three styles without deleting shared geometry',()=>{
+  const models=character();
+  for(const style of ['jelly','fur','bubble'] as const){
+   const main=models.make(style);let maximum=0;
+   for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','']){
+    main.setAccessory(id);main.group.updateMatrixWorld(true);
+    main.group.traverse((o:any)=>{if(o.isMesh){expect(o.geometry.attributes.position.count).toBeGreaterThan(0);maximum++;}});
+    const bounds=new T.Box3().setFromObject(main.group);expect(Number.isFinite(bounds.max.x)).toBe(true);
+   }
+   expect(maximum).toBeGreaterThan(20);main.dispose();
+  }
+ });
+});

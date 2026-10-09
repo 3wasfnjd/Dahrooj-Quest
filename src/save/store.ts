@@ -1,3 +1,5 @@
+import {jellyColor,playableStyle} from '../core/appearance';
+import type {JellyColorId} from '../core/appearance';
 import { ACCESSORIES, SHOTS, STYLES, THROWS } from '../core/config';
 import type { AccessoryId, Language, ShotId, StyleId, ThrowId, TimeOfDay, Weather } from '../core/config';
 import { CHALLENGES, UNLOCKS } from '../progression/challenges';
@@ -6,6 +8,7 @@ export interface SaveData {
     version: 2;
     language: Language;
     style: StyleId;
+    jellyColor: JellyColorId;
     throwType: ThrowId;
     shot: ShotId;
     accessory: AccessoryId;
@@ -20,7 +23,7 @@ export interface SaveData {
     ambience: number;
     ui: number;
 }
-export function defaults(): SaveData { return { version: 2, language: 'ar', style: 'fabric', throwType: 'physical', shot: 'bolt', accessory: '', challenges: {}, stylesUsed: [], best: {}, time: 'day', weather: 'clear', master: 0.7, music: 0.12, sfx: 0.65, ambience: 0.25, ui: 0.4 }; }
+export function defaults(): SaveData { return { version: 2, language: 'ar', style: 'fur', jellyColor:'pink', throwType: 'physical', shot: 'bolt', accessory: '', challenges: {}, stylesUsed: [], best: {}, time: 'day', weather: 'clear', master: 0.7, music: 0.12, sfx: 0.65, ambience: 0.25, ui: 0.4 }; }
 function record(value: unknown): Record<string, unknown> { return value && typeof value === 'object' ? value as Record<string, unknown> : {}; }
 function numericRecord(value: unknown) { const out: Record<string, number> = {}; for (const [k, v] of Object.entries(record(value)))
     if (typeof v === 'number' && Number.isFinite(v) && v >= 0)
@@ -32,7 +35,8 @@ export function migrate(value: unknown): SaveData {
     if (raw.language === 'en')
         d.language = 'en';
     if (STYLES.includes(raw.style as StyleId))
-        d.style = raw.style as StyleId;
+        d.style = playableStyle(raw.style);
+    d.jellyColor = jellyColor(raw.jellyColor).id;
     if (THROWS.includes(raw.throwType as ThrowId))
         d.throwType = raw.throwType as ThrowId;
     if (SHOTS.includes(raw.shot as ShotId))
@@ -40,6 +44,9 @@ export function migrate(value: unknown): SaveData {
     d.challenges = numericRecord(raw.challenges);
     d.best = numericRecord(raw.best);
     d.stylesUsed = [...new Set(Array.isArray(raw.stylesUsed) ? raw.stylesUsed.filter((s): s is StyleId => STYLES.includes(s)) : [])];
+    // Preserve earned legacy style rewards; partial progress counts only remaining styles.
+    d.stylesUsed = [...new Set(d.stylesUsed.filter(s=>s==='jelly'||s==='fur'||s==='bubble'))];
+    d.challenges.styles5 = (d.challenges.styles5||0)>=3?3:d.stylesUsed.length;
     const done = CHALLENGES.filter(([id, goal]) => (d.challenges[id] || 0) >= goal).length;
     if (ACCESSORIES.includes(raw.accessory as AccessoryId) && (raw.accessory === '' || done >= UNLOCKS[raw.accessory as keyof typeof UNLOCKS]))
         d.accessory = raw.accessory as AccessoryId;

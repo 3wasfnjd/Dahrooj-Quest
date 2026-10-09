@@ -3,7 +3,7 @@ export function createReferenceConfetti({T,scene,camera,V,BR}){return (()=>{
     const COUNT=180, POOL=4, AMP=0.7, REST=1-AMP, DUR=3.5;
     const geo=new T.PlaneGeometry(0.05,0.1);
     const mat=new T.MeshLambertMaterial({side:T.DoubleSide});
-    const cols=['#4b4e56','#8a8e97','#2c2d3d','#e8857a'].map(c=>new T.Color(c));   // ball blues, ink, blush
+    const cols=['#ff4040','#ff9638','#ffe14a','#46d56c','#38baff','#5754e8','#b65bff'].map(c=>new T.Color(c));   // seven rainbow colours
     const pool=[], m4=new T.Matrix4(), pv=V(0,0,0), sv=V(1,1,1), eul=new T.Euler();
     for(let k=0;k<POOL;k++){
       const mesh=new T.InstancedMesh(geo,mat,COUNT);
@@ -58,7 +58,7 @@ export const challenges=[
   {id:'hoop3',    title:'٣ سلات ورا بعض',              en:'3 hoops in a row', goal:3},
   {id:'windowMin',title:'صغّر الشباك لأصغر حجم', en:'Shrink the window to its smallest', goal:1},
   {id:'cansOne',  title:'طيّح كل العلب برمية وحدة',   en:'Knock down every can in one throw', goal:1},
-  {id:'styles5',  title:'العب بكل الستايلات الخمسة',          en:'Play in all five styles', goal:5},
+  {id:'styles5',  title:'العب بالستايلات الثلاثة',          en:'Play in all three styles', goal:3},
   {id:'summit1',  title:'اوصل قمة الجبل',                 en:'Reach the top of the Summit', goal:1},
   {id:'monsters15',title:'اهزم ١٥ وحش في مرحلة القمة',     en:'Beat 15 monsters on the Summit', goal:15},
   {id:'strike1',  title:'سترايك في البولينغ',               en:'A strike in bowling', goal:1},

@@ -18,7 +18,7 @@ export const SHOT_NAMES: Record<ShotId, [
 export const ACCESSORY_NAMES: Record<AccessoryId, [
     string,
     string
-]> = { '': ['بلا زينة', 'None'], party: ['قبعة حفلة', 'Party hat'], glasses: ['نظارة', 'Sunglasses'], cap: ['كاب', 'Cap'], flower: ['زهرة', 'Flower'], crown: ['تاج', 'Crown'] };
+]> = { '': ['بلا زينة', 'None'], party: ['قبعة حفلة', 'Party hat'], glasses: ['نظارة', 'Sunglasses'], cap: ['كاب', 'Cap'], flower: ['زهرة', 'Flower'], crown: ['تاج', 'Crown'], headphones:['سماعات','Headphones'], scarf:['وشاح','Scarf'] };
 export function label(pair: readonly [
     string,
     string

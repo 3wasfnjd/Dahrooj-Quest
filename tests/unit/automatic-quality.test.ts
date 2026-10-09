@@ -33,7 +33,7 @@ describe('automatic quality policy',()=>{
  it('uses native resolution with a bounded allocation ceiling and preserves manual links',()=>{
   expect(nativeQualityCeiling(1.4)).toBe(1.4);expect(nativeQualityCeiling(9)).toBe(2);
   for(const n of [NaN,Infinity,0,-1])expect(nativeQualityCeiling(n)).toBe(1);
-  expect(automaticQualityEnabled('')).toBe(true);expect(automaticQualityEnabled('?xrdiag=1')).toBe(false);
+  expect(automaticQualityEnabled('')).toBe(false);expect(automaticQualityEnabled('?xrquality=auto')).toBe(true);expect(automaticQualityEnabled('?xrquality=auto&xrdiag=1')).toBe(false);expect(automaticQualityEnabled('?xrdiag=1')).toBe(false);
   const native=vi.fn(()=>1.4);expect(automaticLayerScale(10,native)).toBe(10);expect(native).not.toHaveBeenCalled();
  });
  it('hooks actual Three before either eye viewport is read, and fails closed on drift',()=>{

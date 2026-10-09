@@ -15,10 +15,10 @@ export function createChallengeList(T,{parent,panelWidth,panelHeight,pixelsWidth
  function rows(items,lang){
   const next=lang+'|'+items.map(x=>x.id+':'+x.value+'/'+x.goal).join('|');if(key===next)return;key=next;
   const height=Math.max(view.h,items.length*view.row);if(canvas.height!==height)canvas.height=height;
-  const c=canvas.getContext('2d'),rtl=lang!=='en';c.fillStyle='#969696';c.fillRect(0,0,canvas.width,canvas.height);c.direction=rtl?'rtl':'ltr';
+  const c=canvas.getContext('2d'),rtl=lang!=='en';c.fillStyle='#f5f5f5';c.fillRect(0,0,canvas.width,canvas.height);c.direction=rtl?'rtl':'ltr';
   items.forEach((x,k)=>{
-   const y=k*view.row,ok=x.value>=x.goal;c.fillStyle=ok?'#303141':'#b8b8b8';c.beginPath();c.roundRect(0,y,view.w,view.row-6,18);c.fill();
-   c.fillStyle=ok?'#d0d0d0':'#2c2d3d';c.textAlign=rtl?'right':'left';c.font=font(700,32);
+   const y=k*view.row,ok=x.value>=x.goal;c.fillStyle=ok?'#303141':'#ffffff';c.beginPath();c.roundRect(0,y,view.w,view.row-6,18);c.fill();
+   c.fillStyle=ok?'#ffffff':'#2c2d3d';c.textAlign=rtl?'right':'left';c.font=font(700,32);
    const words=((ok?'✓ ':'')+(rtl?x.title:x.en||x.title)).split(' '),lines=[];let line='';
    for(const word of words){const s=line?line+' '+word:word;if(line&&c.measureText(s).width>view.w-130){lines.push(line);line=word;}else line=s;}if(line)lines.push(line);
    lines.forEach((line,i)=>c.fillText(line,rtl?view.w-20:20,y+view.row/2+9+(i-(lines.length-1)/2)*32));

@@ -2,9 +2,10 @@ import type {WebXRManager} from '@iwsdk/core';
 
 export interface XRQualityOptions {foveation:number;framebufferScale:number}
 
-// Explicit, bounded experiments only. Removing xrdiag restores shipped quality.
+// Restore the owner-tested request. The browser may clamp actual layer dimensions.
 export function readXRQualityOptions(search:string):XRQualityOptions{
  const query=new URLSearchParams(search),enabled=query.get('xrdiag')==='1',requestedScale=Number(query.get('xrdiagScale'));
+ if(!enabled)return {foveation:0,framebufferScale:10};
  return {foveation:enabled&&query.get('xrdiagFoveation')==='0'?0:.6,
   framebufferScale:enabled&&[1.25,1.5,2,4,5,10].includes(requestedScale)?requestedScale:1};
 }
