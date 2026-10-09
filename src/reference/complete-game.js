@@ -14,7 +14,7 @@ export function createCompleteGame(world,store){
  const {scene,camera,renderer}=world,V=(x=0,y=0,z=0)=>new T.Vector3(x,y,z),UP=V(0,1,0),BR=.24,GRAV=13;
  const S={pos:V(0,BR+1.2,0),vel:V(),side:V(),axis:UP.clone(),d:0,dv:0,shot:false,shotT:0,zMax:6,xMax:16,scoredT:0,missT:0,mood:null,moodT:0,moodNext:null,idle:0,restT:0,hitT:0,blink:0,nextBlink:2,grounded:false,lastHit:0,prevZ:0,prevY:0};
  const hemi=new T.HemisphereLight(0xfff8ee,0xc1c8d6,1.8),sun=new T.DirectionalLight(0xffffff,2);sun.position.set(3,10,-4);sun.target.position.set(0,0,-9);scene.add(hemi,sun,sun.target);
- const ground=new T.Mesh(new T.PlaneGeometry(80,80),new T.ShadowMaterial({opacity:.17}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+ const ground=new T.Mesh(new T.PlaneGeometry(80,80),new T.ShadowMaterial({opacity:.17}));ground.name='xr-world-shadow-ground';ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
  const sound=createReferenceSounds(),confetti=createReferenceConfetti({T,scene,camera,V,BR}),counts={goal:0,hoop:0,window:0,cans:0,bowling:0,bricks:0,fair:0,climb:0};
  let mode='goal',style=store.data.style,stage=null,runtime=null,toastMessage='',toastUntil=0,hoopStreak=0,focused=false,requested='immersive-vr';const cache=new Map(),samples=[],dtSamples=[];
  const toast=text=>{toastMessage=text;toastUntil=performance.now()+2300;};

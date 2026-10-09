@@ -71,7 +71,7 @@ export const createReferenceXR=(() => {
     const named=(list,id)=>{const e=list.find(x=>x[0]===id);return e?tr(e[1],e[2]):'';};
     // A paper floor for VR; AR shows the room through passthrough instead.
     const floor=new T.Mesh(new T.CircleGeometry(40,64),new T.MeshBasicMaterial({color:0xddd2c1}));
-    floor.rotation.x=-Math.PI/2;floor.position.y=-.004;floor.visible=false;scene.add(floor);
+    floor.name='xr-world-fallback-floor';floor.rotation.x=-Math.PI/2;floor.position.y=-.004;floor.visible=false;scene.add(floor);
 
     /* ---------- Dahrooj as a 3D model (a sprite as a fallback) ---------- */
     const textures=new Map();

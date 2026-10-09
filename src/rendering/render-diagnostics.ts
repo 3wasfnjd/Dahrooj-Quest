@@ -1,7 +1,7 @@
 import {CanvasTexture,Group,Mesh,MeshBasicMaterial,NoBlending,PlaneGeometry,SRGBColorSpace,Vector3,type World,type PerspectiveCamera,type WebXRManager} from '@iwsdk/core';
 import type {CompleteGame} from '../reference/complete-game.js';
 import type {DiagnosticOptions} from './diagnostic-options';
-import {DIAGNOSTIC_PRESETS,withRenderIsolation,type DiagnosticPreset} from './diagnostic-isolation';
+import {DIAGNOSTIC_PRESETS,initialDiagnosticView,withRenderIsolation,type DiagnosticPreset} from './diagnostic-isolation';
 
 type XRRenderer = WebXRManager & {isMultiview?:boolean};
 type Observation = 'flicker-observed'|'no-flicker-observed'|'uncertain';
@@ -15,7 +15,8 @@ function summary(values:number[]){
 /** Imported only with ?xrdiag=1. No gameplay commands, storage or automatic upload. */
 export function attachRenderDiagnostics(world:World,game:CompleteGame,options:DiagnosticOptions){
  const {renderer,scene,camera}=world,xr=renderer.xr as XRRenderer;
- let preset:DiagnosticPreset='baseline',badgeShown=true,leftDown=false,rightDown=false,lastTime:number|undefined,lastBadge='',build:unknown=null,lastXR:unknown=null;
+ const initial=initialDiagnosticView(location.search);
+ let preset:DiagnosticPreset=initial.preset,badgeShown=initial.badgeShown,leftDown=false,rightDown=false,lastTime:number|undefined,lastBadge='',build:unknown=null,lastXR:unknown=null;
  const runs:Run[]=[],observations:unknown[]=[],errors:unknown[]=[];
  let lastState:ReturnType<typeof stateRecord>|null=null;
  void fetch('/build.json').then(r=>r.ok?r.json():null).then(value=>{build=value;}).catch(()=>{});
@@ -39,6 +40,7 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
  for(const item of DIAGNOSTIC_PRESETS){const option=document.createElement('option');option.value=item.id;option.textContent=item.label;picker.add(option);}
  find<HTMLSelectElement>('diag-stereo').value=options.stereo;
  find<HTMLSelectElement>('diag-aa').value=options.antialias?'1':'0';
+ find<HTMLInputElement>('diag-badge').checked=badgeShown;
 
  const canvas=document.createElement('canvas');canvas.width=1200;canvas.height=180;
  const context=canvas.getContext('2d')!,texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;texture.generateMipmaps=false;
@@ -64,8 +66,8 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
  function reload(disable=false){
   if(xr.isPresenting){find('diag-status').textContent='اخرج من جلسة XR قبل إعادة التحميل.';return;}
   const url=new URL(location.href);
-  if(disable){for(const key of ['xrdiag','xrdiagStereo','xrdiagAA'])url.searchParams.delete(key);}
-  else{url.searchParams.set('xrdiag','1');url.searchParams.set('xrdiagStereo',find<HTMLSelectElement>('diag-stereo').value);url.searchParams.set('xrdiagAA',find<HTMLSelectElement>('diag-aa').value);}
+  if(disable){for(const key of ['xrdiag','xrdiagStereo','xrdiagAA','xrdiagPreset','xrdiagBadge'])url.searchParams.delete(key);}
+  else{url.searchParams.set('xrdiag','1');url.searchParams.set('xrdiagStereo',find<HTMLSelectElement>('diag-stereo').value);url.searchParams.set('xrdiagAA',find<HTMLSelectElement>('diag-aa').value);url.searchParams.set('xrdiagPreset',preset);url.searchParams.set('xrdiagBadge',badgeShown?'1':'0');}
   location.assign(url.href);
  }
  find('diag-reload').onclick=()=>reload();find('diag-exit').onclick=()=>reload(true);
@@ -128,6 +130,6 @@ export function attachRenderDiagnostics(world:World,game:CompleteGame,options:Di
   sampleLimitPerRun:limit,runLimit:80,observationLimit:96,lastXR,runs:runs.map(({key:_key,intervals,renderMs,...run})=>({...run,frameIntervalMs:summary(intervals),cpuRenderMs:summary(renderMs)})),observations,errors};}
  function download(){const href=URL.createObjectURL(new Blob([JSON.stringify(report(),null,2)],{type:'application/json'})),a=document.createElement('a');a.href=href;a.download='dahrooj-render-diagnostics.json';a.click();setTimeout(()=>URL.revokeObjectURL(href),1000);}
  find('diag-export').onclick=download;
- choose('baseline');
+ choose(initial.preset);
  return {report,download,choose,observe,dispose(){stopFrame();xr.removeEventListener('sessionend',onEnd);if(renderer.render===diagnosticRender)renderer.render=originalRender;if(renderer.debug.onShaderError===shaderError)renderer.debug.onShaderError=previousShaderError;renderer.domElement.removeEventListener('webglcontextlost',lost);renderer.domElement.removeEventListener('webglcontextrestored',restored);xr.setFoveation(.6);scene.remove(badge);face.geometry.dispose();material.dispose();texture.dispose();panel.remove();}};
 }

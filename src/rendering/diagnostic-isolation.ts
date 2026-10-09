@@ -1,7 +1,8 @@
-import {AlwaysDepth,LessEqualDepth,type Material,type Object3D,type Scene} from '@iwsdk/core';
+import {AlwaysDepth,Color,LessEqualDepth,type Material,type Object3D,type Scene} from '@iwsdk/core';
 
 export const DIAGNOSTIC_PRESETS = [
  {id:'baseline',label:'المرجع: الرسم المعتاد'},
+ {id:'no-world',label:'VR: الأنماط دون العالم'},
  {id:'no-particles',label:'إخفاء الثلج والمطر المتساقط'},
  {id:'no-snow-ground',label:'إخفاء طبقة الثلج الأرضية'},
  {id:'no-nature',label:'إخفاء الطبيعة فقط'},
@@ -14,8 +15,15 @@ export const DIAGNOSTIC_PRESETS = [
  {id:'no-foveation',label:'إلغاء خفض دقة أطراف الصورة'},
 ] as const;
 export type DiagnosticPreset = typeof DIAGNOSTIC_PRESETS[number]['id'];
-export interface RenderTargets {stage?:Object3D; nature?:Object3D; menu?:Object3D; badge?:Object3D}
+export interface RenderTargets {kind?:string|null;stage?:Object3D; nature?:Object3D; menu?:Object3D; badge?:Object3D}
 type Renderable = Object3D & {material?:Material|Material[];isLine?:boolean;isSprite?:boolean;isMesh?:boolean;isPoints?:boolean};
+const emptyWorldBackground=new Color(0x34373d);
+
+export function initialDiagnosticView(search:string){
+ const query=new URLSearchParams(search),enabled=query.get('xrdiag')==='1',requested=query.get('xrdiagPreset');
+ const preset:DiagnosticPreset=enabled&&DIAGNOSTIC_PRESETS.some(p=>p.id===requested)?requested as DiagnosticPreset:'baseline';
+ return {preset,badgeShown:!enabled||query.get('xrdiagBadge')!=='0'};
+}
 
 export function belongsTo(object:Object3D,root?:Object3D):boolean{
  if(!root)return false;
@@ -27,8 +35,20 @@ export function belongsTo(object:Object3D,root?:Object3D):boolean{
 // mode transitions and visibility set by the game never inherit a diagnostic mask.
 export function withRenderIsolation<T>(scene:Scene,preset:DiagnosticPreset,targets:RenderTargets,draw:()=>T):T{
  const hidden=new Map<Object3D,boolean>(),materials=new Map<Material,{depthTest:boolean;depthWrite:boolean;depthFunc:Material['depthFunc']}>();
+ const background=scene.background;
  const hide=(object?:Object3D)=>{if(object&&!hidden.has(object)){hidden.set(object,object.visible);object.visible=false;}};
  try{
+  if(preset==='no-world'&&targets.kind==='immersive-vr'){
+   // Hide environment geometry, not its lights or simulation. Keep every stage,
+   // character, projectile, controller and menu, including the rain/climb modes.
+   targets.nature?.traverse(object=>{
+    const item=object as Renderable;
+    if(item.isMesh||item.isLine||item.isPoints||item.isSprite)hide(item);
+   });
+   hide(scene.getObjectByName('xr-world-shadow-ground'));
+   hide(scene.getObjectByName('xr-world-fallback-floor'));
+   scene.background=emptyWorldBackground;
+  }
   if(preset==='no-particles')hide(scene.getObjectByName('xr-weather-particles'));
   if(preset==='no-snow-ground')hide(scene.getObjectByName('xr-snow-ground'));
   if(preset==='no-nature')hide(targets.nature);
@@ -50,6 +70,7 @@ export function withRenderIsolation<T>(scene:Scene,preset:DiagnosticPreset,targe
   });
   return draw();
  }finally{
+  scene.background=background;
   for(const [object,visible] of hidden)object.visible=visible;
   for(const [material,values] of materials)Object.assign(material,values);
  }
