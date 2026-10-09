@@ -8,10 +8,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "c197c93b377e9cbdea28ad7a19ccfd267ef84a58a2aa40edd3dc36b559d2b5b6",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -22,10 +24,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "720ac21fe5212f6673068ba369912f1ae7028f16ebdab11858adf414075e6891",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -36,10 +40,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "2d8c37799f73f3c4b96a9b571f6b6a7e517fa26e9b9413b0e84e6662b480dc19",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -50,10 +56,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "01058e052804696e08038462a5adb8392df383bcdaf19caf1ad3839d94151e6f",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -64,10 +72,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "a6bc4be139eb8a25a62d1e266fdc804f9f1911e66eccc383fe6f9c0fe60982c2",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -78,10 +88,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "e4fe592c1ee4867001ea9aa9faabe228bd4f7823f4643e6ed1d650f7329d5885",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -92,10 +104,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "a2d40153bc38d00627e79db73ac4e88017cb72a2face5dfa6761e451ac9a8b48",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -106,10 +120,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "c337e34268601da1f2a244cabeb00913341b45603b139fc8e2b716711f9d5ca6",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -117,11 +133,11 @@
     "source": "vendor/fonts/font-ddfc8d7ce4a727b6.woff2",
     "destination": "assets/fonts/baloo-arabic.woff2",
     "license": "OFL-1.1",
-    "owner": "Baloo Bhaijaan 2 authors",
+    "owner": "The Baloo 2 Project Authors, 2019 (Ek Type)",
     "commercial_use": true,
     "redistribution": true,
     "attribution": "public/licenses/baloo-OFL.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "verification": "Copyright holder and SIL OFL 1.1 text preserved from the original Baloo 2 font notice.",
     "sha256": "ddfc8d7ce4a727b666b57681c4394688814573e601946bfa49f9abc10ee0ffce",
     "optimization": "Original compact binary, no conversion; selected production asset only"
   },
@@ -131,11 +147,11 @@
     "source": "vendor/fonts/font-9716a70e65cec699.woff2",
     "destination": "assets/fonts/baloo-latin.woff2",
     "license": "OFL-1.1",
-    "owner": "Baloo Bhaijaan 2 authors",
+    "owner": "The Baloo 2 Project Authors, 2019 (Ek Type)",
     "commercial_use": true,
     "redistribution": true,
     "attribution": "public/licenses/baloo-OFL.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "verification": "Copyright holder and SIL OFL 1.1 text preserved from the original Baloo 2 font notice.",
     "sha256": "9716a70e65cec6997acad8a854cf3510169faa76884d70f7c6f043b722c9e0cc",
     "optimization": "Original compact binary, no conversion; selected production asset only"
   },
@@ -190,10 +206,12 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "4b9977d9a4d3144334a1578944d408f9e1af2a988b42eefd10102844cfac0eb5",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   },
   {
     "source_repository": "https://github.com/3wasfnjd/quest",
@@ -204,9 +222,11 @@
     "owner": "Bruno Simon, 2025",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/motri-MIT.txt",
-    "verification": "Upstream MIT text verified against brunosimon/folio-2025/license.md; OFL in source; owner directive authorizes Aboden assets.",
+    "attribution": "public/licenses/folio-2025-MIT.txt",
+    "verification": "Bruno Simon copyright and MIT text matched to original folio-2025 license.md on 2026-10-09; original notice retained unchanged.",
     "sha256": "b73a07a219d1ecd284dedbea65d729b4fa68457947555f07fbdf6bfcc85f3fc3",
-    "optimization": "Original compact binary, no conversion; selected production asset only"
+    "optimization": "Original compact binary, no conversion; selected production asset only",
+    "upstream_repository": "https://github.com/brunosimon/folio-2025",
+    "upstream_license_revision": "3f7b3bfb7f96cc27ad9db172c65e211166b7953f"
   }
 ]

@@ -1,5 +1,5 @@
 /* Aboden Games. Ported with owner authorization 2026-10-08 from quest@c7925b7cd7371b6bb87c44a0743721ad55f177dd. See docs/REFERENCE-REUSE-AR.md. */
-export function stageArt(ctx){const {T,V,UP,scene,S,BR,hit}=ctx;const INK=0x2c2d3d;const lineMat=new T.MeshBasicMaterial({color:INK,transparent:true,opacity:.18}),postMat=new T.MeshStandardMaterial({color:INK,roughness:.7}),netMat=new T.LineBasicMaterial({color:INK,transparent:true,opacity:.3});
+export function stageArt(ctx){const {T,V,UP,scene,S,BR,hit}=ctx;const INK=0x2c2d3d;const lineMat=new T.MeshBasicMaterial({color:INK,transparent:true,opacity:.18}),postMat=new T.MeshStandardMaterial({color:0xf6eee2,roughness:.7,emissive:0xf6eee2,emissiveIntensity:.025}),netMat=new T.LineBasicMaterial({color:0xf3eddf,transparent:true,opacity:.65,depthWrite:false});
 function groundLine(grp,x1,z1,x2,z2,w=0.07){
     const len=Math.hypot(x2-x1,z2-z1);
     const m=new T.Mesh(new T.PlaneGeometry(len,w),lineMat);

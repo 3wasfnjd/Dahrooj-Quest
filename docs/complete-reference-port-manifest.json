@@ -4,7 +4,7 @@
     {
       "path": "src/reference/nature.js",
       "origin": "assets/xr/nature.js",
-      "sha256": "62732064f8296798638379a1f7218139b78f348ed759b6b8da720257e3061205"
+      "sha256": "561e040664000499d53272a479b10427b958c63b24993d9c89c50c2dfa7beb58"
     },
     {
       "path": "src/reference/ambience.js",
@@ -24,7 +24,7 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "d8857a2239c86a2179910fba7db487060aa1b76f31fe5000edad61770dc0d625"
+      "sha256": "0b2e6e0b7eb531b93b919cd0f19bf32efe225bcc1996a66133b6f6ae4df13730"
     },
     {
       "path": "src/reference/game-state.js",
@@ -39,7 +39,7 @@
     {
       "path": "src/reference/stages/hoop.js",
       "origin": "index.html:buildHoop",
-      "sha256": "3127f6814174c47f316cd364c8eb4362f333d8f3675b237c3e5c0275751cc866"
+      "sha256": "bb619207a8251eca4ceef4442a67b164f9b5313917940072c6b6f655fe9e1fb8"
     },
     {
       "path": "src/reference/stages/window.js",
@@ -49,7 +49,7 @@
     {
       "path": "src/reference/stages/cans.js",
       "origin": "index.html:buildCans",
-      "sha256": "6e6d97a5b2a946b945f4b49756ce9039d8b8af9c07872596a37e88ab20783f6f"
+      "sha256": "8f42e1d871415258d242ace5758687706b402ebc1c6e9a5d3fb3d318411bddca"
     },
     {
       "path": "src/reference/stages/bowling.js",

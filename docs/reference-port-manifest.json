@@ -31,7 +31,7 @@
     {
       "file": "src/reference/stages/hoop.js",
       "origin": "index.html:buildHoop",
-      "sha256": "c1faee3cf9f746770715cd8267d2d9bb61a23bba9c6584fddf8e83231f635cfb"
+      "sha256": "bb619207a8251eca4ceef4442a67b164f9b5313917940072c6b6f655fe9e1fb8"
     },
     {
       "file": "src/reference/stages/window.js",
@@ -41,7 +41,7 @@
     {
       "file": "src/reference/stages/cans.js",
       "origin": "index.html:buildCans",
-      "sha256": "6e6d97a5b2a946b945f4b49756ce9039d8b8af9c07872596a37e88ab20783f6f"
+      "sha256": "8f42e1d871415258d242ace5758687706b402ebc1c6e9a5d3fb3d318411bddca"
     },
     {
       "file": "src/reference/stages/bowling.js",
@@ -61,7 +61,7 @@
     {
       "file": "src/reference/stage-art.js",
       "origin": "index.html:shared stage art helpers",
-      "sha256": "f9b81395fb031fa3383d6d1d4425de8823801315d90744119ba57ada86a8d077"
+      "sha256": "bdd745236d776b74ec6a6af7d5fa071a07db705695214b0da88b94c3394c14cf"
     },
     {
       "file": "src/reference/ball-physics.js",

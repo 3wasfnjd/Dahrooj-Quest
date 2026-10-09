@@ -1,17 +1,19 @@
 # Third-party notices — Dahrooj Quest
 
-Audit date: 2026-10-08. Game code, Dahrooj identity, icons and original score: Aboden Games, all rights reserved unless a file says otherwise. This notice does not relicense third-party work.
+Audit date: 2026-10-09. Game code, Dahrooj identity, icons and original score: Aboden Games, all rights reserved unless a file says otherwise. This notice does not relicense third-party work.
 
 ## Reused assets
 
 | Work | Source and owner | Terms | Included notice |
 |---|---|---|---|
-| Birch/cherry/oak GLBs, bench, lantern, pole light, explosive crate, bowling pin, slabs texture | Bruno Simon, Motri / [folio-2025](https://github.com/brunosimon/folio-2025), through audited legacy commit | MIT; commercial use and redistribution permitted with copyright/license | `public/licenses/motri-MIT.txt` |
-| Baloo Bhaijaan 2 Arabic and Latin WOFF2, unchanged | Ek Type, legacy font assets | SIL OFL 1.1; embedding/redistribution permitted, not sold alone | `public/licenses/baloo-OFL.txt` |
-| Touch controller GLBs | [WebXR Input Profiles assets](https://github.com/immersive-web/webxr-input-profiles) | MIT | `public/licenses/controller-profiles-MIT.txt` |
+| Birch/cherry/oak GLBs, bench, lantern, pole light, explosive crate, bowling pin, slabs and foliageSDF textures | Bruno Simon, [folio-2025](https://github.com/brunosimon/folio-2025), through audited legacy commit | MIT; commercial use and redistribution permitted with copyright/license | `public/licenses/folio-2025-MIT.txt` |
+| Baloo Bhaijaan 2 Arabic and Latin WOFF2, unchanged | The Baloo 2 Project Authors (2019), [Ek Type / Baloo2](https://github.com/EkType/Baloo2) | SIL OFL 1.1; embedding/redistribution permitted, not sold alone | `public/licenses/baloo-OFL.txt` |
+| Touch controller GLBs | Amazon (2019), [WebXR Input Profiles assets](https://github.com/immersive-web/webxr-input-profiles) | MIT | `public/licenses/controller-profiles-MIT.txt` |
 | Dahrooj icons and original melody | Aboden Games; owner authorized reuse in rebuild directive | Proprietary; permission for this game, not a public asset grant | `LICENSE`; `docs/asset-ledger.json` |
 
-The ledger records each migrated file, source commit, SHA-256, ownership, commercial/redistribution rights, attribution and optimization decision. Selected original character, mode, projectile and physics functions are reused under the owner’s explicit 2026-10-08 instruction. The source and hashes are recorded in `docs/reference-port-manifest.json`. The Motri bowling pin is included under the same audited MIT grant. No legacy vendor/runtime tree was copied. The complete XR world, UI, throwing, gameplay sounds, ambience and original procedural music are now ported from the same owner-authorized reference. Source hashes are in `docs/complete-reference-port-manifest.json`. Music uses the original sequencer, instruments and .067 output gain. The replacement OGG and synthesis script were removed. The original Motri foliageSDF.png is redistributed under the existing MIT notice.
+The ledger records each migrated file, source commit, SHA-256, ownership, commercial/redistribution rights, attribution and optimization decision. Selected original character, mode, projectile and physics functions are reused under the owner’s explicit 2026-10-08 instruction. The source and hashes are recorded in `docs/reference-port-manifest.json`. The folio-2025 bowling pin is included under the same audited MIT grant. No legacy vendor/runtime tree was copied. The complete XR world, UI, throwing, gameplay sounds, ambience and original procedural music are now ported from the same owner-authorized reference. Source hashes are in `docs/complete-reference-port-manifest.json`. Music uses the original sequencer, instruments and .067 output gain. The replacement OGG and synthesis script were removed. The original folio-2025 foliageSDF.png is redistributed under the existing MIT notice.
+
+The environment implementation also contains adaptations of Bruno Simon’s folio-2025 work, covered by the same preserved MIT notice. Asset ownership is attributed directly to the original author; the transfer repository is recorded only as technical provenance in the ledger. Original upstream license rechecked on 2026-10-09 at [folio-2025, license revision 3f7b3bfb](https://github.com/brunosimon/folio-2025/blob/3f7b3bfb7f96cc27ad9db172c65e211166b7953f/license.md).
 
 ## Runtime software
 

@@ -1,5 +1,5 @@
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
-export default function create(ctx){const {T,scene,V,groundLine,groundArc,bar,INK,postMat,netMat,S,BR,hit,pointCollide,ooh,segCollide,miss,success,swish}=ctx;
+export default function create(ctx){const {T,scene,V,groundLine,groundArc,bar,INK,netMat,S,BR,hit,pointCollide,ooh,segCollide,miss,success,swish}=ctx;
 function buildHoop(){
     const grp=new T.Group(); scene.add(grp);
     const BBZ=-9, BBW=1.8, BBB=2.9, BBT=3.95, RY=3.05, RR=0.48, TUBE=0.035, RZ=BBZ+0.15+RR;
@@ -21,7 +21,7 @@ function buildHoop(){
     const sq=new T.LineSegments(new T.EdgesGeometry(new T.PlaneGeometry(0.6,0.45)),new T.LineBasicMaterial({color:INK}));
     sq.position.set(0,RY+0.25,BBZ+0.003); grp.add(sq);
     // rim
-    const rim=new T.Mesh(new T.TorusGeometry(RR,TUBE,10,48),postMat); rim.rotation.x=Math.PI/2; rim.position.copy(rimC); rim.castShadow=true; grp.add(rim);
+    const rim=new T.Mesh(new T.TorusGeometry(RR,TUBE,10,48),new T.MeshStandardMaterial({color:0xff703c,roughness:.65,emissive:0xff703c,emissiveIntensity:.035})); rim.rotation.x=Math.PI/2; rim.position.copy(rimC); rim.castShadow=true; grp.add(rim);
     bar(grp,V(0,RY,BBZ),V(0,RY,RZ-RR),0.03);
     // net: three rings of points joined in a diamond pattern
     const N=16, rings=[[RR,0,0],[RR*0.78,-0.26,0.5],[RR*0.56,-0.52,0]];

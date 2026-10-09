@@ -774,9 +774,9 @@ export const createReferenceNature=(() => {
         // The game's own models (Dahrooj, the goal, the keeper) take Motri's light, but never go dark:
         // at night a pale moonlight and a warm lantern around the player keep them readable.
         const k=d.lightIntensity>2?1/3:1,night=clamp(Math.min((dayP-.22)/.08,(.75-dayP)/.08),0,1);
-        if(hemi){hemi.color.copy(d.lightColor).lerp(C('#ffffff'),.35+night*.25);hemi.groundColor.copy(d.shadowColor).lerp(grassColor,.5).lerp(C('#8c8aa8'),night*.4);
-          hemi.intensity=Math.max(.75,.6*d.lightIntensity*k);}
-        if(sun){sun.color.copy(d.lightColor).lerp(C('#c9d4ff'),night*.6);sun.intensity=Math.max(.35,.5*d.lightIntensity*k);}
+        if(hemi){hemi.color.copy(d.lightColor).lerp(C('#ffffff'),.35+night*.25);hemi.groundColor.copy(d.shadowColor).lerp(C('#c1c8d6'),.6);
+          hemi.intensity=Math.max(1.65,1.4*d.lightIntensity*k);}
+        if(sun){sun.color.copy(d.lightColor).lerp(C('#c9d4ff'),night*.6);sun.intensity=Math.max(1.15,1.6*d.lightIntensity*k);}
         state.night=night;moon.intensity=night*.45;lantern.intensity=night*1.1;if(eye)lantern.position.set(eye.x,eye.y+.5,eye.z-1.5);
         // Motri's own pieces are lit a little brighter at night too.
         U.uLightIntensity.value=d.lightIntensity*(1-night*.35)+night*.6;
