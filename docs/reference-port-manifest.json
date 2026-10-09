@@ -11,7 +11,7 @@
     {
       "file": "src/reference/character.js",
       "origin": "assets/xr/dahrooj3d.js",
-      "sha256": "1260d07678c83c1f336f8a1c845cffbfb75ec7b4de817639d5512909d34d9257"
+      "sha256": "e83db159ea7c821de2529cdb05254f2afb9b21dae2d11024d45dc34d44a8fcdd"
     },
     {
       "file": "src/reference/summit-core.js",
@@ -36,7 +36,7 @@
     {
       "file": "src/reference/stages/window.js",
       "origin": "index.html:buildWindow",
-      "sha256": "78913f2332e11add1c3c491b044bde39a3cc9664ec80aee1edc643c156028d54"
+      "sha256": "61364b9540c479228e78cf288330f39dbe27ff81b85e6140436f849eb1ce1c7e"
     },
     {
       "file": "src/reference/stages/cans.js",
@@ -51,7 +51,7 @@
     {
       "file": "src/reference/stages/bricks.js",
       "origin": "index.html:buildBricks",
-      "sha256": "da4f1e8fbae34cddcdd7c79251ea964366214e8cbdadfa7c5ff29f75b1f1da00"
+      "sha256": "d51a8155f8b9a332ff1cf26ff37ca22748b4ccedea021eedd5f0fa4f947dad19"
     },
     {
       "file": "src/reference/stages/fair.js",

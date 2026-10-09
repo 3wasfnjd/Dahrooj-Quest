@@ -126,49 +126,50 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     // One template per accessory; each ball wears a clone that shares its geometry and materials.
     const accTemplates={};
     const HEADWEAR=new Set(['party','cap','crown']);
-    function accessory(id){
-      if(!accTemplates[id]){
+    function accessory(id,lite=false){
+      const key=lite?'crowd/'+id:id;
+      if(!accTemplates[key]){
         const g=new T.Group(),mat=(o)=>new T.MeshStandardMaterial({roughness:.5,...o});
         const add=(geo,m,pos,rot,scale)=>{const o=new T.Mesh(geo,m);if(pos)o.position.copy(pos);if(rot)o.rotation.set(...rot);if(scale)o.scale.set(...scale);o.castShadow=true;g.add(o);return o;};
         if(id==='party'){
           const stripes=canvas(64,128,(c,w,h)=>{for(let i=0;i<8;i++){c.fillStyle=i%2?'#fffaf2':'#e2603f';c.fillRect(0,i*h/8,w,h/8);}});
           const hat=new T.Group();hat.position.set(r*.12,r*.92,r*.05);hat.rotation.set(-.15,0,-.32);g.add(hat);
-          const cone=new T.Mesh(new T.ConeGeometry(r*.3,r*.72,28,1,true),mat({map:stripes,side:T.DoubleSide}));cone.position.y=r*.36;hat.add(cone);
-          const pom=new T.Mesh(new T.SphereGeometry(r*.09,16,12),mat({color:0xf2c14e,roughness:.8}));pom.position.y=r*.74;hat.add(pom);
+          const cone=new T.Mesh(new T.ConeGeometry(r*.3,r*.72,lite?12:28,1,true),mat({map:stripes,side:T.DoubleSide}));cone.position.y=r*.36;hat.add(cone);
+          const pom=new T.Mesh(new T.SphereGeometry(r*.09,lite?8:16,lite?6:12),mat({color:0xf2c14e,roughness:.8}));pom.position.y=r*.74;hat.add(pom);
         }else if(id==='glasses'){
           // Out in front of the 3D eyes, which stand a little proud of the face.
-          const frame=mat({color:0x2c2d3d,roughness:.35}),lens=new T.MeshPhysicalMaterial({color:0x1b2233,roughness:.08,metalness:.2,clearcoat:1,envMap:env,envMapIntensity:.8,transparent:true,opacity:.86});
+          const frame=mat({color:0x2c2d3d,roughness:.35}),lens=new T.MeshPhysicalMaterial({color:0x1b2233,roughness:.08,metalness:.2,clearcoat:1,envMap:env,envMapIntensity:.8,transparent:!lite,opacity:lite?1:.86});
           for(const sd of [-1,1]){
             const a=sd*.32,out=V(Math.sin(a),0,Math.cos(a)),p=out.clone().multiplyScalar(r*1.17).setY(r*.1);
-            add(new T.TorusGeometry(r*.21,r*.035,10,28),frame,p,[0,a,0],[1,.8,1]);
-            add(new T.CircleGeometry(r*.2,28),lens,p.clone().addScaledVector(out,-r*.005),[0,a,0],[1,.8,1]);
+            add(new T.TorusGeometry(r*.21,r*.035,lite?6:10,lite?12:28),frame,p,[0,a,0],[1,.8,1]);
+            add(new T.CircleGeometry(r*.2,lite?12:28),lens,p.clone().addScaledVector(out,-r*.005),[0,a,0],[1,.8,1]);
             // The arms run back from the lenses along the side of the head.
             const arm=add(new T.BoxGeometry(r*.035,r*.035,r*1.05),frame,V(sd*r*.74,r*.13,r*.66),[0,-sd*.56,0]);arm.castShadow=false;
           }
-          add(new T.TorusGeometry(r*.08,r*.026,8,16,Math.PI),frame,V(0,r*.15,r*1.2),[0,0,0]);
+          add(new T.TorusGeometry(r*.08,r*.026,lite?6:8,lite?8:16,Math.PI),frame,V(0,r*.15,r*1.2),[0,0,0]);
         }else if(id==='cap'){
           const red=mat({color:0xc8442f,roughness:.7}),white=mat({color:0xfffaf2,roughness:.7});
-          add(new T.SphereGeometry(r*1.05,36,16,0,Math.PI*2,0,Math.PI*.36),red,V(0,r*.02,0));
+          add(new T.SphereGeometry(r*1.05,lite?16:36,lite?8:16,0,Math.PI*2,0,Math.PI*.36),red,V(0,r*.02,0));
           // The peak sticks out over the eyes, tipped down so it shows from the front.
-          add(new T.CylinderGeometry(r*.68,r*.68,r*.04,32,1,false,-Math.PI/2,Math.PI),red,V(0,r*.5,r*.55),[.42,0,0],[1,1,.9]);
-          add(new T.SphereGeometry(r*.07,12,10),white,V(0,r*1.06,0));
+          add(new T.CylinderGeometry(r*.68,r*.68,r*.04,lite?16:32,1,false,-Math.PI/2,Math.PI),red,V(0,r*.5,r*.55),[.42,0,0],[1,1,.9]);
+          add(new T.SphereGeometry(r*.07,lite?8:12,lite?6:10),white,V(0,r*1.06,0));
         }else if(id==='flower'){
           const petal=mat({color:0xff7f9a,roughness:.6}),mid=mat({color:0xf2c14e,roughness:.6});
           const f=new T.Group();f.position.set(r*.55,r*.72,r*.42);f.lookAt(V(r*1.1,r*1.44,r*.84));g.add(f);
-          for(let i=0;i<5;i++){const a=i/5*Math.PI*2,m=new T.Mesh(new T.SphereGeometry(r*.14,14,10),petal);m.position.set(Math.cos(a)*r*.17,Math.sin(a)*r*.17,0);m.scale.set(1,1,.45);f.add(m);}
-          const c=new T.Mesh(new T.SphereGeometry(r*.08,14,10),mid);c.position.z=r*.03;f.add(c);
+          for(let i=0;i<5;i++){const a=i/5*Math.PI*2,m=new T.Mesh(new T.SphereGeometry(r*.14,lite?8:14,lite?6:10),petal);m.position.set(Math.cos(a)*r*.17,Math.sin(a)*r*.17,0);m.scale.set(1,1,.45);f.add(m);}
+          const c=new T.Mesh(new T.SphereGeometry(r*.08,lite?8:14,lite?6:10),mid);c.position.z=r*.03;f.add(c);
         }else if(id==='crown'){
           const gold=new T.MeshPhysicalMaterial({color:0xf2c14e,roughness:.25,metalness:.85,clearcoat:.6,envMap:env,envMapIntensity:1.2}),gem=mat({color:0xc8442f,roughness:.15});
           const c=new T.Group();c.position.set(0,r*.86,0);c.rotation.x=-.12;g.add(c);
-          const band=new T.Mesh(new T.CylinderGeometry(r*.4,r*.44,r*.2,28,1,true),gold);band.material.side=T.DoubleSide;c.add(band);
-          for(let i=0;i<7;i++){const a=i/7*Math.PI*2,sp=new T.Mesh(new T.ConeGeometry(r*.07,r*.2,10),gold);sp.position.set(Math.sin(a)*r*.41,r*.19,Math.cos(a)*r*.41);c.add(sp);
-            const b=new T.Mesh(new T.SphereGeometry(r*.035,10,8),gold);b.position.set(Math.sin(a)*r*.41,r*.3,Math.cos(a)*r*.41);c.add(b);}
-          const jewel=new T.Mesh(new T.SphereGeometry(r*.06,14,10),gem);jewel.position.set(0,0,r*.43);jewel.scale.z=.5;c.add(jewel);
+          const band=new T.Mesh(new T.CylinderGeometry(r*.4,r*.44,r*.2,lite?16:28,1,true),gold);band.material.side=T.DoubleSide;c.add(band);
+          for(let i=0;i<7;i++){const a=i/7*Math.PI*2,sp=new T.Mesh(new T.ConeGeometry(r*.07,r*.2,lite?6:10),gold);sp.position.set(Math.sin(a)*r*.41,r*.19,Math.cos(a)*r*.41);c.add(sp);
+            const b=new T.Mesh(new T.SphereGeometry(r*.035,lite?6:10,lite?4:8),gold);b.position.set(Math.sin(a)*r*.41,r*.3,Math.cos(a)*r*.41);c.add(b);}
+          const jewel=new T.Mesh(new T.SphereGeometry(r*.06,lite?8:14,lite?6:10),gem);jewel.position.set(0,0,r*.43);jewel.scale.z=.5;c.add(jewel);
         }
         g.traverse(o=>{if(o.isMesh)o.geometry.isShared=true;});
-        accTemplates[id]=g;
+        accTemplates[key]=g;
       }
-      return accTemplates[id].clone();
+      return accTemplates[key].clone();
     }
 
     /* ---------- the face: the game's own drawing, cached per expression ---------- */
@@ -294,25 +295,32 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     const loopGeo=new T.SphereGeometry(r*.17,10,8),knotGeo=new T.SphereGeometry(r*.07,8,6);
     // Small balls need fewer facets: about 600 triangles a ball with its eyes.
     const crowdBody=new T.SphereGeometry(r,16,12),crowdEye=new T.SphereGeometry(1,10,6),crowdGlint=new T.SphereGeometry(1,6,4);
-    function crowd(max){
+    function crowd(max,withAccessories=false){
       const group=new T.Group(),mk=(geo,mat,n,order=0)=>{const m=new T.InstancedMesh(geo,mat,n);m.count=0;m.frustumCulled=true;m.renderOrder=order;group.add(m);return m;};
       const bodies={};for(const s of Object.keys(crowdMats))bodies[s]=mk(crowdBody,crowdMats[s],max,s==='bubble'?3:0);
       const whites=mk(crowdEye,sclera,max*2),pupils=mk(crowdEye,pupilMat,max*2),glints=mk(crowdGlint,glintMat,max*2);
       const loops=mk(loopGeo,bowRed,max*2),knots=mk(knotGeo,bowDark,max);
+      const accessories={};
+      if(withAccessories)for(const id of ['party','glasses','cap','flower','crown']){
+        const merged=batchReferenceMeshes(accessory(id,true));
+        accessories[id]=merged.children.map((part,i)=>{const m=mk(part.geometry,part.material,max);m.name='xr-rain-accessory-'+id+'-'+i;return m;});
+      }
+      const accessoryScale=new T.Matrix4().makeScale(1.08,1.08,1.08);
       const M=new T.Matrix4(),S=new T.Matrix4(),R=new T.Matrix4(),tmp=new T.Matrix4(),q=new T.Quaternion(),up=V(0,1,0),look=new T.Matrix4();
       const put=(mesh,m)=>{mesh.setMatrixAt(mesh.count++,m);};
       return {
         group,
         begin(){for(const m of group.children)m.count=0;},
         // One ball: style, centre, radius, the point it faces (or null), squash [sx, sy], eyes 'open' | 'wide' | 'shut' | null.
-        add(style,pos,radius,toward,squash,eyes){
+        add(style,pos,radius,toward,squash,eyes,accessoryId=''){
           const body=bodies[style]||bodies.jelly;if(body.count>=max)return;
           const k=radius/r;
           if(toward){look.lookAt(toward,pos,up);q.setFromRotationMatrix(look);}else q.identity();
           R.makeRotationFromQuaternion(q);S.makeScale(k*squash[0],k*squash[1],k*squash[0]);
           M.makeTranslation(pos.x,pos.y,pos.z).multiply(S).multiply(R);
           put(body,M);
-          if(style==='fur'){for(const l of bowLocal.loops)put(loops,tmp.multiplyMatrices(M,l));put(knots,tmp.multiplyMatrices(M,bowLocal.knot));}
+          if(accessories[accessoryId]){const matrix=style==='fur'?tmp.multiplyMatrices(M,accessoryScale):M;for(const m of accessories[accessoryId])put(m,matrix);}
+          if(style==='fur'&&!HEADWEAR.has(accessoryId)){for(const l of bowLocal.loops)put(loops,tmp.multiplyMatrices(M,l));put(knots,tmp.multiplyMatrices(M,bowLocal.knot));}
           if(eyes){const base=M;
             for(const [w,p,gl] of eyeLocal[eyes]||eyeLocal.open){put(whites,tmp.multiplyMatrices(base,w));put(pupils,tmp.multiplyMatrices(base,p));put(glints,tmp.multiplyMatrices(base,gl));}}
         },

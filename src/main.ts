@@ -11,7 +11,7 @@ async function boot() {
     if (!document.createElement('canvas').getContext('webgl2'))
         throw new Error('يلزم WebGL2 / WebGL2 required');
     const store = await new SaveStore().open();
-    await Promise.allSettled([document.fonts.load('32px Dahrooj', 'دحروج'), document.fonts.load('32px Dahrooj', 'Dahrooj')]);
+    await Promise.allSettled([document.fonts.load('32px Dahrooj', 'دحروج'), document.fonts.load('32px Dahrooj', 'Dahrooj'), document.fonts.load('800 240px Dahrooj', '0123456789')]);
     const world = await World.create(document.getElementById('world')!, { xr: { sessionMode: SessionMode.ImmersiveVR, offer: 'none', launchOnSessionGranted: true, referenceSpace: { type: ReferenceSpaceType.LocalFloor, required: true }, features: { layers: true } }, render: { near: 0.03, far: 65 }, input: { canvasPointerEvents: false }, features: { physics: false, locomotion: false, grabbing: false, spatialUI: false } });
     // Controller models requested by xr-input are redirected to the application origin.
     AssetManager.loadingManager.setURLModifier(url => { const marker = '/@webxr-input-profiles/assets@1.0/dist/profiles/'; const index = url.indexOf(marker); if (index >= 0) {

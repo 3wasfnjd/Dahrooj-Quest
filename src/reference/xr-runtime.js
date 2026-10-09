@@ -1,3 +1,4 @@
+import {createScorePopup} from './score-popup';
 import {GOAL_AIM_Z} from './court-layout.js';
 import {createChallengeList} from './challenge-list.js';
 import {DAHROOJ_COLORS,DAHROOJ_SWATCHES} from './palette.js';
@@ -109,18 +110,14 @@ export const createReferenceXR=(() => {
       if(accent){c.save();round(c,x,y,w,h,r);c.clip();c.fillStyle=accent;c.fillRect(rtl?x+w-14:x,y,14,h);c.restore();}
       c.lineWidth=3;c.strokeStyle='rgba(44,45,61,.12)';round(c,x,y,w,h,r);c.stroke();
     }
-    // The score board: a fixed paper plaque high over the play area, facing you.
-    const hud=panel(1,.3,1024,300);rig.add(hud.mesh);
+    // Transient jelly digits; placement instructions and Summit health stay available.
+    const hud=panel(1,.3,1024,300),scorePopup=createScorePopup();rig.add(hud.mesh);hud.mesh.add(scorePopup.root);
     function drawHud(){
-      const t=g.texts(),name=LABEL(g.mode()),turn=t.turn==='Your turn'?tr('دورك','Your turn'):t.turn?tr('دور الخصم','Their turn'):'';
-      if(rainOn){
-        const n=intro?intro.popped:0,key='rain|'+n+'|'+lang;if(key===hud.key)return;hud.key=key;
-        const c=hud.ctx;c.clearRect(0,0,1024,300);c.textAlign='center';c.direction=tr('rtl','ltr');
-        paperCard(c,282,26,460,200,56);c.fillStyle=INK;c.font=font(800,92);c.fillText(String(n),512,128);
-        c.font=font(700,36);c.fillStyle='rgba(44,45,61,.66)';c.fillText(tr('مطر دحاريج','Dahrooj Rain'),512,186);hud.tex.needsUpdate=true;return;
-      }
-      const ch=climbOn&&climb3?climb3.hud():null;
-      const key=placing?'placing':ch?['climb',ch.hearts,ch.height,ch.checkpoint,ch.again,t.title].join('|'):[t.title,t.count,turn,name,lang].join('|');if(key===hud.key)return;hud.key=key;
+      const t=g.texts(),ch=climbOn&&climb3?climb3.hud():null;
+      scorePopup.observe(placing?'placing':ch?'climb':rainOn?'rain':g.mode(),placing||ch?0:rainOn?(intro?.popped||0):Number(t.count));
+      hud.mesh.material.visible=!!(placing||ch);
+      if(!placing&&!ch){hud.key='';return;}
+      const key=placing?'placing|'+lang:['climb',ch.hearts,ch.height,ch.checkpoint,ch.again,t.title,lang].join('|');if(key===hud.key)return;hud.key=key;
       const c=hud.ctx;c.clearRect(0,0,1024,300);c.textAlign='center';c.direction=tr('rtl','ltr');
       if(placing){
         c.fillStyle='rgba(255,252,246,.88)';round(c,62,30,900,230,46);c.fill();c.fillStyle=INK;
@@ -131,10 +128,6 @@ export const createReferenceXR=(() => {
         paperCard(c,202,14,620,236,60);
         c.font=font(800,112);for(let i=0;i<ch.max;i++){c.fillStyle=i<ch.hearts?'#c8584b':'rgba(44,45,61,.2)';c.fillText('♥',512+(i-(ch.max-1)/2)*128,138);}
         c.font=font(800,46);c.fillStyle='rgba(44,45,61,.8)';c.fillText(ch.again?tr('A للتسلق من جديد','A to climb again'):t.title||tr(`${ch.height} م`,`${ch.height} m`),512,214);
-      }else{
-        paperCard(c,282,26,460,200,56);
-        c.fillStyle=INK;c.font=font(800,92);c.fillText(t.title||t.count||'0',512,128);
-        c.font=font(700,36);c.fillStyle='rgba(44,45,61,.66)';c.fillText(turn||name,512,186);
       }
       hud.tex.needsUpdate=true;
     }
@@ -424,8 +417,8 @@ export const createReferenceXR=(() => {
     /* ---------- the opening: Dahrooj balls rain all around you, then a start button ---------- */
     // The same rain is a mode of its own, Dahrooj Rain (rain: true): no start button, and it never stops.
     // Every ball and shot is drawn by one crowd (a handful of instanced draws), so there can be lots.
-    const INTRO_R=.11,INTRO_STYLES=['jelly','fabric','clay','fur','bubble'],CROWD_MAX=120;
-    const crowd=models?.crowd?models.crowd(CROWD_MAX):null;
+    const INTRO_R=.11,INTRO_STYLES=['jelly','fabric','clay','fur','bubble'],RAIN_ACCESSORIES=['party','glasses','cap','flower','crown'],CROWD_MAX=120;
+    const crowd=models?.crowd?models.crowd(CROWD_MAX,true):null;
     const introGroup=crowd?crowd.group:new T.Group();introGroup.name='xr-intro';rig.add(introGroup);
     const start=panel(.56,.28,1024,512);start.mesh.name='xr-start';start.mesh.visible=false;rig.add(start.mesh);
     // In the menus' glass style: the name, a solid ink button and a line under it.
@@ -450,8 +443,10 @@ export const createReferenceXR=(() => {
     // One ball dropping from above somewhere in the ring around you, at a random moment and size.
     function dropBall(delay){
       const I=intro,{R}=crowdSize(),c=I.centre,a=Math.random()*Math.PI*2,dist=.55+Math.sqrt(Math.random())*(R-.55);
-      const rad=INTRO_R*(.75+Math.random()*.5),sp=.2+Math.random()*.5,dirA=Math.random()*Math.PI*2;
-      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*5|0],R:rad,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
+      const raw=INTRO_R*(.75+Math.random()*.5),rad=I.rain&&raw>INTRO_R?INTRO_R+(raw-INTRO_R)*.5:raw,sp=.2+Math.random()*.5,dirA=Math.random()*Math.PI*2;
+      // Pick once per spawn; cosmetics never change the player's unlocks or add physics bodies.
+      const accessory=I.rain?RAIN_ACCESSORIES[Math.random()*RAIN_ACCESSORIES.length|0]:'';
+      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*5|0],R:rad,accessory,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
         born:I.t+delay,gx:Math.cos(dirA)*sp,gz:Math.sin(dirA)*sp,hop:.5+Math.random()*2.5,d:0,dv:0,hit:0,blink:0,next:1+Math.random()*3});
     }
     function spawnIntro(){
@@ -568,7 +563,7 @@ export const createReferenceXR=(() => {
       for(const b of intro.balls){
         if(intro.t<b.born)continue;
         const falling=b.p.y>b.R+.02&&b.v.y<-1.5;
-        crowd.add(b.style,V(b.p.x,b.p.y-b.R*Math.max(0,b.d),b.p.z),b.R*k,toward,[1+b.d*.75,1-b.d],b.hit>0||b.blink>0?'shut':falling?'wide':'open');
+        crowd.add(b.style,V(b.p.x,b.p.y-b.R*Math.max(0,b.d),b.p.z),b.R*k,toward,[1+b.d*.75,1-b.d],b.hit>0||b.blink>0?'shut':falling?'wide':'open',b.accessory);
       }
       crowd.end();
     }
@@ -692,8 +687,11 @@ export const createReferenceXR=(() => {
     const shotRay=new T.Raycaster();
     const blast={shots:[],sparks:[],popped:0,fired:0};
     function fireBlast(h,fromIntro=false){
-      if(blast.shots.length>=16)return;const kind_=styleFor(fromIntro),P=SHOT_STYLE[kind_];
-      if(clock-(h.lastShot||0)<P.cool)return;h.lastShot=clock;blast.fired++;g.noteStyle?.();
+      const kind_=styleFor(fromIntro),P=SHOT_STYLE[kind_];
+      if(clock-(h.lastShot||0)<P.cool)return;
+      // Reuse the bounded flight budget instead of stalling a held trigger until old shots expire.
+      if(blast.shots.length>=16){const oldest=blast.shots.shift();if(oldest.m)scene.remove(oldest.m);}
+      h.lastShot=clock;blast.fired++;g.noteStyle?.();
       const {origin,dir}=rayOf(h),k=scaleNow(),p=origin.addScaledVector(dir,.08*k);
       let m=null;
       if(kind_==='bolt'){m=new T.Group();const tr=new T.Mesh(shotGeo,shotMat),hd=new T.Mesh(headGeo,headMat);
@@ -1326,7 +1324,7 @@ export const createReferenceXR=(() => {
       }
       if(climbOn){climb3.setDir(stickX);placeClimb();}
       fork.visible=!!F?.source;if(F?.source&&fork.parent!==F.grip)F.grip.add(fork);
-      drawMenu(hover);drawHud();if(start.mesh.visible)drawStart(startHot);
+      drawMenu(hover);drawHud();scorePopup.step(dt);if(start.mesh.visible)drawStart(startHot);
       if(intro){stepIntro(dt);drawIntro();}
       stepBlast(dt);
       // Hidden while the mode cards are out, so it never sits over one.
