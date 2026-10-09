@@ -1014,7 +1014,7 @@ export const createReferenceXR=(() => {
       session=s;kind=mode;lang=g.language();layoutMenu();anchor=null;arScale=AR_SCALE;arZoom=1;placing=mode==='immersive-ar';menuToggled=false;
       renderer.xr.enabled=true;renderer.xr.setReferenceSpaceType('local-floor');
       place();
-      if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
+      if(mode==='immersive-vr'&&!nature&&createReferenceNature)nature=createReferenceNature(T,{scene,renderer,hemi:g.hemi,sun:g.sun,lineMat:g.lineMat});
       // The world's own sounds: wind, leaves, rain, the pond, birds by day and crickets at night.
       if(nature&&!ambience&&createReferenceAmbience&&g.audio)ambience=createReferenceAmbience({audio:g.audio,nature});
       // Crate blasts clear nearby characters in a 3D radius, never the ball held by the player.
@@ -1159,8 +1159,8 @@ export const createReferenceXR=(() => {
 
 
     /* ---------- the mode plaza: floating cards, one live miniature per mode ---------- */
-    // B opens it: eight cards in two arcs around you at chest height. Point at one and it comes forward and its
-    // miniature comes alive; pull the trigger on it, or throw Dahrooj into it, to go there.
+    // Y opens nine compact cards on a single arc below the view. They stay at the opening pose.
+    // Point to enlarge one, then pull the trigger to select it. Old throws cannot choose a mode.
     const PLAZA=[
       ['goal','مرمى','Goal','سجّل على الحارس','Score past the keeper'],['hoop','سلة','Hoop','سلات ورا بعض','Hoops in a row'],
       ['window','شباك','Window','الشباك يصغر','The window shrinks'],['cans','علب','Cans','طيّحها كلها','Knock them all down'],
@@ -1207,7 +1207,7 @@ export const createReferenceXR=(() => {
       return {g,step:t=>a.forEach(f=>f(t))};
     }
     // The card: a rounded paper pane with the miniature standing in front of it and its name underneath.
-    const CARD_W=.26,CARD_H=.34;
+    const CARD_W=.26,CARD_H=.34,CARD_REST=.5,CARD_HOVER=.9;
     const cardShape=(()=>{const w=CARD_W,h=CARD_H,r=.035,sh=new T.Shape();sh.moveTo(-w/2+r,-h/2);sh.lineTo(w/2-r,-h/2);sh.quadraticCurveTo(w/2,-h/2,w/2,-h/2+r);sh.lineTo(w/2,h/2-r);sh.quadraticCurveTo(w/2,h/2,w/2-r,h/2);
       sh.lineTo(-w/2+r,h/2);sh.quadraticCurveTo(-w/2,h/2,-w/2,h/2-r);sh.lineTo(-w/2,-h/2+r);sh.quadraticCurveTo(-w/2,-h/2,-w/2+r,-h/2);return new T.ShapeGeometry(sh,8);})();
     const pcards=PLAZA.map(([id,ar,en,subAr,subEn],i)=>{
@@ -1225,13 +1225,17 @@ export const createReferenceXR=(() => {
       const key=lang;if(c.key===key)return;c.key=key;const x=c.lc.getContext('2d');x.setTransform(2,0,0,2,0,0);x.clearRect(0,0,256,96);x.textAlign='center';x.direction=tr('rtl','ltr');
       x.fillStyle=INK;x.font=font(800,44);x.fillText(tr(c.ar,c.en),128,48);x.fillStyle='rgba(44,45,61,.85)';x.font=font(600,24);x.fillText(tr(c.subAr,c.subEn),128,82);c.lt.needsUpdate=true;
     }
-    // Two arcs of four, a little over a metre away, centred on where you look when it opens.
+    // One low arc, anchored once on opening: it does not chase the eyes as the player looks down.
     function placePlaza(){
-      const {pos,dir}=headLocal(),yaw=Math.atan2(dir.x,dir.z);
+      const {pos,dir}=headLocal(),yaw=Math.atan2(dir.x,dir.z),R=1.1;
       plaza.position.set(pos.x,0,pos.z);plaza.rotation.set(0,yaw,0);
-      // Five over four.
-      pcards.forEach((c,i)=>{const row=i<5?0:1,col=row?i-5:i,ang=(col-(row?1.5:2))*.34*(lang==='en'?1:-1),R=1.15;
-        c.home=V(Math.sin(ang)*R,pos.y+(row?-.42:.0)-.02,Math.cos(ang)*R);c.root.position.copy(c.home);c.root.rotation.set(0,ang+Math.PI,0);});
+      const viewer=V(0,pos.y,0),look=new T.Matrix4();
+      pcards.forEach((c,i)=>{
+        const ang=(i-(pcards.length-1)/2)*.17*(lang==='en'?1:-1);
+        c.home=V(Math.sin(ang)*R,pos.y-.44,Math.cos(ang)*R);c.root.position.copy(c.home);
+        c.root.quaternion.setFromRotationMatrix(look.lookAt(viewer,c.home,UP));
+        c.hot=0;c.mini.g.rotation.y=0;
+      });
     }
     function setPlaza(on){
       if(on===plazaOn&&!plazaPick)return;plazaOn=on;plazaHot=-1;plazaPick=null;
@@ -1254,14 +1258,14 @@ export const createReferenceXR=(() => {
       plazaK=clamp(plazaK+(plazaOn?1:-1)*dt*4,0,1);plaza.visible=plazaK>0;if(!plaza.visible){plazaPick=null;return;}
       // Existing throws never select UI cards. Mode selection requires an explicit trigger press.
       pcards.forEach((c,i)=>{
-        const hot=i===plazaHot||(plazaPick&&plazaPick.c===c);c.hot+=((hot?1:0)-c.hot)*Math.min(1,dt*10);
-        const appear=clamp(plazaK*1.6-i*.08,0,1),e=appear<1?1-Math.pow(1-appear,3):1;
+        const hot=i===plazaHot||(plazaPick&&plazaPick.c===c);c.hot+=((hot?1:0)-c.hot)*(1-Math.exp(-dt*12));
+        const appear=clamp(plazaK*1.3-i*.03,0,1),e=appear<1?1-Math.pow(1-appear,3):1;
         c.root.position.copy(c.home);
-        // The pointed card comes toward you.
-        c.root.position.multiplyScalar(1-.12*c.hot);
-        c.root.scale.setScalar(Math.max(.001,e*(1+.14*c.hot)));
+        // Enlarge upward from the same low strip without pulling the card off the pointer ray.
+        c.root.position.y+=(CARD_HOVER-CARD_REST)*CARD_H*.5*c.hot;
+        c.root.scale.setScalar(Math.max(.001,e*(CARD_REST+(CARD_HOVER-CARD_REST)*c.hot)));
         c.ring.material.opacity=.9*c.hot;c.pane.material.opacity=.98*e;
-        if(hot||clock<1)c.mini.step(clock);c.mini.g.rotation.y=Math.sin(clock*.6+i)*.35+(hot?clock*.8:0);
+        if(hot)c.mini.step(clock);c.mini.g.rotation.y+=(Math.sin(clock*.9+i)*.25*c.hot-c.mini.g.rotation.y)*(1-Math.exp(-dt*8));
       });
       plaza.updateWorldMatrix(true,true);
       if(plazaPick){plazaPick.t+=dt;const c=plazaPick.c;c.root.scale.multiplyScalar(1+plazaPick.t*2.5);c.pane.material.opacity*=Math.max(0,1-plazaPick.t*3);if(plazaPick.t>.35){setPlaza(false);plazaPick=null;}}

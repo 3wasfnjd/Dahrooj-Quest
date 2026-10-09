@@ -1,0 +1,28 @@
+{
+  "hardwareTested": false,
+  "environment": "Local IWER with Chromium and SwiftShader",
+  "typecheck": "passed",
+  "lint": "passed",
+  "unitTestsPassed": 42,
+  "summitChecksPassed": 142,
+  "xr": [
+    "✓  1 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in vr (27.4s)",
+    "✓  2 tests/xr/compact-modes.spec.ts:3:40 › compact mode arc stays below view, grows on hover and selects by trigger in ar (9.9s)",
+    "✓  3 tests/xr/fair-display.spec.ts:24:1 › mode picker keeps depth isolated after gameplay and snow has no animated glitter (16.0s)",
+    "✓  4 tests/xr/menu-regression.spec.ts:10:1 › mode cards ignore old throws and menus stay mutually exclusive (49.2s)"
+  ],
+  "visualReview": [
+    "compact-arc-vr.png",
+    "hovered-card-vr.png",
+    "compact-arc-ar.png",
+    "hovered-card-ar.png"
+  ],
+  "flickerOnPhysicalQuest": "Not verified. Vegetation aliasing mitigated; headset confirmation remains required.",
+  "productionBuild": {
+    "bytes": 11601150,
+    "gzipBytes": 6422002,
+    "javascriptBytes": 3425594,
+    "errors": [],
+    "files": 118
+  }
+}

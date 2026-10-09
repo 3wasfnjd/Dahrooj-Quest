@@ -30,7 +30,7 @@ test('mode picker keeps depth isolated after gameplay and snow has no animated g
   g.runtime.nature.set({time:'day',weather:'snow'});g.world.scene.getObjectByName('xr-snow-ground').material.uniforms.snowElevation.value=.35;
   g.runtime.setPlaza(true);
  });
- await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-plaza').children[0].scale.x>.99);
+ await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-plaza').children[0].scale.x>.49);
  const data=await page.evaluate(()=>{
   const g=(window as any).__DAHROOJ_REFERENCE__.game,s=g.world.scene,plaza=s.getObjectByName('xr-plaza'),snow=s.getObjectByName('xr-snow-ground'),rain=s.getObjectByName('xr-weather-particles');
   const materials:any[]=[];plaza.traverse((o:any)=>{if(o.isMesh)materials.push(o.material);});

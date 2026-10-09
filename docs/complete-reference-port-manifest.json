@@ -4,7 +4,7 @@
     {
       "path": "src/reference/nature.js",
       "origin": "assets/xr/nature.js",
-      "sha256": "a5d8a79a4ef9042ebdb06c9df8c48c1aae8672d4db9ca358fa53129d76b989f3"
+      "sha256": "a586535fc89ad23a5f995bc4b550b4883de2a877d55c50292e7164ee29aec83c"
     },
     {
       "path": "src/reference/ambience.js",
@@ -24,7 +24,7 @@
     {
       "path": "src/reference/xr-runtime.js",
       "origin": "assets/xr/xr.js: session/render ownership adapted to IWSDK",
-      "sha256": "4f4f683639b5f97fa7e3643070d6c9c0654027131c1a9d5af1f0d82694c5ec8a"
+      "sha256": "2910cea76ba343221e42a09d8250d5ffee3d855ade55cecfeba5e33ece343264"
     },
     {
       "path": "src/reference/game-state.js",

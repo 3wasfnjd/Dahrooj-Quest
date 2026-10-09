@@ -59,8 +59,11 @@ export const createReferenceNature=(() => {
     const t=new T.DataTexture(data,size,size,T.RGBAFormat);t.wrapS=t.wrapT=T.RepeatWrapping;t.magFilter=t.minFilter=T.LinearFilter;t.needsUpdate=true;return t;
   }
 
-  return (_T,{scene,hemi,sun,lineMat,court={x:0,z:-10}})=>{
+  return (_T,{scene,renderer,hemi,sun,lineMat,court={x:0,z:-10}})=>{
     const root=new T.Group();root.name='xr-nature';root.visible=false;scene.add(root);
+    // Use the active XR target's MSAA when available; keep a hard-cutout fallback without MSAA.
+    const layer=renderer?.xr.getBaseLayer(),target=renderer?.getRenderTarget();
+    const coverageAA=target?.samples>0||(typeof layer?.antialias==='boolean'?layer.antialias:!!renderer?.getContext().getContextAttributes()?.antialias);
     let seed=7;const rng=()=>(seed=(seed*16807)%2147483647)/2147483647;
     const perlin=perlinTexture();
     // The same noise on the CPU (bilinear, wrapping), so the game's physics sees the pond's real shore.
@@ -223,8 +226,11 @@ export const createReferenceNature=(() => {
           varying vec4 vClip;varying float vDist;varying float vTip;varying float vTrack;varying float vShadow;varying float vVar;`+TRACK+SLAB+POND_GLSL+SHADOW+`
           void main(){
             vec3 p=position;float tip=corner<.5?1.:0.;vTip=tip;
+            // Fade fine blades into the existing ground colour before they become distant pixel noise.
+            float distanceFade=1.-smoothstep(12.,24.,length(p.xz-uCam.xz));
+            if(distanceFade<=0.){gl_Position=vec4(2.,2.,2.,1.);return;}
             float heightVariation=texture2D(uPerlin,p.xz*.0321).r+.5;
-            float h=bladeHeight*(bladeHeightRandomness*heightRandomness+(1.-bladeHeightRandomness))*heightVariation;
+            float h=bladeHeight*(bladeHeightRandomness*heightRandomness+(1.-bladeHeightRandomness))*heightVariation*distanceFade;
             // On the pitch the grass is mown short so Dahrooj and the lines stay visible; Motri's height around it.
             vec2 q=abs(p.xz-uPitch.xy)-uPitch.zw;h*=mix(.28,1.,smoothstep(0.,3.,max(q.x,q.y)));
             // Pressed flat where a ball rolled.
@@ -267,7 +273,7 @@ export const createReferenceNature=(() => {
       return g;
     })();
     function foliage(matrices,colorA,colorB){
-      const mat=referenceShader(T,{uniforms:{...U,uFoliage:{value:foliageTexture},uColorA:{value:C(colorA)},uColorB:{value:C(colorB)},threshold:{value:.3}},side:T.DoubleSide,
+      const mat=referenceShader(T,{uniforms:{...U,uFoliage:{value:foliageTexture},uColorA:{value:C(colorA)},uColorB:{value:C(colorB)},threshold:{value:.3},uCoverageAA:{value:coverageAA?1:0}},side:T.DoubleSide,alphaToCoverage:coverageAA,transparent:false,depthWrite:true,
         vertexShader:WIND+`
           varying vec4 vClip;varying float vDist;varying vec2 vUv;varying vec3 vNormal;varying float vTurn;
           void main(){vUv=uv;
@@ -275,15 +281,18 @@ export const createReferenceNature=(() => {
             vTurn=length(windOffset(position.xz))*2.2;
             vec4 mv=viewMatrix*modelMatrix*instanceMatrix*vec4(position,1.);vDist=-mv.z;gl_Position=projectionMatrix*mv;vClip=gl_Position;}`,
         fragmentShader:SHADE+`
-          uniform sampler2D uFoliage;uniform vec3 uColorA,uColorB;uniform float threshold;varying vec2 vUv;varying vec3 vNormal;varying float vTurn;
+          uniform sampler2D uFoliage;uniform vec3 uColorA,uColorB;uniform float threshold,uCoverageAA;varying vec2 vUv;varying vec3 vNormal;varying float vTurn;
           void main(){
             vec2 c=vUv-.5;float s=sin(vTurn),k=cos(vTurn);vec2 ruv=vec2(c.x*k-c.y*s,c.x*s+c.y*k)+.5;
-            float alpha=texture2D(uFoliage,ruv).r-threshold;if(alpha<.1)discard;
+            float edge=texture2D(uFoliage,ruv).r-threshold-.1;
+            float width=max(fwidth(edge),.01);
+            float coverage=uCoverageAA>.5?smoothstep(-width,width,edge):step(0.,edge);
+            if(coverage<.001)discard;
             vec3 n=normalize(vNormal);if(!gl_FrontFacing)n=-n;
             vec3 base=mix(uColorA,uColorB,smoothstep(0.,1.,dot(n,uLightDir)));
-            gl_FragColor=vec4(motriShade(base,n,0.),1.);}`});
+            gl_FragColor=vec4(motriShade(base,n,0.),coverage);}`});
       const mesh=new T.InstancedMesh(foliageGeometry,mat,matrices.length);
-      matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.frustumCulled=false;root.add(mesh);return mesh;
+      matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.computeBoundingSphere();mesh.name='xr-foliage';root.add(mesh);return mesh;
     }
     // Clumps face the player's usual view at a random roll, as Foliage.js faces the default camera.
     const toward=V(0,6,8);
@@ -490,9 +499,9 @@ export const createReferenceNature=(() => {
         poles.forEach((p,i)=>{for(let j=0;j<5;j++){const k=i*5+j,a=Math.random()*Math.PI*2;pos.set([p.x+Math.cos(a),2.8,p.z+Math.sin(a)],k*3);seed[k]=Math.random()*999;}});
         const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(pos,3));geo.setAttribute('seed',new T.BufferAttribute(seed,1));
         const mat=referenceShader(T,{uniforms:{...glowU,uTime:U.uTime,uScale:{value:0}},transparent:true,depthWrite:false,blending:T.AdditiveBlending,
-          vertexShader:'attribute float seed;uniform float uTime,uScale;void main(){float t=uTime+seed;vec3 p=position+vec3(sin(t*.4)*.5,sin(t)*.2,sin(t*.3)*.5);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=clamp(90.*uScale/-mv.z,0.,14.);gl_Position=projectionMatrix*mv;}',
+          vertexShader:'attribute float seed;uniform float uTime,uScale;void main(){float t=uTime+seed;vec3 p=position+vec3(sin(t*.4)*.5,sin(t)*.2,sin(t*.3)*.5);vec4 mv=modelViewMatrix*vec4(p,1.);gl_PointSize=clamp(45.*uScale/-mv.z,0.,7.);gl_Position=projectionMatrix*mv;}',
           fragmentShader:'uniform vec3 uColorA,uColorB;void main(){float d=length(gl_PointCoord-.5)*2.;if(d>1.)discard;vec3 c=mix(uColorA,uColorB,d);gl_FragColor=vec4(c*(1.-d*d),1.);}'});
-        const pts=new T.Points(geo,mat);pts.frustumCulled=false;root.add(pts);return mat.uniforms.uScale;
+        const pts=new T.Points(geo,mat);pts.name='xr-pole-fireflies';pts.frustumCulled=false;root.add(pts);return mat.uniforms.uScale;
       })();
       // A warm pool of light on the ground under each pole at night.
       const poolMat=new T.MeshBasicMaterial({color:0xff8641,transparent:true,opacity:0,depthWrite:false,blending:T.AdditiveBlending,fog:false,
