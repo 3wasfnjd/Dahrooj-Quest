@@ -5,14 +5,15 @@ import {XR_MODE_CATALOG} from '../../src/reference/mode-catalog';
 const modes=XR_MODE_CATALOG;
 const model=(english=false,kind='immersive-vr'):MenuModel=>({english,kind,mode:'goal',style:'jelly',jellyColor:'blue',throwStyle:'trigger',shotStyle:'bolt',time:'day',weather:'snow',accessory:'',done:0,resetArmed:false,challenges:Array.from({length:16},(_,i)=>({id:String(i),title:`تحدي ${i}`,en:`Challenge ${i}`,value:0,goal:3}))});
 afterEach(()=>vi.unstubAllGlobals());
-function panel(drawn:string[]=[]){const ctx=new Proxy({},{get:(_t,k)=>k==='fillText'?(t:string)=>drawn.push(t):()=>{},set:()=>true});vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>ctx})});return createFlatModePanel(modes);}
+function panel(drawn:string[]=[]){const ctx=new Proxy({},{get:(_t,k)=>k==='fillText'?(t:string)=>drawn.push(t):k==='createLinearGradient'||k==='createRadialGradient'?()=>({addColorStop(){}}):()=>{},set:()=>true});vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>ctx})});return createFlatModePanel(modes);}
 describe('single XR menu surface',()=>{
  it('selects all eleven coloured modes through actual rays in both languages',()=>{
-  const ui=panel(),root=new Group();root.add(ui.mesh);root.position.set(2,1,-3);root.rotation.y=.4;root.scale.setScalar(.5);root.updateMatrixWorld(true);
-  for(const english of [false,true]){ui.draw(model(english));for(let i=0;i<modes.length;i++){
+  const drawn:string[]=[],ui=panel(drawn),root=new Group();root.add(ui.mesh);root.position.set(2,1,-3);root.rotation.y=.4;root.scale.setScalar(.5);root.updateMatrixWorld(true);
+  for(const english of [false,true]){drawn.length=0;ui.draw(model(english));for(const [,ar,en] of modes)expect(drawn).not.toContain(english?en:ar);for(let i=0;i<modes.length;i++){
    const target=root.localToWorld(ui.point(i,english)),normal=new Vector3(0,0,1).transformDirection(root.matrixWorld);
    const hit=new Raycaster(target.clone().add(normal),normal.negate()).intersectObject(ui.mesh)[0];
-   expect(ui.action(ui.hit(hit.uv!.x,hit.uv!.y))?.id).toBe(modes[i][0]);
+   const index=ui.hit(hit.uv!.x,hit.uv!.y);expect(ui.action(index)?.id).toBe(modes[i][0]);
+   drawn.length=0;ui.draw(model(english),index);expect(drawn).toEqual([english?'Dahrooj':'دحروج',modes[i][english?2:1]]);
   }}
   expect(new Set(ui.buttons.filter(b=>b.kind==='mode').map(b=>b.fill)).size).toBe(modes.length);
   expect(ui.point(0,false).x).toBeGreaterThan(ui.point(0,true).x);
@@ -38,6 +39,7 @@ describe('single XR menu surface',()=>{
   const go=(kind:string,id:string)=>{const b=ui.buttons.find(b=>b.kind===kind&&b.id===id)!;expect(b).toBeDefined();ui.navigate(b);ui.draw(m);};
   go('tab','appearance');expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(7);
   go('appearance','accessories');const index=ui.buttons.findIndex(b=>b.id==='headphones');expect(ui.action(index)).toBeNull();
+  const locked=ui.buttons[index];expect(ui.hit((locked.x+locked.w/2)/1200,1-(locked.y+locked.h/2)/1000)).toBe(index);expect(locked.sub).toContain('12');
   m.done=14;ui.draw(m);expect(ui.action(index)?.id).toBe('headphones');
   go('tab','challenges');expect(ui.action(ui.buttons.findIndex(b=>b.id==='up'))).toBeNull();
   go('scrollStep','down');expect(ui.challengeScroll.offset).toBeGreaterThan(0);
