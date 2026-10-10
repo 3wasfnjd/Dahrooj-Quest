@@ -14,7 +14,11 @@ if (modules.some(p => /^iwer\/|@iwsdk\/devtools|src\/platform\/(emulator|develop
 if (modules.some(p => p.startsWith('@drawcall/uikitml/')))
     throw new Error('Unlicensed UIKitML fork must not enter the shipped bundle');
 const files = await walk('dist'), report = { bytes: 0, gzipBytes: 0, javascriptBytes: 0, assets: [], errors: [] };
+const ledger = JSON.parse(await readFile('docs/asset-ledger.json', 'utf8'));
+const retiredAssets = new Set(ledger.filter(asset => asset.status?.startsWith('Retired ')).map(asset => asset.destination));
 for (const f of files) {
+    if (retiredAssets.has(f.slice('dist/'.length)))
+        report.errors.push('Retired asset still in production: ' + f);
     const data = await readFile(f), bytes = (await stat(f)).size;
     report.bytes += bytes;
     report.gzipBytes += gzipSync(data).length;
