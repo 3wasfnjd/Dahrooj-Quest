@@ -1,6 +1,6 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {Group,LinearMipmapLinearFilter,NoBlending,Raycaster,Vector3} from '@iwsdk/core';
-import {createFlatModePanel,MENU_PAGES,modeAtUV,type MenuModel} from '../../src/reference/flat-mode-panel';
+import {createFlatModePanel,MENU_PAGES,MENU_ACCESSORIES,modeAtUV,type MenuModel} from '../../src/reference/flat-mode-panel';
 import {XR_MODE_CATALOG} from '../../src/reference/mode-catalog';
 const modes=XR_MODE_CATALOG;
 const model=(english=false,kind='immersive-vr'):MenuModel=>({english,kind,mode:'goal',style:'jelly',jellyColor:'blue',throwStyle:'trigger',shotStyle:'bolt',time:'day',weather:'snow',accessory:'',done:0,resetArmed:false,challenges:Array.from({length:16},(_,i)=>({id:String(i),title:`تحدي ${i}`,en:`Challenge ${i}`,value:0,goal:3}))});
@@ -55,7 +55,7 @@ describe('single XR menu surface',()=>{
  it('navigates, guards locked rewards and exposes every challenge without an extra mesh',()=>{
   const ui=panel(),m=model();ui.draw(m);
   const go=(kind:string,id:string)=>{const b=ui.buttons.find(b=>b.kind===kind&&b.id===id)!;expect(b).toBeDefined();ui.navigate(b);ui.draw(m);};
-  go('tab','appearance');expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(7);
+  go('tab','appearance');expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(8);
   go('appearance','accessories');const index=ui.buttons.findIndex(b=>b.id==='headphones');expect(ui.action(index)).toBeNull();
   const locked=ui.buttons[index];expect(ui.hit((locked.x+locked.w/2)/1200,1-(locked.y+locked.h/2)/1000)).toBe(index);expect(locked.sub).toContain('12');
   m.done=25;ui.draw(m);expect(ui.action(index)?.id).toBe('headphones');
@@ -92,7 +92,17 @@ describe('single XR menu surface',()=>{
  it('uploads only visible changes, exposes all colours for every look, and names About Dahrooj',()=>{
   const drawn:string[]=[],ui=panel(drawn),m=model();ui.draw(m);const texture=ui.mesh.material.map!,v=texture.version;
   ui.draw({...m,done:7,weather:'rain',challenges:[]});expect(texture.version).toBe(v);
-  ui.show('appearance');for(const style of ['jelly','fur','bubble']){ui.draw({...m,style});expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(7);}
+  ui.show('appearance');for(const style of ['jelly','fur','bubble']){ui.draw({...m,style});expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(8);}
   for(const english of [false,true]){drawn.length=0;ui.show('about');ui.draw({...m,english});expect(drawn).toContain(english?'Dahrooj':'دحروج');expect(drawn.some(s=>/quest|كويست/i.test(s))).toBe(false);}
+ });
+ it('fills twelve accessory slots and shows context-sensitive Quest controls on the play page',()=>{
+  const drawn:string[]=[],ui=panel(drawn),m=model();expect(MENU_ACCESSORIES).toHaveLength(12);
+  ui.show('play');ui.draw(m);expect(drawn).toContain('أزرار Meta Quest');for(const key of ['A','B','X','Y'])expect(drawn).toContain(key);
+  expect(drawn).toContain('استرجاع دحروج');
+  drawn.length=0;ui.draw({...m,mode:'maze'});expect(drawn).toContain('إعادة المحاولة');expect(drawn.some(s=>s.includes('الإفلات يوقفه'))).toBe(true);
+  drawn.length=0;ui.draw({...m,mode:'climb',english:true});expect(drawn).toContain('Jump');expect(drawn.some(s=>s.includes('Left stick: move'))).toBe(true);
+  drawn.length=0;ui.draw({...m,throwStyle:'sling'});expect(drawn).toContain('غير مستخدم بالنبيطة');
+  drawn.length=0;ui.draw({...m,kind:'immersive-ar'});expect(drawn.some(s=>s.includes('لتثبيته'))).toBe(true);
+  expect(ui.buttons.filter(b=>b.kind==='throw')).toHaveLength(3);expect(ui.buttons.filter(b=>b.kind==='shot')).toHaveLength(4);expect(ui.mesh.children).toHaveLength(0);
  });
 });

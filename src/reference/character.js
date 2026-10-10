@@ -79,15 +79,15 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     }
     const jellyModels=new Set();
     // The bubble's film swirls; all bubbles share one clock.
-    const bubbleTime={value:0};
+    const bubbleTime={value:0},bubbleTint={value:new T.Color(DAHROOJ_COLORS.bubble)};
     const MATERIALS={
       // Jelly: see jellyMaterial below. All jelly balls share it.
       jelly:()=>jellyMaterial,
       fabric:()=>new T.MeshStandardMaterial({color:DAHROOJ_COLORS.fabric,roughness:.82,envMap:env,envMapIntensity:.35}),
       clay:()=>new T.MeshStandardMaterial({color:DAHROOJ_COLORS.clay,roughness:.72,envMap:env,envMapIntensity:.5}),
       // The skin is the colour of the hair roots and lit like them, so gaps between hairs read as deeper fur.
-      fur:()=>new T.MeshStandardMaterial({map:furMap,roughness:.95,envMap:env,envMapIntensity:.35}),
-      bubble:()=>referenceShader(T,{transparent:true,depthWrite:false,uniforms:{uTime:bubbleTime,uTint:jellyU.uTint},
+      fur:()=>new T.MeshStandardMaterial({map:furMap,color:DAHROOJ_COLORS.fur,roughness:.95,envMap:env,envMapIntensity:.35}),
+      bubble:()=>referenceShader(T,{transparent:true,depthWrite:false,uniforms:{uTime:bubbleTime,uTint:bubbleTint},
         vertexShader:'varying vec3 vN;varying vec3 vV;varying vec3 vP;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);vP=position;gl_Position=projectionMatrix*mv;}',
         fragmentShader:[
           'uniform float uTime;uniform vec3 uTint;varying vec3 vN;varying vec3 vV;varying vec3 vP;',
@@ -141,7 +141,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     // Built from simple shapes in Dahrooj's colours, around a ball of radius r with the face toward +z.
     // One template per accessory; each ball wears a clone that shares its geometry and materials.
     const accTemplates={};
-    const HEADWEAR=new Set(['party','cap','crown','headphones','aviator','woodhat']);
+    const HEADWEAR=new Set(['party','cap','crown','headphones','aviator','woodhat','beanie']);
     function accessory(id,lite=false){
       const key=lite?'crowd/'+id:id;
       if(!accTemplates[key]){
@@ -197,6 +197,16 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
             add(new T.SphereGeometry(r*.25,lite?10:24,lite?8:16),shell,V(sd*r*1.09,r*.06,0),null,[.4,1,1]);
             add(new T.TorusGeometry(r*.16,r*.016,8,lite?16:32),trim,V(sd*r*1.18,r*.06,0),[0,Math.PI/2,0]);
           }
+        }else if(id==='beanie'){
+          const knit=canvas(256,128,(c,w,h)=>{
+            c.fillStyle='#579cb2';c.fillRect(0,0,w,h);c.lineCap='round';c.lineWidth=2;
+            for(let y=-8;y<h+8;y+=12)for(let x=0;x<w;x+=16){c.strokeStyle='#82b9c8';c.beginPath();c.moveTo(x+3,y);c.lineTo(x+8,y+7);c.lineTo(x+13,y);c.stroke();}
+          });
+          const wool=mat({map:knit,roughness:.95}),cream=mat({color:0xf3e7cf,roughness:.95}),tag=mat({color:0xd37863,roughness:.8});
+          add(new T.SphereGeometry(r*1.07,lite?20:36,lite?10:18,0,Math.PI*2,0,Math.PI*.375),wool,V(0,r*.06,0));
+          add(new T.TorusGeometry(r*.989,r*.085,lite?8:12,lite?28:48),cream,V(0,r*.47,0),[Math.PI/2,0,0]);
+          add(new T.SphereGeometry(r*.17,lite?10:20,lite?8:14),cream,V(r*.06,r*1.28,-r*.04));
+          add(new T.BoxGeometry(r*.18,r*.13,r*.035),tag,V(r*.22,r*.49,r*1.035),[-.4,0,.05]);
         }else if(id==='aviator'){
           const leather=mat({color:0x885839,roughness:.85}),trim=mat({color:0xe8c999,roughness:.75}),glass=mat({color:0x66bad4,roughness:.22,metalness:.15});
           add(new T.SphereGeometry(r*1.065,lite?18:32,lite?8:14,0,Math.PI*2,0,Math.PI*.35),leather,V(0,r*.035,0));
@@ -341,6 +351,9 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       fur:MATERIALS.fur(),
       bubble:(()=>{const b=MATERIALS.bubble();return instanced(instanced(b,'modelViewMatrix*vec4(position,1.)','modelViewMatrix*instanceMatrix*vec4(position,1.)'),'normalMatrix*normal','normalMatrix*mat3(instanceMatrix)*normal');})()
     };
+    // The body gets its colour from the instance; a cream base would tint it twice.
+    crowdMats.fur.color.setHex(0xffffff);
+    const styleTints={jelly:jellyU.uTint.value,fur:sharedMaterials.fur.color,bubble:bubbleTint.value};
     crowdMats.bubble.transparent=true;crowdMats.bubble.depthWrite=false;
     // Instance colours live on each crowd mesh, never in the player's shared material uniforms.
     for(const id of ['jelly','bubble']){
@@ -383,7 +396,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       // Keep jelly's bandage in the same instanced path as rain and small projectiles.
       const bandages=decoration('bandaid').children.map((part,i)=>{const m=mk(part.geometry,part.material,max);m.name='dahrooj-crowd-bandaid-'+i;return m;});
       const accessories={};
-      if(withAccessories)for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','aviator','woodhat','starGlasses']){
+      if(withAccessories)for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','aviator','woodhat','starGlasses','beanie']){
         const merged=batchReferenceMeshes(accessory(id,true));
         accessories[id]=merged.children.map((part,i)=>{const m=mk(part.geometry,part.material,max);m.name='xr-rain-accessory-'+id+'-'+i;return m;});
       }
@@ -400,7 +413,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
           if(toward){look.lookAt(toward,pos,up);q.setFromRotationMatrix(look);}else q.identity();
           R.makeRotationFromQuaternion(q);S.makeScale(k*squash[0],k*squash[1],k*squash[0]);
           M.makeTranslation(pos.x,pos.y,pos.z).multiply(S).multiply(R);
-          if(color===undefined){if(['jelly','fur','bubble'].includes(style))instanceTint.copy(jellyU.uTint.value);else instanceTint.setHex(0xffffff);}else instanceTint.setHex(color);
+          if(color===undefined){if(styleTints[style])instanceTint.copy(styleTints[style]);else instanceTint.setHex(0xffffff);}else instanceTint.setHex(color);
           body.setColorAt(body.count,instanceTint);put(body,M);
           if(style==='jelly')for(const m of bandages)put(m,M);
           if(accessories[accessoryId]){const matrix=style==='fur'?tmp.multiplyMatrices(M,accessoryScale):M;for(const m of accessories[accessoryId])put(m,matrix);}
@@ -413,7 +426,9 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       };
     }
     for(const style of Object.keys(MATERIALS))for(const name of ['open','focus','wide','joy','closed','squint','laugh','dizzy','hurt'])faceTexture(style,name,0,0,false,EYE_FACES.has(name));
-    // Retain the public/save field name for existing installations. It now selects
-    // one colour across jelly, fur and bubble; rain's explicit instance colours win.
-    return {make,crowd,updateProbe,setJellyColor(id){const color=jellyColor(id);jellyU.uTint.value.setHex(color.hex);const t=jellyU.uTint.value;sharedMaterials.fur.color.copy(t);jellyU.uAbsorb.value.set(.08+(1-t.r)*1.2,.08+(1-t.g)*1.2,.08+(1-t.b)*1.2);},mats:sharedMaterials,time:bubbleTime,forget(group){jellyModels.delete(group);}};
+    // The saved field still applies to all looks. Original removes the override
+    // independently for each material; explicit rain colours always take priority.
+    function setJellyColor(id){const {hex}=jellyColor(id);for(const [style,tint] of Object.entries(styleTints))tint.setHex(hex??DAHROOJ_COLORS[style]);const t=jellyU.uTint.value;jellyU.uAbsorb.value.set(.08+(1-t.r)*1.2,.08+(1-t.g)*1.2,.08+(1-t.b)*1.2);}
+    setJellyColor('original');
+    return {make,crowd,updateProbe,setJellyColor,mats:sharedMaterials,time:bubbleTime,forget(group){jellyModels.delete(group);}};
 }

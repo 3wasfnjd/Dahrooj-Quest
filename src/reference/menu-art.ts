@@ -82,6 +82,13 @@ export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color=MENU_
   for(let i=0;i<5;i++){const a=i*Math.PI*2/5;oval(Math.cos(a)*22,Math.sin(a)*22,13);}oval(0,0,8);
  }else if(id==='crown'){
   line([[-36,24],[-38,-22],[-17,-5],[0,-33],[17,-5],[38,-22],[36,24]],true);line([[-36,13],[36,13]]);
+ }else if(id==='beanie'){
+  arc(0,8,31,Math.PI,Math.PI*2);box(-36,8,72,23,6);oval(0,-35,11);
+  for(const x of [-23,-8,8,23])line([[x,14],[x,25]]);
+  line([[-17,-3],[-12,-14],[-8,-3]]);line([[8,-3],[12,-14],[17,-3]]);
+ }else if(id==='original'){
+  oval(0,3,32);oval(-11,4,4,6,true);oval(11,4,4,6,true);arc(0,3,43,Math.PI*.7,Math.PI*1.8);
+  line([[16,-45],[30,-32],[14,-26]]);
  }else if(id==='aviator'){
   arc(0,0,33,Math.PI,Math.PI*2);line([[-33,0],[-33,26],[-23,26],[-23,4]]);line([[33,0],[33,26],[23,26],[23,4]]);
   box(-26,-13,23,19,7);box(3,-13,23,19,7);line([[-3,-5],[3,-5]]);line([[-29,11],[29,11]]);

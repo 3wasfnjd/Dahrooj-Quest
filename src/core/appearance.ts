@@ -10,6 +10,8 @@ export const JELLY_COLORS = [
  {id:'blue',ar:'أزرق',en:'Blue',hex:0x58b9ff},
  {id:'purple',ar:'بنفسجي',en:'Purple',hex:0xb878ff},
 ] as const;
-export type JellyColorId = typeof JELLY_COLORS[number]['id'];
-export function jellyColor(value:unknown){return JELLY_COLORS.find(c=>c.id===value)??JELLY_COLORS[0];}
+// Keep the seven explicit rain colours separate from the player's no-override option.
+export const DAHROOJ_COLOR_CHOICES=[{id:'original',ar:'اللون الأصلي',en:'Original colour',hex:null},...JELLY_COLORS] as const;
+export type JellyColorId = typeof DAHROOJ_COLOR_CHOICES[number]['id'];
+export function jellyColor(value:unknown){return DAHROOJ_COLOR_CHOICES.find(c=>c.id===value)??JELLY_COLORS[0];}
 export function playableStyle(value:unknown):typeof PLAYABLE_STYLES[number]{return value==='fur'||value==='fabric'?'fur':value==='bubble'?'bubble':'jelly';}

@@ -25,6 +25,27 @@ async function platform(kind:string,saved=defaults()){
  return {game,r,scene,player,grips,session,store,frame,choose,event,pointAt};
 }
 describe.each(['immersive-vr','immersive-ar'])('tabletop controller routing in %s',kind=>{
+ it('keeps the three tray rims and signs inside their base, leaving the play surface clear',async()=>{
+  const {choose}=await platform(kind);
+  for(const id of ['balance','ricochet','maze']){
+   const stage=choose(id),board=stage.grp.children[0],parts=board.children.filter((o:any)=>o.name.startsWith('tabletop-tray-'));
+   expect(parts).toHaveLength(4);
+   for(const part of [...parts,stage.grp.getObjectByName('tabletop-instructions')]){
+    const p=part.geometry.attributes.position;
+    for(let i=0;i<p.count;i++){
+     const at=board.worldToLocal(part.localToWorld(new T.Vector3().fromBufferAttribute(p,i)));
+     expect(Math.abs(at.x),`${id} ${part.name} width`).toBeLessThanOrEqual(3.35/2+1e-6);
+     expect(Math.abs(at.z),`${id} ${part.name} depth`).toBeLessThanOrEqual(3.77/2+1e-6);
+    }
+   }
+   // Actual ray intersections guard against a filled Shape hole covering the game.
+   for(const x of [-1.49,0,1.49])for(const z of [-1.69,0,1.69]){
+    const origin=board.localToWorld(new T.Vector3(x,1,z)),direction=new T.Vector3(0,-1,0).transformDirection(board.matrixWorld);
+    const ray=new T.Raycaster(origin,direction);
+    expect(ray.intersectObjects(parts.filter((o:any)=>/frame|trim/.test(o.name)))).toHaveLength(0);
+   }
+  }
+ });
  it('carries an earned rings accessory into the maze and clears it on explicit reset',async()=>{
   const saved=migrate({version:2,accessory:'starGlasses',challenges:{rings5:5}});
   const {r,store,frame,choose}=await platform(kind,saved),stage=choose('maze');frame();

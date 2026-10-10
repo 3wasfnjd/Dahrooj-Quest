@@ -28,13 +28,38 @@ describe('character appearance on real Three geometry',()=>{
   const models=character();
   for(const style of ['jelly','fur','bubble'] as const){
    const main=models.make(style);let maximum=0;
-   for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','aviator','woodhat','starGlasses','']){
+   for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','aviator','woodhat','starGlasses','beanie','']){
     main.setAccessory(id);main.group.updateMatrixWorld(true);
     main.group.traverse((o:any)=>{if(o.isMesh){expect(o.geometry.attributes.position.count).toBeGreaterThan(0);maximum++;}});
     if(id){const acc=main.group.getObjectByName('dahrooj-accessory-'+id)!;expect(acc).toBeDefined();expect(acc.children.length).toBeGreaterThan(0);}
     const bounds=new T.Box3().setFromObject(main.group);expect(Number.isFinite(bounds.max.x)).toBe(true);
    }
    expect(maximum).toBeGreaterThan(20);main.dispose();
+  }
+ });
+ it('restores each authored colour on existing bodies and later crowds, without recolouring explicit rain instances',()=>{
+  const models=character(),main=(['jelly','fur','bubble'] as const).map(style=>models.make(style)),crowd=models.crowd(8),tint=new T.Color();
+  const original={jelly:0xff69b4,fur:0xf1ebe1,bubble:0xcfe8ff};
+  for(const previous of ['blue','original','red']){
+   models.setJellyColor(previous);models.setJellyColor('original');crowd.begin();
+   for(const style of ['jelly','fur','bubble'] as const){
+    const mat=models.mats[style],actual=style==='fur'?(mat as T.MeshStandardMaterial).color:(mat as T.ShaderMaterial).uniforms.uTint.value;
+    expect(actual.getHex()).toBe(original[style]);
+    crowd.add(style,new T.Vector3(),.12,null,[1,1],null);crowd.add(style,new T.Vector3(),.12,null,[1,1],null,'',0xff505c);
+   }
+   crowd.end();for(const style of ['jelly','fur','bubble'] as const){const body=crowd.group.getObjectByName('dahrooj-crowd-'+style) as T.InstancedMesh;
+    body.getColorAt(0,tint);expect(tint.getHex()).toBe(original[style]);body.getColorAt(1,tint);expect(tint.getHex()).toBe(0xff505c);
+   }
+  }
+  for(const m of main)expect(m.group.getObjectByName('dahrooj-'+m.style)).toBeDefined();
+ });
+ it('fits the wool hat above the face, hides the fur bow and keeps its parts opaque',()=>{
+  const models=character();for(const style of ['jelly','fur','bubble'] as const){
+   const model=models.make(style);model.setAccessory('beanie');model.update({pos:new T.Vector3()});
+   const hat=model.group.getObjectByName('dahrooj-accessory-beanie')!,bounds=new T.Box3().setFromObject(hat);
+   expect(bounds.min.y).toBeGreaterThan(.24*.33);expect(bounds.max.y).toBeGreaterThan(.24*1.3);expect(bounds.max.y).toBeLessThan(.24*1.7);
+   hat.traverse((o:any)=>{if(o.isMesh)expect(o.material.transparent).toBe(false);});
+   if(style==='fur'){const bow=model.group.getObjectByName('dahrooj-bow')!;expect(bow.visible).toBe(false);model.setAccessory('');model.update({pos:new T.Vector3()});expect(bow.visible).toBe(true);}
   }
  });
  it('keeps all seven rain colours in one draw per style without changing the player or later crowds',()=>{
@@ -66,7 +91,7 @@ describe('character appearance on real Three geometry',()=>{
  });
  it('retains all material groups of the new rewards when batching indexed and extruded geometry',()=>{
   const models=character(),crowd=models.crowd(1,true);
-  for(const [id,count] of [['aviator',3],['woodhat',3],['starGlasses',2]] as const){
+  for(const [id,count] of [['aviator',3],['woodhat',3],['starGlasses',2],['beanie',3]] as const){
    crowd.begin();crowd.add('jelly',new T.Vector3(),.24,null,[1,1],'open',id);crowd.end();
    const parts=crowd.group.children.filter(o=>o.name.startsWith('xr-rain-accessory-'+id+'-')) as T.InstancedMesh[];
    expect(parts).toHaveLength(count);for(const part of parts){expect(part.count).toBe(1);expect(part.geometry.attributes.position.count).toBeGreaterThanOrEqual(20);}

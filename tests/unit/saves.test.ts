@@ -1,6 +1,14 @@
 import { expect, it } from 'vitest';
 import { defaults, migrate } from '../../src/save/store';
 import { CHALLENGES } from '../../src/progression/challenges';
+it('keeps original colour and unlocks the wool hat only after a clean maze completion',()=>{
+ for(const style of ['jelly','fur','bubble']){
+  const saved=migrate({version:2,style,jellyColor:'original',accessory:'beanie',challenges:{mazeClean:1}});
+  expect(saved.jellyColor).toBe('original');expect(saved.accessory).toBe('beanie');expect(migrate(saved)).toEqual(saved);
+ }
+ expect(migrate({version:2,jellyColor:'original',accessory:'beanie',challenges:{maze5:5}}).accessory).toBe('');
+ expect(defaults().jellyColor).toBe('pink');
+});
 it('migrates version 1 and repairs corrupt fields', () => { const save = migrate({ version: 1, language: 'en', master: 8, sfx: -1, style: 'unknown', challenges: { keeper3: 3, bad: Infinity }, accessory: 'crown', stylesUsed: ['fur', 'fur', 'unknown'] }); expect(save.version).toBe(2); expect(save.language).toBe('en'); expect(save.master).toBe(1); expect(save.sfx).toBe(0); expect(save.style).toBe('fur'); expect(save.accessory).toBe(''); expect(save.stylesUsed).toEqual(['fur']); expect(save.challenges.bad).toBeUndefined(); });
 it('preserves legitimately unlocked accessories and highscores', () => { const challenges = Object.fromEntries(CHALLENGES.map(([id, goal]) => [id, goal])); expect(migrate({ version: 2, challenges, accessory: 'crown', best: { fair: 82 } }).accessory).toBe('crown'); });
 it('uses safe defaults for unknown versions', () => { expect(migrate({ version: 200 })).toEqual(defaults()); expect(migrate(null)).toEqual(defaults()); });

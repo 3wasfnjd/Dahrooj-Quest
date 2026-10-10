@@ -1,16 +1,17 @@
 import {CanvasTexture,LinearFilter,LinearMipmapLinearFilter,Mesh,MeshBasicMaterial,Shape,ShapeGeometry,SRGBColorSpace,Vector3} from '@iwsdk/core';
 import {menuDepth} from './menu-depth';
-import {JELLY_COLORS} from '../core/appearance';
+import {DAHROOJ_COLOR_CHOICES} from '../core/appearance';
 import {drawMenuCard,drawMenuIcon,drawMenuPaper,drawMenuFooter,MENU_INK,MENU_LIGHT,MENU_CORNER} from './menu-art';
 import {UNLOCKS,CHALLENGES,accessoryAvailable} from '../progression/challenges';
 import {XR_MODE_CATALOG} from './mode-catalog';
+import {questControls} from './quest-controls';
 
 export const MENU_PAGES=[['modes','الأنماط','Modes'],['appearance','المظهر','Appearance'],['play','اللعب','Play'],['world','العالم','World'],['challenges','التحديات','Challenges'],['system','عام','General'],['about','عن اللعبة','About']] as const;
 export type MenuPage=typeof MENU_PAGES[number][0];
 export const MENU_STYLES=[['jelly','جلي','Jelly'],['fur','فرو','Fur'],['bubble','فقاعة','Bubble']] as const;
 export const MENU_THROWS=[['trigger','زناد','Trigger'],['hand','يد','Hand'],['sling','نبيطة','Slingshot']] as const;
 export const MENU_SHOTS=[['bolt','برق','Bolt'],['mini','دحروج','Dahrooj'],['bubble','فقاعة','Bubble'],['firework','ألعاب نارية','Firework']] as const;
-export const MENU_ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14],['aviator','قبعة طيّار','Aviator cap',UNLOCKS.aviator],['woodhat','قبعة خشبية','Wooden hat',UNLOCKS.woodhat],['starGlasses','نظارة نجوم','Star glasses',UNLOCKS.starGlasses]] as const;
+export const MENU_ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14],['aviator','قبعة طيّار','Aviator cap',UNLOCKS.aviator],['woodhat','قبعة خشبية','Wooden hat',UNLOCKS.woodhat],['starGlasses','نظارة نجوم','Star glasses',UNLOCKS.starGlasses],['beanie','طاقية صوف','Wool hat',UNLOCKS.beanie]] as const;
 // Names and descriptions taken from the shipped credits.html, not new ownership claims.
 export const MENU_CREDITS=[
  ['Aboden Games','دحروج والتصميم والموسيقى والأصوات الأصلية','Dahrooj, design, original music and sounds'],
@@ -64,7 +65,7 @@ export function createFlatModePanel(modes:readonly Mode[]){
    [['character','دحروج','Dahrooj'],['accessories','الإكسسوارات','Accessories']].forEach(([id,ar,en],i)=>add('appearance',id,ar,en,grid(i,2,184,88,english),{selected:appearance===id}));
    if(appearance==='character'){
     MENU_STYLES.forEach(([id,ar,en],i)=>add('style',id,ar,en,grid(i,3,300,200,english),{selected:id===m.style,icon:id}));
-    JELLY_COLORS.forEach((c,i)=>add('jellyColor',c.id,c.ar,c.en,grid(i,4,575,102,english),{selected:c.id===m.jellyColor,color:'#'+c.hex.toString(16).padStart(6,'0')}));
+    DAHROOJ_COLOR_CHOICES.forEach((c,i)=>add('jellyColor',c.id,c.ar,c.en,grid(i,4,575,102,english),{selected:c.id===m.jellyColor,color:c.hex===null?undefined:'#'+c.hex.toString(16).padStart(6,'0'),icon:c.id==='original'?'original':'palette'}));
    }else {
     const progress=m.rewards??Object.fromEntries(m.challenges.map(c=>[c.id,c.value]));
     MENU_ACCESSORIES.forEach(([id,ar,en,need],i)=>{const open=accessoryAvailable(id,m.done,progress),ch=CHALLENGES.find(c=>c[0]===need);
@@ -73,8 +74,8 @@ export function createFlatModePanel(modes:readonly Mode[]){
    }
   }
   if(page==='play'){
-   MENU_THROWS.forEach(([id,ar,en],i)=>add('throw',id,ar,en,grid(i,3,244,118,english),{selected:id===m.throwStyle}));
-   MENU_SHOTS.forEach(([id,ar,en],i)=>add('shot',id,ar,en,grid(i,2,472,142,english),{selected:id===m.shotStyle}));
+   MENU_THROWS.forEach(([id,ar,en],i)=>add('throw',id,ar,en,grid(i,3,218,100,english),{selected:id===m.throwStyle}));
+   MENU_SHOTS.forEach(([id,ar,en],i)=>add('shot',id,ar,en,grid(i,4,385,100,english),{selected:id===m.shotStyle}));
   }
   if(page==='world'){
    if(m.kind==='immersive-vr'){
@@ -102,7 +103,7 @@ export function createFlatModePanel(modes:readonly Mode[]){
   const on=b.selected,hover=index===hot&&!b.disabled,cx=b.x+b.w/2,cy=b.y+b.h/2,ink=b.disabled?'#9a9b97':on?MENU_LIGHT:MENU_INK;
   drawMenuCard(ctx,b.x,b.y,b.w,b.h,!!on,hover,!!b.disabled);
   // Only the colour selector uses colour; the remaining actions share black outline icons.
-  if(b.kind==='jellyColor'){
+  if(b.kind==='jellyColor'&&b.id!=='original'){
    ctx.fillStyle=b.color!;ctx.beginPath();ctx.arc(cx,cy,29,0,Math.PI*2);ctx.fill();
    if(on)drawMenuIcon(ctx,'check',cx,cy,29,MENU_INK);
   }else{
@@ -114,7 +115,25 @@ export function createFlatModePanel(modes:readonly Mode[]){
   const base=contentX(m.english),cx=base+444;
   if(page==='appearance'&&appearance==='character')text(tr('لون دحروج','Dahrooj’s colour'),cx,540,30);
   if(page==='appearance'&&appearance==='accessories')text(tr(`مكافآت التحديات · مكتمل ${m.done}`,`Challenge rewards · ${m.done} complete`),cx,866,28);
-  if(page==='play'){text(tr('طريقة الرمي','Throw style'),cx,213,31);text(tr('نوع الطلقة','Projectile'),cx,428,31);}
+  if(page==='play'){
+   text(tr('طريقة الرمي','Throw style'),cx,195,29);text(tr('نوع الطلقة','Projectile'),cx,360,29);
+   text(tr('أزرار Meta Quest','Meta Quest controls'),cx,539,30);
+   const help=questControls(m.mode,m.throwStyle);
+   const hands=[{title:tr('اليد اليسرى','Left hand'),rows:[['Y',tr('الأنماط','Modes')],['X',tr('التحديات','Challenges')],['trigger',tr(...help.leftTrigger)]]},
+    {title:tr('اليد اليمنى','Right hand'),rows:[['B',tr('صفحة اللعب','Play settings')],['A',tr(...help.a)],['trigger',tr(...help.rightTrigger)]]}];
+   hands.forEach((hand,i)=>{
+    const x=base+i*456;ctx.fillStyle=MENU_LIGHT;round(x,561,432,202,24);ctx.fill();text(hand.title,x+216,592,26);
+    hand.rows.forEach(([badge,label],j)=>{
+     const y=632+j*46,bx=m.english?x+34:x+398;
+     if(badge==='trigger')drawMenuIcon(ctx,'trigger',bx,y-9,28);
+     else{ctx.strokeStyle=MENU_INK;ctx.lineWidth=2;ctx.beginPath();ctx.arc(bx,y-9,16,0,Math.PI*2);ctx.stroke();ctx.direction='ltr';text(badge,bx,y,25);ctx.direction=m.english?'ltr':'rtl';}
+     ctx.textAlign=m.english?'left':'right';text(label,m.english?x+65:x+367,y,25,MENU_INK,334);ctx.textAlign='center';
+    });
+   });
+   text(tr(...help.grip),cx,804,26,MENU_INK,870);
+   text(tr('في القائمة: زناد اليمين للاختيار · قير اليمين لتمرير التحديات','In menus: right trigger selects · right stick scrolls challenges'),cx,846,25,MENU_INK,870);
+   if(m.kind==='immersive-ar')text(tr('AR: وجّه إلى سطح واضغط الزناد لتثبيته','AR: aim at a surface and press a trigger to pin it'),cx,886,25,MENU_INK,870);
+  }
   if(page==='world'){
    if(m.kind==='immersive-vr'){text(tr('وقت اليوم','Time of day'),cx,213,31);text(tr('الطقس','Weather'),cx,428,31);}
    else{text(tr('العالم في غرفتك','Your room is the world'),cx,315,42);text(tr('أعد التثبيت لاختيار سطح جديد','Re-pin to choose a new surface'),cx,400,31);}
@@ -161,7 +180,7 @@ export function createFlatModePanel(modes:readonly Mode[]){
   },
   draw(model:MenuModel,hot=-1){
    // Progress/weather changes on hidden pages must not upload a whole menu texture.
-   const visible=page==='modes'?[model.mode]:page==='appearance'?[model.style,model.jellyColor,model.accessory,model.done,model.challenges,model.rewards]:page==='play'?[model.throwStyle,model.shotStyle]:page==='world'?[model.kind,model.time,model.weather]:page==='challenges'?[model.resetArmed,model.challenges]:[];
+   const visible=page==='modes'?[model.mode]:page==='appearance'?[model.style,model.jellyColor,model.accessory,model.done,model.challenges,model.rewards]:page==='play'?[model.throwStyle,model.shotStyle,model.mode,model.kind]:page==='world'?[model.kind,model.time,model.weather]:page==='challenges'?[model.resetArmed,model.challenges]:[];
    const next=JSON.stringify([page,appearance,challengeOffset,hot,model.english,visible]);lastModel=model;if(key===next)return;key=next;buttons=layout(model);
    drawMenuPaper(ctx,model.english);ctx.textAlign='center';ctx.direction=model.english?'ltr':'rtl';
    const base=contentX(model.english);

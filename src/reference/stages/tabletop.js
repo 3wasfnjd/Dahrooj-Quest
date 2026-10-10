@@ -17,10 +17,29 @@ export default function tabletop(ctx,mode){
  const materials=[wood,cream,walnut,honey,gold,mint,violet,dark],geometries=[];
  const wooden=mode==='ricochet',tilting=mode==='balance'||mode==='maze';
  function box(parent,w,h,d,x,y,z,mat){const geo=new T.BoxGeometry(w,h,d);geometries.push(geo);const m=new T.Mesh(geo,mat);m.position.set(x,y,z);parent.add(m);return m;}
- box(board,3.35,.16,3.77,0,-.35,0,walnut);
- box(board,3.30,.045,3.72,0,-.245,0,honey);
- for(const x of [-1.59,1.59]){box(board,.15,.27,3.78,x,-.13,0,wood);box(board,.19,.035,3.82,x,.022,0,cream);}
- for(const z of [-1.83,1.83]){box(board,3.32,.27,.15,0,-.13,z,wood);box(board,3.48,.035,.19,0,.022,z,cream);}
+ // One continuous frame per layer. The former end strips were 3.48 wide over
+ // a 3.35-wide base and overlapped the side strips at all four corners.
+ function outline(w,d,r){
+  const s=new T.Shape(),x=w/2,z=d/2;
+  s.moveTo(-x+r,-z);s.lineTo(x-r,-z);s.absarc(x-r,-z+r,r,-Math.PI/2,0,false);
+  s.lineTo(x,z-r);s.absarc(x-r,z-r,r,0,Math.PI/2,false);
+  s.lineTo(-x+r,z);s.absarc(-x+r,z-r,r,Math.PI/2,Math.PI,false);
+  s.lineTo(-x,-z+r);s.absarc(-x+r,-z+r,r,Math.PI,Math.PI*1.5,false);s.closePath();return s;
+ }
+ function trayPart(name,bottom,height,mat,hollow=false){
+  const shape=outline(3.35,3.77,.12);if(hollow)shape.holes.push(outline(3.04,3.48,.03));
+  const geo=new T.ExtrudeGeometry(shape,{depth:height,bevelEnabled:false,curveSegments:8});geo.rotateX(-Math.PI/2);geometries.push(geo);
+  const pos=geo.attributes.position,normal=geo.attributes.normal,uv=geo.attributes.uv;
+  for(let i=0;i<pos.count;i++){
+   const top=Math.abs(normal.getY(i))>.5,side=Math.abs(normal.getX(i))>.5;
+   uv.setXY(i,top?pos.getX(i)/3.35+.5:side?pos.getZ(i)/3.77+.5:pos.getX(i)/3.35+.5,top?pos.getZ(i)/3.77+.5:pos.getY(i)/height);
+  }
+  const mesh=new T.Mesh(geo,mat);mesh.name='tabletop-tray-'+name;mesh.position.y=bottom;board.add(mesh);return mesh;
+ }
+ trayPart('base',-.43,.16,walnut);
+ trayPart('liner',-.27,.045,honey);
+ trayPart('frame',-.225,.25,wood,true);
+ trayPart('trim',.025,.026,cream,true);
  const handles=[-1,1].map(s=>{const h=new T.Mesh(new T.TorusGeometry(.22,.055,8,24,Math.PI),cream);geometries.push(h.geometry);h.rotation.x=-Math.PI/2;h.rotation.z=s<0?Math.PI/2:-Math.PI/2;h.position.set(s*1.64,-.14,.9);h.name='balance-handle-'+s;board.add(h);return h;});
  // A single cutout surface for the bridges, with a recessed tray below it.
  const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=1152;const c=canvas.getContext('2d');
@@ -30,7 +49,7 @@ export default function tabletop(ctx,mode){
  const signCanvas=document.createElement('canvas');signCanvas.width=1536;signCanvas.height=352;
  const signMap=new T.CanvasTexture(signCanvas);signMap.colorSpace=T.SRGBColorSpace;signMap.anisotropy=4;
  const signMat=new T.MeshBasicMaterial({map:signMap,toneMapped:false,blending:T.NoBlending});materials.push(signMat);
- const sign=box(board,3.28,.75,.12,0,.4,-1.9,[wood,wood,wood,wood,signMat,wood]);sign.name='tabletop-instructions';
+ const sign=box(board,3.04,.75,.12,0,.426,-1.81,[wood,wood,wood,wood,signMat,wood]);sign.name='tabletop-instructions';
  const goal=new T.Mesh(mode==='maze'?new T.CylinderGeometry(.21,.21,.026,36):new T.TorusGeometry(.24,.038,10,36),wooden?honey:mint);geometries.push(goal.geometry);goal.rotation.x=mode==='maze'?0:Math.PI/2;goal.position.y=.065;pieces.add(goal);
  const stars=[],mirrors=[],obstacles=[];
  // Shared boxes keep every maze divider and its cap in just two draw calls.

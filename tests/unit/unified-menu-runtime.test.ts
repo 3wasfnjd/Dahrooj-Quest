@@ -20,14 +20,28 @@ it('routes the unified panel and scrolls with a real controller frame without fi
  r.setPlaza(true);expect(r.menuPage).toBe('modes');const mesh=scene.getObjectByName('xr-menu')!;
  click('tab','appearance');click('style','jelly');click('jellyColor','purple');expect(store.data.jellyColor).toBe('purple');expect(store.data.style).toBe('jelly');
  for(const [style,color] of [['fur','blue'],['bubble','green']]){click('style',style);click('jellyColor',color);expect(store.data.style).toBe(style);expect(store.data.jellyColor).toBe(color);}
+ click('jellyColor','original');
+ for(const style of ['jelly','fur','bubble']){click('style',style);expect(store.data.jellyColor).toBe('original');expect(r.menuLayout.buttons.find((b:any)=>b.id==='original').selected).toBe(true);}
  click('tab','play');click('shot','firework');click('throw','hand');expect(r.shotStyle).toBe('firework');expect(r.throwStyle).toBe('hand');
  click('tab','challenges');click('scrollStep','down');expect(r.challengeScroll.offset).toBeGreaterThan(0);expect(r.challengesOpen).toBe(true);
  click('tab','about');expect(r.menuPage).toBe('about');expect(scene.getObjectByName('xr-menu')).toBe(mesh);expect(mesh.children).toHaveLength(0);
  click('tab','modes');click('mode','goal');expect(r.menuOpen).toBe(false);expect(game.g.mode()).toBe('goal');expect(store.touch).toHaveBeenCalled();
  vi.stubGlobal('navigator',{xr:{}});await r.enter('immersive-ar');
- for(let i=0;i<2;i++)controllers[i].dispatchEvent({type:'connected',data:{handedness:i?'right':'left',gamepad:{buttons:[],axes:[0,0,0,i?1:0]}}} as any);
+ const pads=[0,1].map(i=>({buttons:Array.from({length:6},()=>({pressed:false})),axes:[0,0,0,i?1:0]}));
+ for(let i=0;i<2;i++)controllers[i].dispatchEvent({type:'connected',data:{handedness:i?'right':'left',gamepad:pads[i]}} as any);
  r.setMenu(true,'challenges');const offset=r.challengeScroll.offset,scale=player.scale.clone(),position=player.position.clone();
  r.frame(1000,{getViewerPose:()=>({}),detectedPlanes:new Set()});expect(r.challengeScroll.offset).toBeGreaterThan(offset);
  expect(player.scale.equals(scale)).toBe(true);expect(player.position.equals(position)).toBe(true);expect(game.S.shot).toBe(false);expect(r.blast.fired).toBe(0);
  const stopped=r.challengeScroll.offset;r.setMenu(true,'appearance');r.frame(1016,{getViewerPose:()=>({}),detectedPlanes:new Set()});expect(r.challengeScroll.offset).toBe(stopped);
+ // Check the physical face buttons described in Play against real runtime frames.
+ pads[1].axes[3]=0;let time=1032;
+ const frame=()=>r.frame(time+=16,{getViewerPose:()=>({}),detectedPlanes:new Set()});
+ const press=(hand:number,index:number)=>{pads[hand].buttons[index].pressed=true;frame();pads[hand].buttons[index].pressed=false;frame();};
+ press(0,5);expect(r.menuPage).toBe('modes');expect(r.menuOpen).toBe(true); // Y
+ press(0,4);expect(r.menuPage).toBe('challenges');expect(r.menuOpen).toBe(true); // X
+ press(1,5);expect(r.menuPage).toBe('play');expect(r.menuOpen).toBe(true); // B
+ press(1,5);expect(r.menuOpen).toBe(false);
+ r.setMenu(true,'modes');click('mode','maze');frame();const maze=game.g.stage().game;
+ expect(maze.failures).toBe(0);press(1,4);expect(maze.failures).toBe(1); // A retries a board round
+ r.setMenu(true,'play');press(1,4);expect(maze.failures).toBe(1); // A never retries behind the menu
 });

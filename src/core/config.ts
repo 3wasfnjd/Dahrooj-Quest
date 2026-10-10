@@ -6,7 +6,7 @@ export const THROWS = ['physical', 'charged', 'slingshot'] as const;
 export type ThrowId = typeof THROWS[number];
 export const SHOTS = ['bolt', 'mini', 'bubble', 'firework'] as const;
 export type ShotId = typeof SHOTS[number];
-export const ACCESSORIES = ['', 'party', 'glasses', 'cap', 'flower', 'crown', 'headphones', 'scarf', 'aviator', 'woodhat', 'starGlasses'] as const;
+export const ACCESSORIES = ['', 'party', 'glasses', 'cap', 'flower', 'crown', 'headphones', 'scarf', 'aviator', 'woodhat', 'starGlasses', 'beanie'] as const;
 export type AccessoryId = typeof ACCESSORIES[number];
 /** Preserve the equipped balance reward when loading its retired identifier. */
 export function normalizeAccessory(value:unknown):AccessoryId {

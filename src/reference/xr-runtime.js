@@ -236,7 +236,7 @@ export const createReferenceXR=(() => {
       else if(id==='flower'){c.fillStyle='#ff7f9a';for(let k=0;k<5;k++){const a=k/5*Math.PI*2;c.beginPath();c.arc(cx+14+Math.cos(a)*6,cy-14+Math.sin(a)*6,4.5,0,7);c.fill();}c.fillStyle='#f2c14e';c.beginPath();c.arc(cx+14,cy-14,3.5,0,7);c.fill();}
       else if(id==='crown'){c.fillStyle='#e5ad2e';c.beginPath();c.moveTo(cx-15,cy-14);c.lineTo(cx-15,cy-32);c.lineTo(cx-7,cy-22);c.lineTo(cx,cy-36);c.lineTo(cx+7,cy-22);c.lineTo(cx+15,cy-32);c.lineTo(cx+15,cy-14);c.closePath();c.fill();}
       else if(id==='headphones'){c.strokeStyle='#7862cc';c.lineWidth=6;c.beginPath();c.arc(cx,cy-4,24,Math.PI,0);c.stroke();c.fillStyle='#7862cc';for(const sd of [-1,1]){round(c,cx+sd*23-5,cy-7,10,22,5);c.fill();}}
-      else if(['aviator','woodhat','starGlasses'].includes(id))drawMenuIcon(c,id,cx,cy,62);
+      else if(['aviator','woodhat','starGlasses','beanie'].includes(id))drawMenuIcon(c,id,cx,cy,62);
       else if(id==='scarf'){c.strokeStyle='#46aaa9';c.lineWidth=10;c.beginPath();c.ellipse(cx,cy+21,19,5,0,0,Math.PI);c.stroke();c.fillStyle='#46aaa9';c.fillRect(cx+5,cy+22,10,19);}
       c.restore();
     }
