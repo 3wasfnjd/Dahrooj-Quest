@@ -126,7 +126,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     // Built from simple shapes in Dahrooj's colours, around a ball of radius r with the face toward +z.
     // One template per accessory; each ball wears a clone that shares its geometry and materials.
     const accTemplates={};
-    const HEADWEAR=new Set(['party','cap','crown','headphones']);
+    const HEADWEAR=new Set(['party','cap','crown','headphones','laurel','woodhat']);
     function accessory(id,lite=false){
       const key=lite?'crowd/'+id:id;
       if(!accTemplates[key]){
@@ -182,6 +182,30 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
             add(new T.SphereGeometry(r*.25,lite?10:24,lite?8:16),shell,V(sd*r*1.09,r*.06,0),null,[.4,1,1]);
             add(new T.TorusGeometry(r*.16,r*.016,8,lite?16:32),trim,V(sd*r*1.18,r*.06,0),[0,Math.PI/2,0]);
           }
+        }else if(id==='laurel'){
+          const leaf=mat({color:0x83a95d,roughness:.72}),goldLeaf=mat({color:0xd0b45b,roughness:.55});
+          add(new T.TorusGeometry(r*.66,r*.028,8,lite?24:40),goldLeaf,V(0,r*.75,0),[Math.PI/2,0,0]);
+          for(let i=0;i<12;i++){const a=i/12*Math.PI*2,sd=i%2?-1:1;
+            const m=add(new T.SphereGeometry(r*.12,lite?8:14,lite?6:10),i%3?leaf:goldLeaf,V(Math.sin(a)*r*.65,r*.8,Math.cos(a)*r*.65),[0,a,sd*.4],[.55,.35,1.5]);m.rotation.x=.3;
+          }
+        }else if(id==='woodhat'){
+          const grain=canvas(128,256,(c,w,h)=>{c.fillStyle='#c89c65';c.fillRect(0,0,w,h);c.strokeStyle='#a47348';c.lineWidth=2;for(let x=4;x<w;x+=13){c.beginPath();for(let y=0;y<=h;y+=8)c.lineTo(x+Math.sin(y*.035+x)*2,y);c.stroke();}});
+          const maple=mat({map:grain,roughness:.7}),walnut=mat({color:0x765036,roughness:.8});
+          const hat=new T.Group();hat.position.set(0,r*.9,0);hat.rotation.set(-.12,0,-.12);g.add(hat);
+          const brim=new T.Mesh(new T.CylinderGeometry(r*.62,r*.62,r*.07,lite?20:40),maple);hat.add(brim);
+          const top=new T.Mesh(new T.CylinderGeometry(r*.34,r*.41,r*.5,lite?20:40),maple);top.position.y=r*.27;hat.add(top);
+          const band=new T.Mesh(new T.CylinderGeometry(r*.405,r*.42,r*.095,lite?20:40),walnut);band.position.y=r*.1;hat.add(band);
+          const badge=new T.Mesh(new T.OctahedronGeometry(r*.07),mat({color:0xf3d497}));badge.position.set(0,r*.11,r*.425);hat.add(badge);
+        }else if(id==='starGlasses'){
+          const gold=mat({color:0xf0c45e,metalness:.3,roughness:.35}),lens=mat({color:0x7760a5,roughness:.3});
+          const starShape=()=>{const s=new T.Shape();for(let i=0;i<10;i++){const a=i*Math.PI/5+Math.PI/2,k=r*(i%2?.12:.26);if(i)s.lineTo(Math.cos(a)*k,Math.sin(a)*k);else s.moveTo(Math.cos(a)*k,Math.sin(a)*k);}s.closePath();return s;};
+          for(const sd of [-1,1]){
+            const q=V(sd*r*.34,r*.13,r*1.15);
+            add(new T.ExtrudeGeometry(starShape(),{depth:r*.045,bevelEnabled:false}),gold,q,[0,sd*.2,0]);
+            const m=add(new T.ShapeGeometry(starShape()),lens,q.clone().add(V(0,0,r*.053)),[0,sd*.2,0],[.7,.7,.7]);m.material.side=T.DoubleSide;
+            add(new T.BoxGeometry(r*.035,r*.04,r*.9),gold,V(sd*r*.71,r*.13,r*.65),[0,-sd*.56,0]);
+          }
+          add(new T.BoxGeometry(r*.18,r*.04,r*.045),gold,V(0,r*.14,r*1.18));
         }else if(id==='scarf'){
           const knit=canvas(128,128,(c,w,h)=>{c.fillStyle='#46aaa9';c.fillRect(0,0,w,h);c.strokeStyle='#9edbd0';c.lineWidth=2;for(let y=0;y<h;y+=8){c.beginPath();for(let x=0;x<=w;x+=8){c.lineTo(x,y+(x%16?3:0));}c.stroke();}});
           const wool=mat({color:0xffffff,map:knit,roughness:.9});
@@ -336,7 +360,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       const whites=mk(crowdEye,sclera,max*2),pupils=mk(crowdEye,pupilMat,max*2),glints=mk(crowdGlint,glintMat,max*2);
       const loops=mk(loopGeo,bowRed,max*2),knots=mk(knotGeo,bowDark,max);
       const accessories={};
-      if(withAccessories)for(const id of ['party','glasses','cap','flower','crown','headphones','scarf']){
+      if(withAccessories)for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','laurel','woodhat','starGlasses']){
         const merged=batchReferenceMeshes(accessory(id,true));
         accessories[id]=merged.children.map((part,i)=>{const m=mk(part.geometry,part.material,max);m.name='xr-rain-accessory-'+id+'-'+i;return m;});
       }

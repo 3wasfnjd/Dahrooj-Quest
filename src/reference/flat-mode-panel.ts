@@ -2,6 +2,7 @@ import {CanvasTexture,LinearFilter,Mesh,MeshBasicMaterial,PlaneGeometry,SRGBColo
 import {menuDepth} from './menu-depth';
 import {JELLY_COLORS} from '../core/appearance';
 import {drawMenuCard,drawMenuIcon,drawMenuPaper,drawMenuFooter,MENU_INK} from './menu-art';
+import {UNLOCKS,CHALLENGES,accessoryAvailable} from '../progression/challenges';
 import {XR_MODE_CATALOG} from './mode-catalog';
 
 export const MENU_PAGES=[['modes','الأنماط','Modes'],['appearance','المظهر','Appearance'],['play','اللعب','Play'],['world','العالم','World'],['challenges','التحديات','Challenges'],['system','عام','General'],['about','عن اللعبة','About']] as const;
@@ -9,7 +10,7 @@ export type MenuPage=typeof MENU_PAGES[number][0];
 export const MENU_STYLES=[['jelly','جلي','Jelly'],['fur','فرو','Fur'],['bubble','فقاعة','Bubble']] as const;
 export const MENU_THROWS=[['trigger','زناد','Trigger'],['hand','يد','Hand'],['sling','نبيطة','Slingshot']] as const;
 export const MENU_SHOTS=[['bolt','برق','Bolt'],['mini','دحروج','Dahrooj'],['bubble','فقاعة','Bubble'],['firework','ألعاب نارية','Firework']] as const;
-export const MENU_ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14]] as const;
+export const MENU_ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14],['laurel','إكليل','Laurel',UNLOCKS.laurel],['woodhat','قبعة خشبية','Wooden hat',UNLOCKS.woodhat],['starGlasses','نظارة نجوم','Star glasses',UNLOCKS.starGlasses]] as const;
 // Names and descriptions taken from the shipped credits.html, not new ownership claims.
 export const MENU_CREDITS=[
  ['Aboden Games','دحروج والتصميم والموسيقى والأصوات الأصلية','Dahrooj, design, original music and sounds'],
@@ -22,7 +23,7 @@ export type MenuButton={kind:string;id:string;ar:string;en:string;x:number;y:num
 type Mode=readonly [string,string,string,...string[]];
 const W=1200,H=1000,WIDTH=.765,HEIGHT=WIDTH*H/W;
 const LIST_TOP=244,LIST_HEIGHT=552,ROW_HEIGHT=96,TRACK_TOP=300,TRACK_HEIGHT=440;
-const COLORS=[['#d9494b','#f4a08c'],['#b58a56','#edc98e'],['#3784c4','#83b9de'],['#77a93d','#b7d87b'],['#8645b8','#bd88db'],['#df861f','#f5bc63'],['#a3633d','#d6976e'],['#328d94','#78beb6'],['#ae57b4','#d697d8'],['#528a54','#a9ca7d'],['#a94d80','#dfa0bb']];
+const COLORS=[['#d9494b','#f4a08c'],['#b58a56','#edc98e'],['#3784c4','#83b9de'],['#77a93d','#b7d87b'],['#8645b8','#bd88db'],['#df861f','#f5bc63'],['#a3633d','#d6976e'],['#328d94','#78beb6'],['#ae57b4','#d697d8'],['#528a54','#a9ca7d'],['#a94d80','#dfa0bb'],['#ca9d2e','#f2d573']];
 const TAB_COLORS=[['#c05e48','#eead77'],['#a585ac','#d6c3cf'],['#7864b1','#b4a6db'],['#68a446','#b2d483'],['#c28b23','#edc669'],['#77798d','#b5b6c3'],['#367cab','#7fc2df']];
 const contentX=(english:boolean)=>english?220:92;
 const grid=(index:number,cols:number,y:number,h:number,english:boolean,gap=16)=>{const w=(888-gap*(cols-1))/cols,col=index%cols;return {x:contentX(english)+(english?col:cols-1-col)*(w+gap),y:y+Math.floor(index/cols)*(h+gap),w,h};};
@@ -54,7 +55,12 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
    if(appearance==='character'){
     MENU_STYLES.forEach(([id,ar,en],i)=>add('style',id,ar,en,grid(i,3,300,200,english),{selected:id===m.style,icon:id}));
     if(m.style==='jelly')JELLY_COLORS.forEach((c,i)=>add('jellyColor',c.id,c.ar,c.en,grid(i,4,575,102,english),{selected:c.id===m.jellyColor,color:'#'+c.hex.toString(16).padStart(6,'0')}));
-   }else MENU_ACCESSORIES.forEach(([id,ar,en,need],i)=>add('acc',id,ar,en,grid(i,4,304,228,english),{selected:id===m.accessory,disabled:m.done<need,sub:m.done<need?tr(`يحتاج ${need} تحديات`,`Needs ${need} challenges`):undefined}));
+   }else {
+    const progress=Object.fromEntries(m.challenges.map(c=>[c.id,c.value]));
+    MENU_ACCESSORIES.forEach(([id,ar,en,need],i)=>{const open=accessoryAvailable(id,m.done,progress),ch=CHALLENGES.find(c=>c[0]===need);
+     add('acc',id,ar,en,grid(i,4,304,168,english),{selected:id===m.accessory,disabled:!open,sub:open?undefined:ch?tr(ch[2],ch[3]):tr(`يحتاج ${need} تحديات`,`Needs ${need} challenges`)});
+    });
+   }
   }
   if(page==='play'){
    MENU_THROWS.forEach(([id,ar,en],i)=>add('throw',id,ar,en,grid(i,3,244,118,english),{selected:id===m.throwStyle}));
@@ -91,7 +97,7 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
    const color=b.id==='jelly'?JELLY_COLORS.find(c=>c.id===lastModel?.jellyColor)?.hex??0xff69b4:b.id==='fur'?0xdcccb7:0xb9dfef;
    drawMenuIcon(ctx,b.id,cx,cy,152,'#'+color.toString(16).padStart(6,'0'));
   }else if(b.kind==='acc'){
-   if(b.id&&drawAccessory){ctx.save();ctx.translate(cx,b.y+b.h*.59);ctx.scale(1.7,1.7);drawAccessory(ctx,b.id,0,0,!!b.disabled);ctx.restore();}
+   if(b.id&&drawAccessory){ctx.save();ctx.translate(cx,b.y+b.h*.54);ctx.scale(1.4,1.4);drawAccessory(ctx,b.id,0,0,!!b.disabled);ctx.restore();}
    else drawMenuIcon(ctx,b.id||'none',cx,cy,110);
    if(b.disabled)drawMenuIcon(ctx,'lock',b.x+28,b.y+29,33);
   }else if(b.kind==='jellyColor'){
@@ -128,7 +134,7 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
    const track=scrollTrack();ctx.fillStyle='#a97e4e';round(base+846,TRACK_TOP+(scrollMax()?challengeOffset/scrollMax()*track.travel:0),34,track.height,12);ctx.fill();
   }
   if(page==='about'){
-   text('Dahrooj Quest',cx,209,42);text(tr('امسك دحروج والعب في ١١ نمطًا مرحًا.','Play with Dahrooj across 11 playful modes.'),cx,265,29);
+   text('Dahrooj Quest',cx,209,42);text(tr('امسك دحروج والعب في ١٢ نمطًا مرحًا.','Play with Dahrooj across 12 playful modes.'),cx,265,29);
    text(tr('واقع افتراضي وواقع مختلط.','Virtual and mixed reality.'),cx,304,28,'#666a74');
    MENU_CREDITS.forEach(([name,ar,en],i)=>{const y=397+i*100;ctx.direction='ltr';text(name,cx,y,i===0?34:28);ctx.direction=m.english?'ltr':'rtl';text(tr(ar,en),cx,y+34,24,'#88745d');});
   }

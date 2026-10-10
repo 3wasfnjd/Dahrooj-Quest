@@ -2,7 +2,7 @@ import {jellyColor,playableStyle} from '../core/appearance';
 import type {JellyColorId} from '../core/appearance';
 import { ACCESSORIES, SHOTS, STYLES, THROWS } from '../core/config';
 import type { AccessoryId, Language, ShotId, StyleId, ThrowId, TimeOfDay, Weather } from '../core/config';
-import { CHALLENGES, UNLOCKS } from '../progression/challenges';
+import { CHALLENGES, accessoryAvailable } from '../progression/challenges';
 import type { ChallengeId } from '../progression/challenges';
 export interface SaveData {
     version: 2;
@@ -48,7 +48,7 @@ export function migrate(value: unknown): SaveData {
     d.stylesUsed = [...new Set(d.stylesUsed.filter(s=>s==='jelly'||s==='fur'||s==='bubble'))];
     d.challenges.styles5 = (d.challenges.styles5||0)>=3?3:d.stylesUsed.length;
     const done = CHALLENGES.filter(([id, goal]) => (d.challenges[id] || 0) >= goal).length;
-    if (ACCESSORIES.includes(raw.accessory as AccessoryId) && (raw.accessory === '' || done >= UNLOCKS[raw.accessory as keyof typeof UNLOCKS]))
+    if (ACCESSORIES.includes(raw.accessory as AccessoryId) && accessoryAvailable(String(raw.accessory),done,d.challenges))
         d.accessory = raw.accessory as AccessoryId;
     if (['day', 'dusk', 'night', 'dawn', 'auto'].includes(String(raw.time)))
         d.time = raw.time as TimeOfDay;
@@ -95,6 +95,6 @@ export class SaveStore {
     noteStyle() { if (!this.data.stylesUsed.includes(this.data.style))
         this.data.stylesUsed.push(this.data.style); this.progress('styles5', this.data.stylesUsed.length, true); }
     get completed() { return CHALLENGES.filter(([id, goal]) => (this.data.challenges[id] || 0) >= goal).length; }
-    canWear(id: AccessoryId) { return !id || this.completed >= UNLOCKS[id]; }
+    canWear(id: AccessoryId) { return accessoryAvailable(id,this.completed,this.data.challenges); }
     reset() { this.data = defaults(); this.touch(); return this.flush(); }
 }

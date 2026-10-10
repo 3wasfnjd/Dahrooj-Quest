@@ -7,7 +7,7 @@ const model=(english=false,kind='immersive-vr'):MenuModel=>({english,kind,mode:'
 afterEach(()=>vi.unstubAllGlobals());
 function panel(drawn:string[]=[]){const ctx=new Proxy({},{get:(_t,k)=>k==='fillText'?(t:string)=>drawn.push(t):k==='createLinearGradient'||k==='createRadialGradient'?()=>({addColorStop(){}}):()=>{},set:()=>true});vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>ctx})});return createFlatModePanel(modes);}
 describe('single XR menu surface',()=>{
- it('selects all eleven coloured modes through actual rays in both languages',()=>{
+ it('selects all twelve coloured modes through actual rays in both languages',()=>{
   const drawn:string[]=[],ui=panel(drawn),root=new Group();root.add(ui.mesh);root.position.set(2,1,-3);root.rotation.y=.4;root.scale.setScalar(.5);root.updateMatrixWorld(true);
   for(const english of [false,true]){drawn.length=0;ui.draw(model(english));for(const [,ar,en] of modes)expect(drawn).not.toContain(english?en:ar);for(let i=0;i<modes.length;i++){
    const target=root.localToWorld(ui.point(i,english)),normal=new Vector3(0,0,1).transformDirection(root.matrixWorld);
@@ -40,7 +40,10 @@ describe('single XR menu surface',()=>{
   go('tab','appearance');expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(7);
   go('appearance','accessories');const index=ui.buttons.findIndex(b=>b.id==='headphones');expect(ui.action(index)).toBeNull();
   const locked=ui.buttons[index];expect(ui.hit((locked.x+locked.w/2)/1200,1-(locked.y+locked.h/2)/1000)).toBe(index);expect(locked.sub).toContain('12');
-  m.done=14;ui.draw(m);expect(ui.action(index)?.id).toBe('headphones');
+  m.done=25;ui.draw(m);expect(ui.action(index)?.id).toBe('headphones');
+  const mastery=ui.buttons.findIndex(b=>b.id==='laurel');expect(ui.action(mastery)).toBeNull();expect(ui.buttons[mastery].sub).toContain('التوازن');
+  m.challenges.push({id:'balance5',title:'مراحل التوازن الخمس',en:'All five balance rounds',value:5,goal:5});ui.draw(m);expect(ui.action(mastery)?.id).toBe('laurel');
+  for(const b of ui.buttons.filter(b=>b.kind==='acc'))expect(b.y+b.h).toBeLessThan(855);
   go('tab','challenges');expect(ui.action(ui.buttons.findIndex(b=>b.id==='up'))).toBeNull();
   go('scrollStep','down');expect(ui.challengeScroll.offset).toBeGreaterThan(0);
   ui.scrollBy(100000);ui.draw(m);expect(ui.challengeScroll.offset).toBe(ui.challengeScroll.max);expect(ui.action(ui.buttons.findIndex(b=>b.id==='down'))).toBeNull();

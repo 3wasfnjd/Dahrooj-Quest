@@ -1,3 +1,4 @@
+import {accessoryAvailable} from '../progression/challenges';
 import {JELLY_COLORS} from '../core/appearance';
 import {drawMenuIcon} from './menu-art';
 import {DAHROOJ_COLORS} from './palette.js';
@@ -202,21 +203,25 @@ export const createReferenceXR=(() => {
     let resetArm=0,wearing='';try{wearing=localStorage.getItem('dahrooj-acc')||'';}catch(_){}
     const challengesDone=()=>(g.challenges?g.challenges():[]).filter(c=>c.value>=c.goal).length;
     let doneNow=challengesDone(),doneCheck=0;
-    const accOpen=a=>doneNow>=a.need;
+    let rewardProgress=Object.fromEntries(headsetChallenges().map(c=>[c.id,c.value]));
+    const refreshRewards=()=>{const list=g.challenges?g.challenges():[];doneNow=list.filter(c=>c.value>=c.goal).length;rewardProgress=Object.fromEntries(list.map(c=>[c.id,c.value]));};
+    const accOpen=a=>accessoryAvailable(a.id,doneNow,rewardProgress);
+    let knownRewards=new Set(accButtons.filter(accOpen).map(a=>a.id));
     const wornNow=()=>{const a=accButtons.find(b=>b.id===wearing);return a&&accOpen(a)?wearing:'';};
     function resetPress(){
       if(resetArm>0){resetArm=0;g.resetChallenges?.();wearing='';try{localStorage.setItem('dahrooj-acc','');}catch(_){}
-        doneNow=challengesDone();notify('info',tr('صفّرت التحديات','Challenges reset'),tr('ابدأ من جديد!','Start again!'));}
+        refreshRewards();knownRewards=new Set(accButtons.filter(accOpen).map(a=>a.id));notify('info',tr('صفّرت التحديات','Challenges reset'),tr('ابدأ من جديد!','Start again!'));}
       else resetArm=3;
     }
     function watchRewards(dt){
       doneCheck-=dt;if(doneCheck>0)return;doneCheck=.5;
-      const before=doneNow;doneNow=challengesDone();
-      if(doneNow>before){const got=accButtons.filter(b=>b.need>before&&b.need<=doneNow).pop();
-        if(got){notify('reward',tr(`فتحت ${got.ar}!`,`${got.en} unlocked!`),tr('البسها من المظهر ← الإكسسوارات','Equip from Appearance → Accessories'),got.id);g.chime?.();}}
+      refreshRewards();
+      const open=accButtons.filter(accOpen);
+      for(const got of open)if(!knownRewards.has(got.id)){notify('reward',tr(`فتحت ${got.ar}!`,`${got.en} unlocked!`),tr('البسها من المظهر ← الإكسسوارات','Equip from Appearance → Accessories'),got.id);g.chime?.();}
+      knownRewards=new Set(open.map(a=>a.id));
     }
     function wear(id){
-      const a=accButtons.find(b=>b.id===id);if(!a||!accOpen(a))return;
+      refreshRewards();const a=accButtons.find(b=>b.id===id);if(!a||!accOpen(a))return;
       wearing=id;try{localStorage.setItem('dahrooj-acc',id);}catch(_){}
     }
     // Little drawings of each reward for the buttons.
@@ -230,6 +235,7 @@ export const createReferenceXR=(() => {
       else if(id==='flower'){c.fillStyle='#ff7f9a';for(let k=0;k<5;k++){const a=k/5*Math.PI*2;c.beginPath();c.arc(cx+14+Math.cos(a)*6,cy-14+Math.sin(a)*6,4.5,0,7);c.fill();}c.fillStyle='#f2c14e';c.beginPath();c.arc(cx+14,cy-14,3.5,0,7);c.fill();}
       else if(id==='crown'){c.fillStyle='#e5ad2e';c.beginPath();c.moveTo(cx-15,cy-14);c.lineTo(cx-15,cy-32);c.lineTo(cx-7,cy-22);c.lineTo(cx,cy-36);c.lineTo(cx+7,cy-22);c.lineTo(cx+15,cy-32);c.lineTo(cx+15,cy-14);c.closePath();c.fill();}
       else if(id==='headphones'){c.strokeStyle='#7862cc';c.lineWidth=6;c.beginPath();c.arc(cx,cy-4,24,Math.PI,0);c.stroke();c.fillStyle='#7862cc';for(const sd of [-1,1]){round(c,cx+sd*23-5,cy-7,10,22,5);c.fill();}}
+      else if(['laurel','woodhat','starGlasses'].includes(id))drawMenuIcon(c,id,cx,cy,62);
       else if(id==='scarf'){c.strokeStyle='#46aaa9';c.lineWidth=10;c.beginPath();c.ellipse(cx,cy+21,19,5,0,0,Math.PI);c.stroke();c.fillStyle='#46aaa9';c.fillRect(cx+5,cy+22,10,19);}
       c.restore();
     }

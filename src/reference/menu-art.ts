@@ -87,7 +87,7 @@ export function drawMenuCard(c:C,x:number,y:number,w:number,h:number,fill:string
 export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color='#df7952'){
  c.save();c.translate(x,y);c.scale(size/100,size/100);c.lineWidth=5;c.lineCap='round';c.lineJoin='round';
  const line=(p:number[][])=>path(c,p),orb=(a:number,b:number,r:number,f:string)=>oval(c,a,b,r,r,f);
- if(['goal','hoop','window','cans','bowling','bricks','fair','climb','rain','balance','ricochet'].includes(id)){
+ if(['goal','hoop','window','cans','bowling','bricks','fair','climb','rain','balance','ricochet','rings'].includes(id)){
   // Illustrated mini scenes, each with a distinct setting, object and Dahrooj.
   c.save();c.globalAlpha=.3;oval(c,4,39,52,11,'#58422d','');c.restore();oval(c,0,34,53,10,'#a9c566','');c.lineWidth=2.5;
   if(id==='goal'){
@@ -131,9 +131,22 @@ export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color='#df7
    path(c,[[-12,39],[3,10],[21,39]],'#c69667');c.save();c.rotate(-.15);box(c,-54,0,108,14,'#c59161',5);box(c,-49,-9,98,14,'#f9e8bd',5);oval(c,16,-2,10,4,'#7b624e');face(c,-18,-25,20,'#9ec4a1');star(c,40,-29,12);c.restore();
    line([[-62,6],[-62,-7]]);line([[62,-9],[62,-22]]);
   }else if(id==='ricochet'){
-   box(c,-54,-43,108,82,'#f9e8bd',8);c.lineWidth=9;path(c,[[-43,-25],[-22,-42]],undefined,'#80b5a1');path(c,[[25,-40],[46,-23]],undefined,'#b69cd8');c.lineWidth=3;
+   box(c,-54,-43,108,82,'#cca070',8);c.lineWidth=9;path(c,[[-43,-25],[-22,-42]],undefined,'#855132');path(c,[[25,-40],[46,-23]],undefined,'#855132');c.lineWidth=3;
+   path(c,[[-43,-28],[-24,-44]],undefined,'#f4d19a');path(c,[[27,-42],[48,-25]],undefined,'#f4d19a');
    c.setLineDash([4,6]);path(c,[[-35,25],[-35,-23],[34,-23],[34,18]],undefined,'#bd865d');c.setLineDash([]);star(c,34,24,13);face(c,-35,27,17,'#eca5be');box(c,-12,-9,24,35,'#bd916a',4);
+  }else if(id==='rings'){
+   box(c,-55,27,113,14,'#bd8a54',5);c.lineWidth=7;
+   for(const [x,y,r,f] of [[29,-20,22,'#de9870'],[0,-8,27,'#e3bf63'],[-29,3,32,'#7fb8a5']] as [number,number,number,string][]){c.strokeStyle=f;c.beginPath();c.ellipse(x,y,r*.66,r,0,Math.PI,Math.PI*2);c.stroke();box(c,x-r*.66-6,y,12,8,'#a67d51',2);box(c,x+r*.66-6,y,12,8,'#a67d51',2);}
+   c.lineWidth=3;face(c,-29,18,19,'#8ecbdd');star(c,46,-42,9);
   }else{for(let i=0;i<5;i++){const a=[-36,3,38,-23,25][i],b=[-22,-36,-18,22,28][i];path(c,[[a-8,b-27],[a-13,b-13],[a-5,b-14]],'#68ccdf','#488b9c');face(c,a,b,17,SPECTRUM[i+1]);}}
+ }else if(id==='laurel'){
+  c.lineWidth=4;c.strokeStyle='#8a9b54';c.beginPath();c.ellipse(0,-17,30,22,0,Math.PI*.1,Math.PI*.9);c.stroke();
+  for(const side of [-1,1])for(let i=0;i<5;i++){c.save();c.translate(side*(13+i*4),-33+i*6);c.rotate(side*(.5+i*.15));oval(c,0,0,5,9,i%2?'#c5be63':'#8bb371');c.restore();}
+ }else if(id==='woodhat'){
+  oval(c,0,-10,39,10,'#b98551');path(c,[[-24,-11],[-20,-43],[19,-43],[25,-11]],'#cc9d65');box(c,-24,-20,49,8,'#785037',3);oval(c,0,-43,20,6,'#dfba87');
+  for(const x of [-12,0,12])path(c,[[x,-39],[x+2,-24]],undefined,'#b58350');
+ }else if(id==='starGlasses'){
+  star(c,-21,4,24,'#efc557');star(c,21,4,24,'#efc557');star(c,-21,4,15,'#7a65ad');star(c,21,4,15,'#7a65ad');path(c,[[-6,1],[6,1]],undefined,'#d89d42');
  }else if(id==='character'||id==='appearance'||id==='mini'||id==='jelly'||id==='fur'||id==='bubble'){
   face(c,0,3,35,id==='fur'?'#e3ceb3':id==='bubble'?'#b9dfea':color,id==='fur');if(id==='bubble'){orb(29,-28,9,'#f8d3e2');}
  }else if(id==='modes'||id==='play'){box(c,-44,-26,88,58,'#bbc5d8',18);c.lineWidth=7;path(c,[[-29,-1],[-9,-1]],undefined,'#536273');path(c,[[-19,-11],[-19,9]],undefined,'#536273');c.lineWidth=2;orb(20,-10,5,'#e35c61');orb(30,0,5,'#eec547');orb(10,0,5,'#6bbec0');orb(20,10,5,'#80b974');}

@@ -15,6 +15,22 @@ export const CHALLENGES = [
     ['fair25', 25, '٢٥ نقطة بالملاهي', '25 in one fair round'],
     ['bell3', 3, 'اضرب الجرس ٣ مرات', 'Ring 3 bells'],
     ['pop20', 20, 'فرقع ٢٠ دحروج', 'Pop 20 Dahroojs'],
+    ['balance1', 1, 'أكمل مرحلة توازن', 'Complete a balance round'],
+    ['balance5', 5, 'مراحل التوازن الخمس', 'All five balance rounds'],
+    ['balanceClean', 1, 'توازن دون سقوط أو إعادة', 'Balance without falling or retrying'],
+    ['ricochet1', 1, 'أكمل مرحلة ارتداد', 'Complete a ricochet round'],
+    ['ricochet5', 5, 'مراحل الارتداد الخمس', 'All five ricochet rounds'],
+    ['ricochetAce', 1, 'ارتداد من أول رمية', 'Ricochet on the first throw'],
+    ['rings1', 1, 'أكمل مرحلة حلقات', 'Complete a rings round'],
+    ['rings5', 5, 'مراحل الحلقات الخمس', 'All five rings rounds'],
+    ['ringsClean', 1, '٣ حلقات من أول رمية', 'Three rings on the first throw'],
 ] as const;
 export type ChallengeId = typeof CHALLENGES[number][0];
-export const UNLOCKS = { party: 1, glasses: 3, cap: 5, flower: 7, crown: 10, headphones: 12, scarf: 14 } as const;
+export const UNLOCKS = { party: 1, glasses: 3, cap: 5, flower: 7, crown: 10, headphones: 12, scarf: 14, laurel:'balance5', woodhat:'ricochet5', starGlasses:'rings5' } as const;
+export function accessoryAvailable(id:string,completed:number,progress:Record<string,number>){
+    if(!id)return true;
+    const need=UNLOCKS[id as keyof typeof UNLOCKS];
+    if(typeof need==='number')return completed>=need;
+    const challenge=CHALLENGES.find(c=>c[0]===need);
+    return !!challenge&&(progress[challenge[0]]||0)>=challenge[1];
+}
