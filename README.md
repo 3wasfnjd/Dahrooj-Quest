@@ -46,7 +46,7 @@ IWSDK **1.0.1**، Three.js **r181** عبر `super-three@0.181.0` المتواف�
 
 ## الحقوق والتراخيص
 
-دحروج وشخصيتها وموسيقاها الأصلية وأيقوناتها: **Aboden Games**. أصول العالم المختارة والأجزاء المقتبسة من **[folio-2025](https://github.com/brunosimon/folio-2025)**: **Bruno Simon** بموجب [MIT](public/licenses/folio-2025-MIT.txt). خط Baloo Bhaijaan 2: **The Baloo 2 Project Authors / Ek Type** بموجب [OFL 1.1](public/licenses/baloo-OFL.txt). أصول وحدات تحكم WebXR Input Profiles: **Amazon (2019)** وفق [إشعار MIT المرفق](public/licenses/controller-profiles-MIT.txt). تسجيل الألعاب النارية: **Rudmer_Rotteveel** بموجب [CC0 1.0](public/licenses/firework-CC0.txt). تبقى حقوق IWSDK وThree.js وبقية المكتبات لأصحابها كما يبين [سجل الإشعارات](THIRD_PARTY_NOTICES.md)، ولا يشمل ترخيص اللعبة إعادة ترخيص أعمالهم.
+دحروج وشخصيتها وموسيقاها الأصلية وأيقوناتها: **Aboden Games**. أصول العالم المختارة والأجزاء المقتبسة من **[folio-2025](https://github.com/brunosimon/folio-2025)**: **Bruno Simon** بموجب [MIT](public/licenses/folio-2025-MIT.txt). خط Baloo Bhaijaan 2: **The Baloo 2 Project Authors / Ek Type** بموجب [OFL 1.1](public/licenses/baloo-OFL.txt). أصول وحدات تحكم WebXR Input Profiles: **Amazon (2019)** وفق [إشعار MIT المرفق](public/licenses/controller-profiles-MIT.txt). تبقى حقوق IWSDK وThree.js وبقية المكتبات لأصحابها كما يبين [سجل الإشعارات](THIRD_PARTY_NOTICES.md)، ولا يشمل ترخيص اللعبة إعادة ترخيص أعمالهم.
 
 ## أوامر بيئة التطوير السحابية
 
