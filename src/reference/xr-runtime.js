@@ -1038,7 +1038,7 @@ export const createReferenceXR=(() => {
     /* ---------- one fixed menu, drawn on the owner-tested flat surface ---------- */
     const PLAZA=MODES;
     const plaza=new T.Group();plaza.name='xr-plaza';plaza.visible=false;menuLayer.add(plaza);
-    const modePanel=createFlatModePanel(PLAZA,drawAcc);plaza.add(modePanel.mesh);menuGroup(plaza);
+    const modePanel=createFlatModePanel(PLAZA);plaza.add(modePanel.mesh);menuGroup(plaza);
     function placePlaza(){
       const {pos,dir}=headLocal();plaza.position.copy(pos).addScaledVector(dir,1.1);plaza.position.y-=.2;
       plaza.quaternion.setFromRotationMatrix(new T.Matrix4().lookAt(pos,plaza.position,UP));plaza.updateWorldMatrix(true,true);
@@ -1123,7 +1123,7 @@ export const createReferenceXR=(() => {
         const hit=menuOpen&&h!==leftHand()?ray.intersectObject(modePanel.mesh,false)[0]:null;
         h.menuUV=hit?.uv||null;
         if(h.scrollDrag){if(hit?.uv&&modePanel.page==='challenges'){modePanel.dragScroll(h.scrollDrag.v,hit.uv.y,h.scrollDrag.track);h.scrollDrag.v=hit.uv.y;}else h.scrollDrag=null;}
-        const previous=h.hover;h.hover=hit?.uv?modePanel.hit(hit.uv.x,hit.uv.y):-1;
+        const previous=h.hover;h.hover=hit?.uv?modePanel.hit(hit.uv.x,hit.uv.y,previous):-1;
         if(h.hover>=0&&h.hover!==previous)buzz(h,.12,12);
         h.onStart=!hit&&start.mesh.visible&&!!ray.intersectObject(start.mesh,false)[0];if(h.onStart)startHot=true;
         h.line.scale.z=(hit?hit.distance:.6*scaleNow())/scaleNow();

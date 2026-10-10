@@ -19,15 +19,18 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
 
     /* ---------- shared surfaces ---------- */
     const sphere=new T.SphereGeometry(r,32,20),liteSphere=new T.SphereGeometry(r,24,16);
-    // The fur ball's coat: two colours, soft white with big tan patches. Seen from the front, one patch
-    // wraps the right eye and that side, a smaller one sits on the left side; the top stays white for the bow.
-    const furMap=canvas(512,256,(c,w,h)=>{c.fillStyle='#f1eeea';c.fillRect(0,0,w,h);
+    // A neutral coat preserves the chosen hue. Patches and short fibres supply
+    // the plush texture without tinting blue/green choices with the old brown map.
+    const furMap=canvas(512,256,(c,w,h)=>{c.fillStyle='#f4f4f4';c.fillRect(0,0,w,h);
       const patch=(x,y,rx,ry,a)=>{for(const dx of [-w,0,w]){c.save();c.translate(x*w+dx,y*h);c.rotate(a);c.beginPath();
         for(let k=0;k<=32;k++){const t=k/32*Math.PI*2,q=1+.08*Math.sin(t*3+x*9)+.05*Math.sin(t*7+y*7);c.lineTo(Math.cos(t)*rx*w*q,Math.sin(t)*ry*h*q);}
         c.fill();c.restore();}};
-      c.fillStyle='#9c7352';c.filter='blur(4px)';
+      c.fillStyle='#adadad';c.filter='blur(4px)';
       for(const [x,y,rx,ry,a] of [[.35,.46,.125,.28,.1],[.075,.56,.06,.2,0],[.72,.5,.09,.22,-.2],[.88,.72,.06,.12,.3]])patch(x,y,rx,ry,a);
-      c.filter='none';});
+      c.filter='none';c.lineCap='round';c.lineWidth=1.1;
+      for(let i=0;i<2000;i++){const x=(i*137.51)%w,y=(i*53.71)%h,a=Math.sin(i*2.3)*.8;
+        c.strokeStyle=i%3?'rgba(255,255,255,.30)':'rgba(40,40,40,.12)';c.beginPath();c.moveTo(x,y);c.lineTo(x+Math.sin(a)*4,y+3+Math.cos(a)*3);c.stroke();}
+    });
     /* ---------- jelly: light refracted through the ball ---------- */
     // A soft sky (no capture of the world, which cost a render of the scene) is looked up along the path
     // light takes through a sphere of index 1.35: in through the near side, out through the far side, a
@@ -84,22 +87,34 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       clay:()=>new T.MeshStandardMaterial({color:DAHROOJ_COLORS.clay,roughness:.72,envMap:env,envMapIntensity:.5}),
       // The skin is the colour of the hair roots and lit like them, so gaps between hairs read as deeper fur.
       fur:()=>new T.MeshStandardMaterial({map:furMap,roughness:.95,envMap:env,envMapIntensity:.35}),
-      bubble:()=>referenceShader(T,{transparent:true,depthWrite:false,uniforms:{uTime:bubbleTime},
+      bubble:()=>referenceShader(T,{transparent:true,depthWrite:false,uniforms:{uTime:bubbleTime,uTint:jellyU.uTint},
         vertexShader:'varying vec3 vN;varying vec3 vV;varying vec3 vP;void main(){vec4 mv=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vV=normalize(-mv.xyz);vP=position;gl_Position=projectionMatrix*mv;}',
         fragmentShader:[
-          'uniform float uTime;varying vec3 vN;varying vec3 vV;varying vec3 vP;',
+          'uniform float uTime;uniform vec3 uTint;varying vec3 vN;varying vec3 vV;varying vec3 vP;',
+          // Spots belong to the body coordinates, not the camera or a floating decal.
+          'float whiteSpot(vec3 p,vec3 at,float radius){return 1.-smoothstep(radius-.018,radius+.018,distance(p,normalize(at)));}',
           'void main(){vec3 n=normalize(vN),v=normalize(vV);float c=abs(dot(n,v)),f=1.-c;',
           // Film thickness drifts and swirls, thinner at the top like a real bubble.
           'vec3 p=normalize(vP);float th=.55+.25*sin(p.x*5.+uTime*.7+sin(p.y*4.-uTime*.5)*1.6)+.2*sin(p.z*7.-uTime*.4)-.25*p.y;',
           'vec3 film=.5+.5*cos(6.2831*(th*2.2/(.4+c)+vec3(0.,.33,.67)));',
           'vec3 r=reflect(-v,n);float win=smoothstep(.93,.97,dot(r,normalize(vec3(-.45,.6,.65))))+.6*smoothstep(.96,.985,dot(r,normalize(vec3(.6,.3,.75))));',
-          'float rim=pow(f,1.8);vec3 col=mix(vec3(.96,.98,1.),film,.75);',
-          'gl_FragColor=vec4(col*(.35+rim)+win,.05+rim*.7+win*.8);}'].join('\n')})
+          'float rim=pow(f,1.8);vec3 col=mix(uTint,film,.32);',
+          'float spots=max(whiteSpot(p,vec3(-.38,.58,.72),.14),max(whiteSpot(p,vec3(-.08,.77,.62),.08),whiteSpot(p,vec3(.62,-.38,.67),.065)));',
+          'col=mix(col*(.7+rim*.3)+win*.7,vec3(1.),spots);',
+          'gl_FragColor=vec4(col,min(1.,.22+rim*.65+win*.65+spots*.78));}'].join('\n')})
     };
 
     const sharedMaterials=Object.fromEntries(Object.entries(MATERIALS).map(([id,make])=>[id,make()]));
     const decorations={};
-    function decoration(id){ if(!decorations[id])decorations[id]=batchReferenceMeshes(({bandaid,bow})[id]()); return decorations[id].clone(true); }
+    function decoration(id){
+      if(!decorations[id]){
+        // Batching works in the root's local space. Keep the surface placement as
+        // a child transform, otherwise the bandage/bow collapses into the ball.
+        const root=new T.Group();root.add(({bandaid,bow})[id]());
+        decorations[id]=batchReferenceMeshes(root);decorations[id].name='dahrooj-'+id;
+      }
+      return decorations[id].clone(true);
+    }
     // Place a part on the surface at a direction, facing outward.
     function onSurface(obj,dir,lift=0){const n=dir.clone().normalize();obj.position.copy(n).multiplyScalar(r+lift);obj.lookAt(n.multiplyScalar(r*3));return obj;}
     function bandaid(){
@@ -274,7 +289,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     function make(style,{face=true,lite=false}={}){
       const outer=new T.Group(),inner=new T.Group();outer.add(inner);outer.userData.referenceCharacter=true;
       const body=new T.Mesh(lite?liteSphere:sphere,sharedMaterials[style]||sharedMaterials.jelly);
-      body.castShadow=style!=='bubble';inner.add(body);
+      body.name='dahrooj-'+style;body.castShadow=style!=='bubble';inner.add(body);
       if(style==='jelly'){inner.add(decoration('bandaid'));jellyModels.add(outer);}
 
       let bowMesh=null,acc=null,accId='';
@@ -328,7 +343,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       m.fragmentShader='varying vec3 vInstanceTint;\n'+m.fragmentShader;
     }
     crowdMats.jelly.fragmentShader=crowdMats.jelly.fragmentShader.replace('void main(){','void main(){vec3 absorption=vec3(.08)+(vec3(1.)-vInstanceTint)*1.2;').replace('-uAbsorb*','-absorption*').replaceAll('uTint*','vInstanceTint*');
-    crowdMats.bubble.fragmentShader=crowdMats.bubble.fragmentShader.replace('gl_FragColor=vec4(col*','gl_FragColor=vec4(col*mix(vec3(1.),vInstanceTint,.55)*');
+    crowdMats.bubble.fragmentShader=crowdMats.bubble.fragmentShader.replace('mix(uTint,film','mix(vInstanceTint,film');
     // The eye parts in a ball's own frame for each look: open, wide and shut. [white, pupil, glint] per side.
     const EYE_LOOKS={open:[1,1],wide:[1,.42/.55],shut:[.12,1]};
     const eyeLocal={};
@@ -359,6 +374,8 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       const instanceTint=new T.Color();
       const whites=mk(crowdEye,sclera,max*2),pupils=mk(crowdEye,pupilMat,max*2),glints=mk(crowdGlint,glintMat,max*2);
       const loops=mk(loopGeo,bowRed,max*2),knots=mk(knotGeo,bowDark,max);
+      // Keep jelly's bandage in the same instanced path as rain and small projectiles.
+      const bandages=decoration('bandaid').children.map((part,i)=>{const m=mk(part.geometry,part.material,max);m.name='dahrooj-crowd-bandaid-'+i;return m;});
       const accessories={};
       if(withAccessories)for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','laurel','woodhat','starGlasses']){
         const merged=batchReferenceMeshes(accessory(id,true));
@@ -377,8 +394,9 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
           if(toward){look.lookAt(toward,pos,up);q.setFromRotationMatrix(look);}else q.identity();
           R.makeRotationFromQuaternion(q);S.makeScale(k*squash[0],k*squash[1],k*squash[0]);
           M.makeTranslation(pos.x,pos.y,pos.z).multiply(S).multiply(R);
-          if(color===undefined){if(style==='jelly')instanceTint.copy(jellyU.uTint.value);else instanceTint.setHex(0xffffff);}else instanceTint.setHex(color);
+          if(color===undefined){if(['jelly','fur','bubble'].includes(style))instanceTint.copy(jellyU.uTint.value);else instanceTint.setHex(0xffffff);}else instanceTint.setHex(color);
           body.setColorAt(body.count,instanceTint);put(body,M);
+          if(style==='jelly')for(const m of bandages)put(m,M);
           if(accessories[accessoryId]){const matrix=style==='fur'?tmp.multiplyMatrices(M,accessoryScale):M;for(const m of accessories[accessoryId])put(m,matrix);}
           if(style==='fur'&&!HEADWEAR.has(accessoryId)){for(const l of bowLocal.loops)put(loops,tmp.multiplyMatrices(M,l));put(knots,tmp.multiplyMatrices(M,bowLocal.knot));}
           if(eyes){const base=M;
@@ -389,5 +407,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       };
     }
     for(const style of Object.keys(MATERIALS))for(const name of ['open','focus','wide','joy','closed','squint','laugh','dizzy','hurt'])faceTexture(style,name,0,0,false,EYE_FACES.has(name));
-    return {make,crowd,updateProbe,setJellyColor(id){const color=jellyColor(id);jellyU.uTint.value.setHex(color.hex);const t=jellyU.uTint.value;jellyU.uAbsorb.value.set(.08+(1-t.r)*1.2,.08+(1-t.g)*1.2,.08+(1-t.b)*1.2);},mats:sharedMaterials,time:bubbleTime,forget(group){jellyModels.delete(group);}};
+    // Retain the public/save field name for existing installations. It now selects
+    // one colour across jelly, fur and bubble; rain's explicit instance colours win.
+    return {make,crowd,updateProbe,setJellyColor(id){const color=jellyColor(id);jellyU.uTint.value.setHex(color.hex);const t=jellyU.uTint.value;sharedMaterials.fur.color.copy(t);jellyU.uAbsorb.value.set(.08+(1-t.r)*1.2,.08+(1-t.g)*1.2,.08+(1-t.b)*1.2);},mats:sharedMaterials,time:bubbleTime,forget(group){jellyModels.delete(group);}};
 }

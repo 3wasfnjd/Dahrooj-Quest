@@ -1,5 +1,6 @@
 // Legacy style IDs remain readable; selectable styles are now these three.
 export const PLAYABLE_STYLES = ['jelly','fur','bubble'] as const;
+// Legacy name retained for saved games; these are the colours of all three looks.
 export const JELLY_COLORS = [
  {id:'pink',ar:'وردي',en:'Pink',hex:0xff69b4},
  {id:'red',ar:'أحمر',en:'Red',hex:0xff505c},

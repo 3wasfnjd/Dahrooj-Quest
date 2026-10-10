@@ -10,15 +10,19 @@ function character(){
  return createReferenceCharacter(T,{radius:.24,drawFace(){}});
 }
 describe('character appearance on real Three geometry',()=>{
- it('updates existing main and instanced jelly uniforms for every saved colour',()=>{
-  const models=character(),main=models.make('jelly'),crowd=models.crowd(8,true);
+ it('updates existing main and instanced bodies of all three looks for every saved colour',()=>{
+  const models=character(),main=['jelly','fur','bubble'].map(s=>models.make(s as 'jelly'|'fur'|'bubble')),crowd=models.crowd(8,true),tint=new T.Color();
   for(const color of JELLY_COLORS){
    models.setJellyColor(color.id);expect(models.mats.jelly.uniforms.uTint.value.getHex()).toBe(color.hex);
-   crowd.begin();crowd.add('jelly',new T.Vector3(),.24,null,[1,1],'open','headphones');crowd.end();
-   const body=crowd.group.children.find((m:any)=>m.material.uniforms?.uTint) as T.Mesh<T.BufferGeometry,T.ShaderMaterial>;
-   expect(body.material.uniforms.uTint).toBe(models.mats.jelly.uniforms.uTint);
+   expect((models.mats.fur as T.MeshStandardMaterial).color.getHex()).toBe(color.hex);
+   expect((models.mats.bubble as T.ShaderMaterial).uniforms.uTint.value.getHex()).toBe(color.hex);
+   crowd.begin();for(const style of ['jelly','fur','bubble'] as const)crowd.add(style,new T.Vector3(),.24,null,[1,1],'open','headphones');crowd.end();
+   for(const style of ['jelly','fur','bubble']){const body=crowd.group.getObjectByName('dahrooj-crowd-'+style) as T.InstancedMesh;
+    body.getColorAt(0,tint);expect(tint.getHex()).toBe(color.hex);
+    if(style==='fur')expect((body.material as T.MeshStandardMaterial).color.getHex()).toBe(0xffffff); // Do not multiply the tint twice.
+   }
   }
-  expect(main.group.children.length).toBeGreaterThan(0);
+  for(const m of main)expect(m.group.children.length).toBeGreaterThan(0);
  });
  it('switches every accessory on all three styles without deleting shared geometry',()=>{
   const models=character();
@@ -44,7 +48,21 @@ describe('character appearance on real Three geometry',()=>{
   shots.begin();shots.add('jelly',new T.Vector3(),.12,null,[1,1],null);shots.end();
   (shots.group.getObjectByName('dahrooj-crowd-jelly') as T.InstancedMesh).getColorAt(0,tint);expect(tint.getHex()).toBe(0xb878ff);
   rain.begin();rain.add('fur',new T.Vector3(),.12,null,[1,1],null);rain.end();
-  (rain.group.getObjectByName('dahrooj-crowd-fur') as T.InstancedMesh).getColorAt(0,tint);expect(tint.getHex()).toBe(0xffffff);
+  (rain.group.getObjectByName('dahrooj-crowd-fur') as T.InstancedMesh).getColorAt(0,tint);expect(tint.getHex()).toBe(0xb878ff);
+ });
+ it('keeps the bandage and bow outside the ball after batching and carries the bandage into crowds',()=>{
+  const models=character(),jelly=models.make('jelly'),fur=models.make('fur'),bubble=models.make('bubble');
+  const bandage=jelly.group.getObjectByName('dahrooj-bandaid')!,bow=fur.group.getObjectByName('dahrooj-bow')!;
+  const center=new T.Box3().setFromObject(bandage).getCenter(new T.Vector3());
+  expect(center.length()).toBeGreaterThan(.24*.95);expect(center.y).toBeGreaterThan(.24*.4);expect(center.z).toBeGreaterThan(.24*.4);
+  expect(new T.Box3().setFromObject(bow).max.y).toBeGreaterThan(.24);
+  fur.setAccessory('cap');fur.update({pos:new T.Vector3()});expect(bow.visible).toBe(false);
+  fur.setAccessory('');fur.update({pos:new T.Vector3()});expect(bow.visible).toBe(true);
+  expect(bubble.group.getObjectByName('dahrooj-bandaid')).toBeUndefined();expect(bubble.group.getObjectByName('dahrooj-bow')).toBeUndefined();
+  const bubbleMaterial=models.mats.bubble as T.ShaderMaterial;expect(bubbleMaterial.fragmentShader).toContain('whiteSpot(p');expect(bubbleMaterial.fragmentShader).toContain('vec3(1.),spots');
+  const crowd=models.crowd(4);crowd.begin();crowd.add('jelly',new T.Vector3(),.24,null,[1,1],null);crowd.add('bubble',new T.Vector3(),.24,null,[1,1],null);crowd.end();
+  const parts=crowd.group.children.filter(o=>o.name.startsWith('dahrooj-crowd-bandaid-')) as T.InstancedMesh[];
+  expect(parts.length).toBeGreaterThan(0);for(const p of parts){expect(p.count).toBe(1);p.geometry.computeBoundingBox();expect(p.geometry.boundingBox!.max.y).toBeGreaterThan(.24*.4);}
  });
  it('retains all material groups of the new rewards when batching indexed and extruded geometry',()=>{
   const models=character(),crowd=models.crowd(1,true);

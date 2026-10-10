@@ -1,5 +1,5 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import {Group,NoBlending,Raycaster,Vector3} from '@iwsdk/core';
+import {Group,LinearMipmapLinearFilter,NoBlending,Raycaster,Vector3} from '@iwsdk/core';
 import {createFlatModePanel,MENU_PAGES,modeAtUV,type MenuModel} from '../../src/reference/flat-mode-panel';
 import {XR_MODE_CATALOG} from '../../src/reference/mode-catalog';
 const modes=XR_MODE_CATALOG;
@@ -7,7 +7,7 @@ const model=(english=false,kind='immersive-vr'):MenuModel=>({english,kind,mode:'
 afterEach(()=>vi.unstubAllGlobals());
 function panel(drawn:string[]=[]){const ctx=new Proxy({},{get:(_t,k)=>k==='fillText'?(t:string)=>drawn.push(t):k==='createLinearGradient'||k==='createRadialGradient'?()=>({addColorStop(){}}):()=>{},set:()=>true});vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>ctx})});return createFlatModePanel(modes);}
 describe('single XR menu surface',()=>{
- it('selects all twelve coloured modes through actual rays in both languages',()=>{
+ it('selects all twelve icon modes through actual rays in both languages',()=>{
   const drawn:string[]=[],ui=panel(drawn),root=new Group();root.add(ui.mesh);root.position.set(2,1,-3);root.rotation.y=.4;root.scale.setScalar(.5);root.updateMatrixWorld(true);
   for(const english of [false,true]){drawn.length=0;ui.draw(model(english));for(const [,ar,en] of modes)expect(drawn).not.toContain(english?en:ar);for(let i=0;i<modes.length;i++){
    const target=root.localToWorld(ui.point(i,english)),normal=new Vector3(0,0,1).transformDirection(root.matrixWorld);
@@ -15,13 +15,14 @@ describe('single XR menu surface',()=>{
    const index=ui.hit(hit.uv!.x,hit.uv!.y);expect(ui.action(index)?.id).toBe(modes[i][0]);
    drawn.length=0;ui.draw(model(english),index);expect(drawn).toEqual([english?'Dahrooj':'دحروج',modes[i][english?2:1]]);
   }}
-  expect(new Set(ui.buttons.filter(b=>b.kind==='mode').map(b=>b.fill)).size).toBe(modes.length);
+  expect(ui.buttons.filter(b=>b.kind==='mode').every(b=>!b.fill&&!b.color)).toBe(true);
   expect(ui.point(0,false).x).toBeGreaterThan(ui.point(0,true).x);
   for(const [u,v] of [[0,0],[.5,.98],[.5,.02],[-1,.5],[NaN,0]])expect(modeAtUV(u,v,false)).toBe(-1);
  });
  it('reuses one nonblended, depth-independent plane across every page and hover',()=>{
   const ui=panel(),material=ui.mesh.material,texture=material.map!,m=model();
   expect(material.blending).toBe(NoBlending);expect(material.depthTest).toBe(false);expect(material.depthWrite).toBe(false);expect(material.opacity).toBe(1);
+  expect(texture.generateMipmaps).toBe(true);expect(texture.minFilter).toBe(LinearMipmapLinearFilter);expect(texture.anisotropy).toBe(4);
   const initial=ui.mesh.matrix.clone();ui.draw(m);const version=texture.version;ui.draw(m);expect(texture.version).toBe(version);
   for(const [page] of MENU_PAGES){ui.show(page);ui.draw(m);for(let i=0;i<ui.buttons.length;i++){ui.draw(m,i);ui.mesh.updateMatrix();expect(ui.mesh.matrix.equals(initial)).toBe(true);}expect(ui.mesh.children).toHaveLength(0);}
  });
@@ -57,10 +58,24 @@ describe('single XR menu surface',()=>{
   const before=ui.challengeScroll.offset;ui.dragScroll(.5,.6);expect(ui.challengeScroll.offset).toBeGreaterThan(before);
   for(let i=0;i<20;i++){ui.scrollBy(96);ui.draw(m);}for(let i=0;i<16;i++)expect(drawn).toContain(`Challenge ${i}`);
   expect(ui.challengeScroll.offset).toBe(ui.challengeScroll.max);
-  drawn.length=0;ui.draw({...m,done:1});expect(drawn).not.toContain('Challenge 0');expect(drawn).toContain('Challenge 15');
+  drawn.length=0;ui.draw({...m,resetArmed:true});expect(drawn).not.toContain('Challenge 0');expect(drawn).toContain('Challenge 15');
   ui.dragScroll(.5,1,true);expect(ui.challengeScroll.offset).toBeLessThan(ui.challengeScroll.max);
   ui.scrollBy(-100000);expect(ui.challengeScroll.offset).toBe(0);
   m.challenges=[];ui.draw(m);expect(ui.challengeScroll.max).toBe(0);expect(ui.dragScroll(.4,.5,true)).toBe(false);
   expect(ui.buttons.some(b=>b.kind==='page')).toBe(false);
+ });
+ it('holds an edge through tiny hand tremors but releases into gaps and adjacent targets',()=>{
+  const ui=panel(),m=model();ui.draw(m);const i=ui.buttons.findIndex(b=>b.kind==='mode'),b=ui.buttons[i];
+  const at=(x:number,y:number,previous=-1)=>ui.hit(x/1200,1-y/1000,previous),y=b.y+b.h/2;
+  let hot=i;for(const dx of [-2,2,-1,3,-3,1]){hot=at(b.x+b.w+dx,y,hot);expect(hot).toBe(i);}
+  expect(at(b.x+b.w+7,y,hot)).toBe(-1);
+  const other=ui.buttons[i+1];expect(at(other.x+other.w/2,other.y+other.h/2,hot)).toBe(i+1);
+  expect(ui.hit(NaN,.5,hot)).toBe(-1);expect(ui.hit(-1,.5,hot)).toBe(-1);
+ });
+ it('uploads only visible changes, exposes all colours for every look, and names About Dahrooj',()=>{
+  const drawn:string[]=[],ui=panel(drawn),m=model();ui.draw(m);const texture=ui.mesh.material.map!,v=texture.version;
+  ui.draw({...m,done:7,weather:'rain',challenges:[]});expect(texture.version).toBe(v);
+  ui.show('appearance');for(const style of ['jelly','fur','bubble']){ui.draw({...m,style});expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(7);}
+  for(const english of [false,true]){drawn.length=0;ui.show('about');ui.draw({...m,english});expect(drawn).toContain(english?'Dahrooj':'دحروج');expect(drawn.some(s=>/quest|كويست/i.test(s))).toBe(false);}
  });
 });

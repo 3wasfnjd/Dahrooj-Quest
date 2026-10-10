@@ -17,6 +17,7 @@ it('routes the unified panel and scrolls with a real controller frame without fi
  const click=(kind:string,id:string)=>{const i=r.menuLayout.buttons.findIndex((b:any)=>b.kind===kind&&b.id===id);expect(i).toBeGreaterThanOrEqual(0);r.action(i);};
  r.setPlaza(true);expect(r.menuPage).toBe('modes');const mesh=scene.getObjectByName('xr-menu')!;
  click('tab','appearance');click('style','jelly');click('jellyColor','purple');expect(store.data.jellyColor).toBe('purple');expect(store.data.style).toBe('jelly');
+ for(const [style,color] of [['fur','blue'],['bubble','green']]){click('style',style);click('jellyColor',color);expect(store.data.style).toBe(style);expect(store.data.jellyColor).toBe(color);}
  click('tab','play');click('shot','firework');click('throw','hand');expect(r.shotStyle).toBe('firework');expect(r.throwStyle).toBe('hand');
  click('tab','challenges');click('scrollStep','down');expect(r.challengeScroll.offset).toBeGreaterThan(0);expect(r.challengesOpen).toBe(true);
  click('tab','about');expect(r.menuPage).toBe('about');expect(scene.getObjectByName('xr-menu')).toBe(mesh);expect(mesh.children).toHaveLength(0);

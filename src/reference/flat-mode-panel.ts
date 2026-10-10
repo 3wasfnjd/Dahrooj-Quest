@@ -1,7 +1,7 @@
-import {CanvasTexture,LinearFilter,Mesh,MeshBasicMaterial,PlaneGeometry,SRGBColorSpace,Vector3} from '@iwsdk/core';
+import {CanvasTexture,LinearFilter,LinearMipmapLinearFilter,Mesh,MeshBasicMaterial,PlaneGeometry,SRGBColorSpace,Vector3} from '@iwsdk/core';
 import {menuDepth} from './menu-depth';
 import {JELLY_COLORS} from '../core/appearance';
-import {drawMenuCard,drawMenuIcon,drawMenuPaper,drawMenuFooter,MENU_INK} from './menu-art';
+import {drawMenuCard,drawMenuIcon,drawMenuPaper,drawMenuFooter,MENU_INK,MENU_LIGHT} from './menu-art';
 import {UNLOCKS,CHALLENGES,accessoryAvailable} from '../progression/challenges';
 import {XR_MODE_CATALOG} from './mode-catalog';
 
@@ -23,18 +23,19 @@ export type MenuButton={kind:string;id:string;ar:string;en:string;x:number;y:num
 type Mode=readonly [string,string,string,...string[]];
 const W=1200,H=1000,WIDTH=.765,HEIGHT=WIDTH*H/W;
 const LIST_TOP=244,LIST_HEIGHT=552,ROW_HEIGHT=96,TRACK_TOP=300,TRACK_HEIGHT=440;
-const COLORS=[['#d9494b','#f4a08c'],['#b58a56','#edc98e'],['#3784c4','#83b9de'],['#77a93d','#b7d87b'],['#8645b8','#bd88db'],['#df861f','#f5bc63'],['#a3633d','#d6976e'],['#328d94','#78beb6'],['#ae57b4','#d697d8'],['#528a54','#a9ca7d'],['#a94d80','#dfa0bb'],['#ca9d2e','#f2d573']];
-const TAB_COLORS=[['#c05e48','#eead77'],['#a585ac','#d6c3cf'],['#7864b1','#b4a6db'],['#68a446','#b2d483'],['#c28b23','#edc669'],['#77798d','#b5b6c3'],['#367cab','#7fc2df']];
 const contentX=(english:boolean)=>english?220:92;
 const grid=(index:number,cols:number,y:number,h:number,english:boolean,gap=16)=>{const w=(888-gap*(cols-1))/cols,col=index%cols;return {x:contentX(english)+(english?col:cols-1-col)*(w+gap),y:y+Math.floor(index/cols)*(h+gap),w,h};};
-export function modeCell(index:number,english:boolean){return grid(index,3,184,164,english);}
+export function modeCell(index:number,english:boolean){return grid(index,4,204,200,english,20);}
 export function modeAtUV(u:number,v:number,english:boolean){
  if(!Number.isFinite(u)||!Number.isFinite(v))return -1;
  const x=u*W,y=(1-v)*H;for(let i=0;i<XR_MODE_CATALOG.length;i++){const b=modeCell(i,english);if(x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h)return i;}return -1;
 }
-export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:CanvasRenderingContext2D,id:string,x:number,y:number,locked:boolean)=>void){
+export function createFlatModePanel(modes:readonly Mode[]){
  const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
- const ctx=canvas.getContext('2d')!,texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;texture.generateMipmaps=false;texture.minFilter=texture.magFilter=LinearFilter;
+ const ctx=canvas.getContext('2d')!,texture=new CanvasTexture(canvas);texture.colorSpace=SRGBColorSpace;
+ // A world-sized menu is minified and viewed obliquely in both eyes. Average texels
+ // across levels instead of undersampling thin strokes with a single linear lookup.
+ texture.generateMipmaps=true;texture.minFilter=LinearMipmapLinearFilter;texture.magFilter=LinearFilter;texture.anisotropy=4;
  const material=menuDepth(new MeshBasicMaterial({map:texture,fog:false,toneMapped:false}),true);material.depthTest=false;material.depthWrite=false;
  const mesh=new Mesh(new PlaneGeometry(WIDTH,HEIGHT),material);mesh.name='xr-menu';mesh.renderOrder=50;
  let key='',page:MenuPage='modes',appearance='character',challengeOffset=0,buttons:MenuButton[]=[],lastModel:MenuModel|null=null;
@@ -47,14 +48,14 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
  function layout(m:MenuModel){
   const english=m.english,base=contentX(english),out:MenuButton[]=[];
   const add=(kind:string,id:string,ar:string,en:string,box:{x:number;y:number;w:number;h:number},rest:Partial<MenuButton>={})=>out.push({kind,id,ar,en,...box,icon:kind==='weather'&&id==='rain'?'weather-rain':kind==='jellyColor'?'palette':id||'none',...rest});
-  MENU_PAGES.forEach(([id,ar,en],i)=>add('tab',id,ar,en,{x:english?58:1030,y:174+i*94,w:112,h:82},{selected:id===page,icon:id==='modes'?'palette':id==='appearance'?'character':id,color:TAB_COLORS[i][0],fill:TAB_COLORS[i][1]}));
-  add('close','close','إغلاق','Close',{x:english?58:1030,y:832,w:112,h:82},{color:'#c34d42',fill:'#ef8c79'});
-  if(page==='modes')modes.forEach(([id,ar,en],i)=>add('mode',id,ar,en,modeCell(i,english),{selected:id===m.mode,color:COLORS[i][0],fill:COLORS[i][1],icon:id}));
+  MENU_PAGES.forEach(([id,ar,en],i)=>add('tab',id,ar,en,{x:english?58:1030,y:174+i*94,w:112,h:82},{selected:id===page,icon:id==='appearance'?'character':id}));
+  add('close','close','إغلاق','Close',{x:english?58:1030,y:832,w:112,h:82});
+  if(page==='modes')modes.forEach(([id,ar,en],i)=>add('mode',id,ar,en,modeCell(i,english),{selected:id===m.mode,icon:id}));
   if(page==='appearance'){
    [['character','دحروج','Dahrooj'],['accessories','الإكسسوارات','Accessories']].forEach(([id,ar,en],i)=>add('appearance',id,ar,en,grid(i,2,184,88,english),{selected:appearance===id}));
    if(appearance==='character'){
     MENU_STYLES.forEach(([id,ar,en],i)=>add('style',id,ar,en,grid(i,3,300,200,english),{selected:id===m.style,icon:id}));
-    if(m.style==='jelly')JELLY_COLORS.forEach((c,i)=>add('jellyColor',c.id,c.ar,c.en,grid(i,4,575,102,english),{selected:c.id===m.jellyColor,color:'#'+c.hex.toString(16).padStart(6,'0')}));
+    JELLY_COLORS.forEach((c,i)=>add('jellyColor',c.id,c.ar,c.en,grid(i,4,575,102,english),{selected:c.id===m.jellyColor,color:'#'+c.hex.toString(16).padStart(6,'0')}));
    }else {
     const progress=Object.fromEntries(m.challenges.map(c=>[c.id,c.value]));
     MENU_ACCESSORIES.forEach(([id,ar,en,need],i)=>{const open=accessoryAvailable(id,m.done,progress),ch=CHALLENGES.find(c=>c[0]===need);
@@ -89,30 +90,20 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
  }
  function button(b:MenuButton,index:number,hot:number){
   if(b.kind==='scroll')return;
-  const on=b.selected,hover=index===hot&&!b.disabled,cx=b.x+b.w/2,cy=b.y+b.h/2-1,ink=b.color||'#bc8b48';
-  drawMenuCard(ctx,b.x,b.y,b.w,b.h,b.fill||(on?'#eaca8b':'#edcf9e'),ink,!!on,hover,!!b.disabled);
-  // Every action has a pictorial face; its name appears only in the fixed footer on hover.
-  if(b.kind==='mode'){drawMenuIcon(ctx,b.id,cx,cy,b.id==='climb'||b.id==='fair'?117:126,ink);}
-  else if(b.kind==='style'){
-   const color=b.id==='jelly'?JELLY_COLORS.find(c=>c.id===lastModel?.jellyColor)?.hex??0xff69b4:b.id==='fur'?0xdcccb7:0xb9dfef;
-   drawMenuIcon(ctx,b.id,cx,cy,152,'#'+color.toString(16).padStart(6,'0'));
-  }else if(b.kind==='acc'){
-   if(b.id&&drawAccessory){ctx.save();ctx.translate(cx,b.y+b.h*.54);ctx.scale(1.4,1.4);drawAccessory(ctx,b.id,0,0,!!b.disabled);ctx.restore();}
-   else drawMenuIcon(ctx,b.id||'none',cx,cy,110);
-   if(b.disabled)drawMenuIcon(ctx,'lock',b.x+28,b.y+29,33);
-  }else if(b.kind==='jellyColor'){
-   drawMenuIcon(ctx,'jelly',cx,cy,75,b.color);
-  }else if(b.kind==='scrollStep'){drawMenuIcon(ctx,b.id,cx,cy,25);}
-  else if(b.kind==='tab'||b.kind==='close'){
-   drawMenuIcon(ctx,b.icon!,cx,cy,60);
+  const on=b.selected,hover=index===hot&&!b.disabled,cx=b.x+b.w/2,cy=b.y+b.h/2,ink=b.disabled?'#9a9b97':on?MENU_LIGHT:MENU_INK;
+  drawMenuCard(ctx,b.x,b.y,b.w,b.h,!!on,hover,!!b.disabled);
+  // Only the colour selector uses colour; the remaining actions share black outline icons.
+  if(b.kind==='jellyColor'){
+   ctx.fillStyle=b.color!;ctx.beginPath();ctx.arc(cx,cy,29,0,Math.PI*2);ctx.fill();
+   if(on)drawMenuIcon(ctx,'check',cx,cy,29,MENU_INK);
   }else{
-   drawMenuIcon(ctx,b.icon!,cx,cy,Math.min(152,b.h-33,b.w-44));
+   drawMenuIcon(ctx,b.icon!,cx,cy,b.kind==='scrollStep'?24:b.kind==='tab'||b.kind==='close'?43:Math.min(77,b.h-34,b.w-38),ink);
+   if(b.disabled&&b.kind==='acc')drawMenuIcon(ctx,'lock',cx+43,cy+40,24,MENU_INK);
   }
-  if(on&&b.kind!=='tab')drawMenuIcon(ctx,'check',b.x+b.w-19,b.y+18,b.kind==='mode'?47:35);
  }
  function details(m:MenuModel){
   const base=contentX(m.english),cx=base+444;
-  if(page==='appearance'&&appearance==='character')text(m.style==='jelly'?tr('لون الجلي','Jelly colour'):tr('اختر مظهر دحروج','Choose Dahrooj’s look'),cx,540,30);
+  if(page==='appearance'&&appearance==='character')text(tr('لون دحروج','Dahrooj’s colour'),cx,540,30);
   if(page==='appearance'&&appearance==='accessories')text(tr(`مكافآت التحديات · مكتمل ${m.done}`,`Challenge rewards · ${m.done} complete`),cx,866,28);
   if(page==='play'){text(tr('طريقة الرمي','Throw style'),cx,213,31);text(tr('نوع الطلقة','Projectile'),cx,428,31);}
   if(page==='world'){
@@ -123,20 +114,20 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
    text(tr(`إنجازاتك · ${m.challenges.filter(c=>c.value>=c.goal).length} من ${m.challenges.length}`,`Your progress · ${m.challenges.filter(c=>c.value>=c.goal).length} of ${m.challenges.length}`),cx,212,30);
    ctx.save();ctx.beginPath();ctx.rect(base,LIST_TOP,824,LIST_HEIGHT);ctx.clip();
    m.challenges.forEach((c,i)=>{const y=LIST_TOP+i*ROW_HEIGHT-challengeOffset,done=c.value>=c.goal;if(y+88<LIST_TOP||y>LIST_TOP+LIST_HEIGHT)return;
-    ctx.fillStyle=done?'#eaf1d9':'#fffdf5';round(base,y,824,88,12);ctx.fill();
+    ctx.fillStyle=MENU_LIGHT;round(base,y,824,88,12);ctx.fill();
     const iconX=m.english?base+34:base+790;drawMenuIcon(ctx,done?'check':'trophy',iconX,y+37,35);
     ctx.textAlign=m.english?'left':'right';text(tr(c.title,c.en),m.english?base+66:base+758,y+41,28,MENU_INK,610);
-    ctx.textAlign=m.english?'right':'left';text(`${c.value} / ${c.goal}`,m.english?base+808:base+16,y+41,25,'#648155',124);
-    ctx.fillStyle='#e5dcc6';round(base+24,y+64,776,8,4);ctx.fill();
-    const progress=Math.max(0,Math.min(1,c.value/Math.max(1,c.goal)))*776;ctx.fillStyle=done?'#8cb772':'#e7b767';round(m.english?base+24:base+800-progress,y+64,progress,8,4);ctx.fill();
+    ctx.textAlign=m.english?'right':'left';text(`\u2066${c.value} / ${c.goal}\u2069`,m.english?base+808:base+16,y+41,25,MENU_INK,124);
+    ctx.fillStyle='#d8d8d1';round(base+24,y+64,776,8,4);ctx.fill();
+    const progress=Math.max(0,Math.min(1,c.value/Math.max(1,c.goal)))*776;ctx.fillStyle=MENU_INK;round(m.english?base+24:base+800-progress,y+64,progress,8,4);ctx.fill();
    });ctx.restore();ctx.textAlign='center';
-   ctx.fillStyle='#e1cfaf';round(base+856,TRACK_TOP,14,TRACK_HEIGHT,7);ctx.fill();
-   const track=scrollTrack();ctx.fillStyle='#a97e4e';round(base+846,TRACK_TOP+(scrollMax()?challengeOffset/scrollMax()*track.travel:0),34,track.height,12);ctx.fill();
+   ctx.fillStyle='#d8d8d1';round(base+856,TRACK_TOP,14,TRACK_HEIGHT,7);ctx.fill();
+   const track=scrollTrack();ctx.fillStyle=MENU_INK;round(base+846,TRACK_TOP+(scrollMax()?challengeOffset/scrollMax()*track.travel:0),34,track.height,12);ctx.fill();
   }
   if(page==='about'){
-   text('Dahrooj Quest',cx,209,42);text(tr('امسك دحروج والعب في ١٢ نمطًا مرحًا.','Play with Dahrooj across 12 playful modes.'),cx,265,29);
+   text(tr('دحروج','Dahrooj'),cx,209,42);text(tr('امسك دحروج والعب في ١٢ نمطًا مرحًا.','Play with Dahrooj across 12 playful modes.'),cx,265,29);
    text(tr('واقع افتراضي وواقع مختلط.','Virtual and mixed reality.'),cx,304,28,'#666a74');
-   MENU_CREDITS.forEach(([name,ar,en],i)=>{const y=397+i*100;ctx.direction='ltr';text(name,cx,y,i===0?34:28);ctx.direction=m.english?'ltr':'rtl';text(tr(ar,en),cx,y+34,24,'#88745d');});
+   MENU_CREDITS.forEach(([name,ar,en],i)=>{const y=397+i*100;ctx.direction='ltr';text(name,cx,y,i===0?34:28);ctx.direction=m.english?'ltr':'rtl';text(tr(ar,en),cx,y+34,24,'#6c6d72');});
   }
  }
  return {mesh,
@@ -152,17 +143,25 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
    if(b.kind==='appearance'){appearance=b.id;key='';return true;}
    if(b.kind==='scrollStep'){scrollBy(b.id==='down'?ROW_HEIGHT*2:-ROW_HEIGHT*2);return true;}return false;
   },
-  hit(u:number,v:number){if(!Number.isFinite(u)||!Number.isFinite(v))return -1;const x=u*W,y=(1-v)*H;return buttons.findIndex(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h);},
+  hit(u:number,v:number,previous=-1){
+   if(!Number.isFinite(u)||!Number.isFinite(v))return -1;const x=u*W,y=(1-v)*H,b=buttons[previous];
+   // Six canvas pixels of hysteresis absorb controller tremor at an edge. It is
+   // smaller than the gaps, so neighbouring buttons remain independently reachable.
+   if(b&&x>=b.x-6&&x<b.x+b.w+6&&y>=b.y-6&&y<b.y+b.h+6)return previous;
+   return buttons.findIndex(b=>x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h);
+  },
   draw(model:MenuModel,hot=-1){
-   const next=JSON.stringify([page,appearance,challengeOffset,hot,model]);if(key===next)return;key=next;lastModel=model;buttons=layout(model);
+   // Progress/weather changes on hidden pages must not upload a whole menu texture.
+   const visible=page==='modes'?[model.mode]:page==='appearance'?[model.style,model.jellyColor,model.accessory,model.done,model.challenges]:page==='play'?[model.throwStyle,model.shotStyle]:page==='world'?[model.kind,model.time,model.weather]:page==='challenges'?[model.resetArmed,model.challenges]:[];
+   const next=JSON.stringify([page,appearance,challengeOffset,hot,model.english,visible]);lastModel=model;if(key===next)return;key=next;buttons=layout(model);
    drawMenuPaper(ctx,model.english);ctx.textAlign='center';ctx.direction=model.english?'ltr':'rtl';
    const base=contentX(model.english);
-   ctx.save();ctx.shadowColor='#5e351f';ctx.shadowOffsetY=3;text(tr('دحروج','Dahrooj'),base+444,122,43,'#ffedb5');ctx.restore();
+   text(tr('دحروج','Dahrooj'),base+444,112,40);
    details(model);buttons.forEach((b,i)=>button(b,i,hot));
    drawMenuFooter(ctx,base+444);
    const target=buttons[hot];
-   if(target&&target.kind!=='scroll'){const label=tr(target.ar,target.en)+(target.sub?' · '+target.sub:'');text(label,base+444,958,29,'#fff0c2',538);}
-   else if(page==='challenges'&&model.resetArmed)text(tr('تأكيد التصفير؟','Confirm reset?'),base+444,958,29,'#fff0c2',538);
+   if(target&&target.kind!=='scroll'){const label=tr(target.ar,target.en)+(target.sub?' · '+target.sub:'');text(label,base+444,958,29,MENU_INK,780);}
+   else if(page==='challenges'&&model.resetArmed)text(tr('تأكيد التصفير؟','Confirm reset?'),base+444,958,29,MENU_INK,780);
    texture.needsUpdate=true;
   }
  };
