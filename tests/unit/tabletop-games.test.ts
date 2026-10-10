@@ -27,6 +27,14 @@ describe('balance courses',()=>{
  });
 });
 describe('ricochet courses',()=>{
+ it('completes round three despite two degrees of paddle input error and one degree of aim error',()=>{
+  const radians=(d:number)=>d*Math.PI/180,l=RICOCHET_LEVELS[2];
+  for(const aim of [-1,0,1])for(const a of [-2,0,2])for(const b of [-2,0,2])for(const c of [-2,0,2]){
+   const g=createTabletopGame('ricochet');g.reset(2);l.solution.forEach((v,i)=>g.turnMirror(i,v+radians([a,b,c][i])));
+   g.launch({x:Math.sin(radians(aim)),z:-Math.cos(radians(aim))});for(let i=0;i<1000&&g.phase==='playing';i++)g.step(1/120);
+   expect(g.phase,`aim ${aim}, paddles ${a},${b},${c}`).toBe('won');expect(g.bounces.size).toBe(3);
+  }
+ });
  it.each([72,90,120])('solves all five distinct paddle routes at %i Hz without tunnelling',fps=>{
   const won=vi.fn(),g=createTabletopGame('ricochet',won);
   for(let level=0;level<5;level++){

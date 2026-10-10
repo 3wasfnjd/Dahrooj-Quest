@@ -141,7 +141,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     // Built from simple shapes in Dahrooj's colours, around a ball of radius r with the face toward +z.
     // One template per accessory; each ball wears a clone that shares its geometry and materials.
     const accTemplates={};
-    const HEADWEAR=new Set(['party','cap','crown','headphones','laurel','woodhat']);
+    const HEADWEAR=new Set(['party','cap','crown','headphones','aviator','woodhat']);
     function accessory(id,lite=false){
       const key=lite?'crowd/'+id:id;
       if(!accTemplates[key]){
@@ -197,12 +197,18 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
             add(new T.SphereGeometry(r*.25,lite?10:24,lite?8:16),shell,V(sd*r*1.09,r*.06,0),null,[.4,1,1]);
             add(new T.TorusGeometry(r*.16,r*.016,8,lite?16:32),trim,V(sd*r*1.18,r*.06,0),[0,Math.PI/2,0]);
           }
-        }else if(id==='laurel'){
-          const leaf=mat({color:0x83a95d,roughness:.72}),goldLeaf=mat({color:0xd0b45b,roughness:.55});
-          add(new T.TorusGeometry(r*.66,r*.028,8,lite?24:40),goldLeaf,V(0,r*.75,0),[Math.PI/2,0,0]);
-          for(let i=0;i<12;i++){const a=i/12*Math.PI*2,sd=i%2?-1:1;
-            const m=add(new T.SphereGeometry(r*.12,lite?8:14,lite?6:10),i%3?leaf:goldLeaf,V(Math.sin(a)*r*.65,r*.8,Math.cos(a)*r*.65),[0,a,sd*.4],[.55,.35,1.5]);m.rotation.x=.3;
+        }else if(id==='aviator'){
+          const leather=mat({color:0x885839,roughness:.85}),trim=mat({color:0xe8c999,roughness:.75}),glass=mat({color:0x66bad4,roughness:.22,metalness:.15});
+          add(new T.SphereGeometry(r*1.065,lite?18:32,lite?8:14,0,Math.PI*2,0,Math.PI*.35),leather,V(0,r*.035,0));
+          add(new T.TorusGeometry(r*.949,r*.038,lite?6:10,lite?24:40),trim,V(0,r*.518,0),[Math.PI/2,0,0]);
+          for(const sd of [-1,1]){
+            add(new T.SphereGeometry(r*.31,lite?10:18,lite?8:12),leather,V(sd*r*.97,r*.25,-r*.015),null,[.22,1,.6]);
+            // The goggles sit on the forehead, clear of Dahrooj's eyes.
+            const p=V(sd*r*.28,r*.68,r*.85);
+            add(new T.TorusGeometry(r*.205,r*.039,lite?6:10,lite?16:28),trim,p,[-.62,0,0],[1.08,.85,1]);
+            add(new T.SphereGeometry(r*.17,lite?12:20,lite?8:12),glass,p.clone().add(V(0,r*.014,r*.02)),[-.62,0,0],[1.08,.85,.16]);
           }
+          add(new T.BoxGeometry(r*.17,r*.055,r*.06),leather,V(0,r*.68,r*.875),[-.62,0,0]);
         }else if(id==='woodhat'){
           const grain=canvas(128,256,(c,w,h)=>{c.fillStyle='#c89c65';c.fillRect(0,0,w,h);c.strokeStyle='#a47348';c.lineWidth=2;for(let x=4;x<w;x+=13){c.beginPath();for(let y=0;y<=h;y+=8)c.lineTo(x+Math.sin(y*.035+x)*2,y);c.stroke();}});
           const maple=mat({map:grain,roughness:.7}),walnut=mat({color:0x765036,roughness:.8});
@@ -377,7 +383,7 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       // Keep jelly's bandage in the same instanced path as rain and small projectiles.
       const bandages=decoration('bandaid').children.map((part,i)=>{const m=mk(part.geometry,part.material,max);m.name='dahrooj-crowd-bandaid-'+i;return m;});
       const accessories={};
-      if(withAccessories)for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','laurel','woodhat','starGlasses']){
+      if(withAccessories)for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','aviator','woodhat','starGlasses']){
         const merged=batchReferenceMeshes(accessory(id,true));
         accessories[id]=merged.children.map((part,i)=>{const m=mk(part.geometry,part.material,max);m.name='xr-rain-accessory-'+id+'-'+i;return m;});
       }

@@ -69,8 +69,9 @@ export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color=MENU_
   for(let i=0;i<5;i++){const a=i*Math.PI*2/5;oval(Math.cos(a)*22,Math.sin(a)*22,13);}oval(0,0,8);
  }else if(id==='crown'){
   line([[-36,24],[-38,-22],[-17,-5],[0,-33],[17,-5],[38,-22],[36,24]],true);line([[-36,13],[36,13]]);
- }else if(id==='laurel'){
-  arc(0,-1,31,0,Math.PI);for(const s of [-1,1])for(let i=0;i<4;i++){c.save();c.translate(s*(30-i*4),-16+i*13);c.rotate(s*.7);oval(0,0,5,9);c.restore();}
+ }else if(id==='aviator'){
+  arc(0,0,33,Math.PI,Math.PI*2);line([[-33,0],[-33,26],[-23,26],[-23,4]]);line([[33,0],[33,26],[23,26],[23,4]]);
+  box(-26,-13,23,19,7);box(3,-13,23,19,7);line([[-3,-5],[3,-5]]);line([[-29,11],[29,11]]);
  }else if(id==='headphones'){
   arc(0,0,33,Math.PI,Math.PI*2);box(-39,-4,14,32,6);box(25,-4,14,32,6);
  }else if(id==='scarf'){

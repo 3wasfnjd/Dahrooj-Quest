@@ -7,13 +7,15 @@ afterEach(()=>vi.unstubAllGlobals());
 it('routes the unified panel and scrolls with a real controller frame without firing or moving the world',async()=>{
  const context=new Proxy({},{get:(_t,k)=>k==='createLinearGradient'||k==='createRadialGradient'?()=>({addColorStop(){}}):k==='measureText'?()=>({width:80}):()=>{},set:()=>true});
  vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>context}),getElementById:()=>({hidden:false})});
- vi.stubGlobal('localStorage',{getItem:()=>null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener(){},removeEventListener(){}});
+ vi.stubGlobal('localStorage',{getItem:(key:string)=>key==='dahrooj-acc'?'laurel':null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener(){},removeEventListener(){}});
  const scene=new T.Scene(),player=new T.Group();scene.add(player);const camera=new T.PerspectiveCamera();camera.position.set(0,1.6,0);scene.add(camera);scene.updateMatrixWorld(true);
  const controllers=[new T.Group(),new T.Group()],session={visibilityState:'visible',addEventListener(){}};
  const xr={getController:(i:number)=>controllers[i],getControllerGrip:()=>new T.Group(),getSession:()=>session,addEventListener(){},setReferenceSpaceType(){},setFoveation(){},getReferenceSpace:()=>({})};
  const renderer={xr,capabilities:{getMaxAnisotropy:()=>4},info:{render:{calls:0,triangles:0}}};
  const store={data:defaults(),touch:vi.fn(),flush:vi.fn()},world={scene,player,camera,renderer,onXRFrame(){}};
+ store.data.challenges.balance5=5;
  const game:any=createCompleteGame(world as any,store as any),r=game.runtime;
+ expect(r.wearing).toBe('aviator');expect(localStorage.setItem).toHaveBeenCalledWith('dahrooj-acc','aviator');
  const click=(kind:string,id:string)=>{const i=r.menuLayout.buttons.findIndex((b:any)=>b.kind===kind&&b.id===id);expect(i).toBeGreaterThanOrEqual(0);r.action(i);};
  r.setPlaza(true);expect(r.menuPage).toBe('modes');const mesh=scene.getObjectByName('xr-menu')!;
  click('tab','appearance');click('style','jelly');click('jellyColor','purple');expect(store.data.jellyColor).toBe('purple');expect(store.data.style).toBe('jelly');

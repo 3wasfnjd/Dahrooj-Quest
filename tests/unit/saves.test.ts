@@ -21,3 +21,8 @@ it('keeps new accessory unlocks gated and preserves them after reload',()=>{
   expect(migrate({version:2,accessory,challenges:{}}).accessory).toBe('');
  }
 });
+it('replaces an earned legacy balance accessory without losing progress or unlocking it early',()=>{
+ const raw={version:2,accessory:'laurel',challenges:{balance5:5},best:{'tabletop:balance:cleared':31,fair:82}};
+ const save=migrate(raw);expect(save.accessory).toBe('aviator');expect(save.challenges.balance5).toBe(5);expect(save.best).toEqual(raw.best);expect(migrate(save)).toEqual(save);
+ expect(migrate({...raw,challenges:{balance5:4}}).accessory).toBe('');
+});

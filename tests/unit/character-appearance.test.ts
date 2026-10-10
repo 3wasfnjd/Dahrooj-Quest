@@ -28,7 +28,7 @@ describe('character appearance on real Three geometry',()=>{
   const models=character();
   for(const style of ['jelly','fur','bubble'] as const){
    const main=models.make(style);let maximum=0;
-   for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','laurel','woodhat','starGlasses','']){
+   for(const id of ['party','glasses','cap','flower','crown','headphones','scarf','aviator','woodhat','starGlasses','']){
     main.setAccessory(id);main.group.updateMatrixWorld(true);
     main.group.traverse((o:any)=>{if(o.isMesh){expect(o.geometry.attributes.position.count).toBeGreaterThan(0);maximum++;}});
     if(id){const acc=main.group.getObjectByName('dahrooj-accessory-'+id)!;expect(acc).toBeDefined();expect(acc.children.length).toBeGreaterThan(0);}
@@ -66,7 +66,7 @@ describe('character appearance on real Three geometry',()=>{
  });
  it('retains all material groups of the new rewards when batching indexed and extruded geometry',()=>{
   const models=character(),crowd=models.crowd(1,true);
-  for(const [id,count] of [['laurel',2],['woodhat',3],['starGlasses',2]] as const){
+  for(const [id,count] of [['aviator',3],['woodhat',3],['starGlasses',2]] as const){
    crowd.begin();crowd.add('jelly',new T.Vector3(),.24,null,[1,1],'open',id);crowd.end();
    const parts=crowd.group.children.filter(o=>o.name.startsWith('xr-rain-accessory-'+id+'-')) as T.InstancedMesh[];
    expect(parts).toHaveLength(count);for(const part of parts){expect(part.count).toBe(1);expect(part.geometry.attributes.position.count).toBeGreaterThanOrEqual(20);}

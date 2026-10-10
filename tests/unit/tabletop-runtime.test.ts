@@ -74,4 +74,26 @@ describe.each(['immersive-vr','immersive-ar'])('tabletop controller routing in %
   r.setMenu(true,'appearance');click('appearance','accessories');const locked=r.menuLayout.buttons.find((b:any)=>b.id==='starGlasses');expect(locked.disabled).toBe(true);
   choose('goal');expect(stage.grp.visible).toBe(false);expect(game.S.shot).toBe(false);
  });
+ it('solves round three using grip rotation and trigger input, keeping every rotating wooden part inside the tray',async()=>{
+  const {grips,store,frame,choose,event,pointAt}=await platform(kind),stage=choose('ricochet'),board=stage.grp.children[0];
+  // Check the rendered caps, inlays and pivot too, at every allowed angle in every round.
+  for(let level=0;level<5;level++){
+   stage.game.reset(level);frame();
+   for(let degrees=0;degrees<360;degrees+=5){
+    stage.game.angles.forEach((_:number,i:number)=>stage.game.turnMirror(i,degrees*Math.PI/180));frame();
+    stage.game.angles.forEach((_:number,i:number)=>{
+     stage.grp.getObjectByName('ricochet-paddle-'+i).traverse((o:any)=>{if(!o.isMesh)return;o.geometry.computeBoundingBox();const b=o.geometry.boundingBox;
+      for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z]){const p=board.worldToLocal(o.localToWorld(new T.Vector3(x,y,z)));expect(Math.abs(p.x)).toBeLessThan(1.48);expect(Math.abs(p.z)).toBeLessThan(1.7);}
+     });
+    });
+   }
+  }
+  stage.game.reset(2);frame();
+  for(const [i,solution] of stage.game.definition.solution.entries()){
+   grips[1].rotation.set(0,0,0);frame();pointAt(stage.grp.getObjectByName('ricochet-paddle-'+i).getWorldPosition(new T.Vector3()));frame();
+   const initial=stage.game.angles[i];event('squeezestart');grips[1].rotation.y=-(solution-initial+.01);frame();event('squeezeend');expect(stage.game.angles[i]).toBeCloseTo(solution);
+  }
+  const start=stage.game.definition.start;pointAt(board.localToWorld(new T.Vector3(start.x,.14,-1.02)));frame();event('selectstart');event('selectend');
+  for(let i=0;i<1000&&stage.game.phase==='playing';i++)frame();expect(stage.game.phase).toBe('won');expect(stage.game.bounces.size).toBe(3);expect(store.data.best['tabletop:ricochet:cleared']).toBe(4);
+ });
 });

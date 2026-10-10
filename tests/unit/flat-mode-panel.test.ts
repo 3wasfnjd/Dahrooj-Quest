@@ -42,8 +42,8 @@ describe('single XR menu surface',()=>{
   go('appearance','accessories');const index=ui.buttons.findIndex(b=>b.id==='headphones');expect(ui.action(index)).toBeNull();
   const locked=ui.buttons[index];expect(ui.hit((locked.x+locked.w/2)/1200,1-(locked.y+locked.h/2)/1000)).toBe(index);expect(locked.sub).toContain('12');
   m.done=25;ui.draw(m);expect(ui.action(index)?.id).toBe('headphones');
-  const mastery=ui.buttons.findIndex(b=>b.id==='laurel');expect(ui.action(mastery)).toBeNull();expect(ui.buttons[mastery].sub).toContain('التوازن');
-  m.challenges.push({id:'balance5',title:'مراحل التوازن الخمس',en:'All five balance rounds',value:5,goal:5});ui.draw(m);expect(ui.action(mastery)?.id).toBe('laurel');
+  const mastery=ui.buttons.findIndex(b=>b.id==='aviator');expect(ui.action(mastery)).toBeNull();expect(ui.buttons[mastery].sub).toContain('التوازن');
+  m.challenges.push({id:'balance5',title:'مراحل التوازن الخمس',en:'All five balance rounds',value:5,goal:5});ui.draw(m);expect(ui.action(mastery)?.id).toBe('aviator');
   for(const b of ui.buttons.filter(b=>b.kind==='acc'))expect(b.y+b.h).toBeLessThan(855);
   go('tab','challenges');expect(ui.action(ui.buttons.findIndex(b=>b.id==='up'))).toBeNull();
   go('scrollStep','down');expect(ui.challengeScroll.offset).toBeGreaterThan(0);

@@ -26,7 +26,7 @@ export const CHALLENGES = [
     ['ringsClean', 1, '٣ حلقات من أول رمية', 'Three rings on the first throw'],
 ] as const;
 export type ChallengeId = typeof CHALLENGES[number][0];
-export const UNLOCKS = { party: 1, glasses: 3, cap: 5, flower: 7, crown: 10, headphones: 12, scarf: 14, laurel:'balance5', woodhat:'ricochet5', starGlasses:'rings5' } as const;
+export const UNLOCKS = { party: 1, glasses: 3, cap: 5, flower: 7, crown: 10, headphones: 12, scarf: 14, aviator:'balance5', woodhat:'ricochet5', starGlasses:'rings5' } as const;
 export function accessoryAvailable(id:string,completed:number,progress:Record<string,number>){
     if(!id)return true;
     const need=UNLOCKS[id as keyof typeof UNLOCKS];

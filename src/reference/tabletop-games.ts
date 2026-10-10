@@ -4,6 +4,8 @@ export type Mode='balance'|'ricochet'|'rings';
 export type TabletopWin={mode:Mode;level:number;attempts:number;failures:number;passed:number};
 type Phase='ready'|'playing'|'falling'|'won';
 export const TABLE_RADIUS=.14;
+export const MIRROR_ANGLE_STEP=Math.PI/36;
+const snapMirrorAngle=(angle:number)=>Math.round(Math.atan2(Math.sin(angle),Math.cos(angle))/MIRROR_ANGLE_STEP)*MIRROR_ANGLE_STEP;
 const STEP=1/120,LIMIT_X=1.5,LIMIT_Z=1.7;
 const p=(x:number,z:number):Point=>({x,z});
 const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
@@ -24,18 +26,20 @@ function mirror(contact:Point,incoming:Point,outgoing:Point):Mirror{
  const nx=outgoing.x-incoming.x,nz=outgoing.z-incoming.z,k=Math.hypot(nx,nz),r=TABLE_RADIUS+.045;
  return {x:contact.x-nx/k*r,z:contact.z-nz/k*r,angle:Math.atan2(-nx,nz),length:.91};
 }
-const A=mirror(p(-1.05,-1.05),p(0,-1),p(1,0)),B=mirror(p(1.05,-1.05),p(1,0),p(0,1)),C=mirror(p(1.05,1.05),p(0,1),p(-1,0));
+// Leave enough space for the full paddle (including its wooden caps) to rotate
+// inside the tray, not merely for its centre to lie on the play surface.
+const A=mirror(p(-.82,-1.02),p(0,-1),p(1,0)),B=mirror(p(.82,-1.02),p(1,0),p(0,1)),C=mirror(p(.82,1.02),p(0,1),p(-1,0));
 function reflectionRoute(route:Point[],obstacles:Block[],length:number):RicochetLevel{
  const direction=(a:Point,b:Point)=>{const d=dist(a,b);return p((b.x-a.x)/d,(b.z-a.z)/d);};
  const mirrors=route.slice(1,-1).map((q,i)=>({...mirror(q,direction(route[i],q),direction(q,route[i+2])),length}));
  return {start:route[0],goal:route[route.length-1],mirrors,solution:mirrors.map(m=>m.angle),obstacles,required:mirrors.length};
 }
 export const RICOCHET_LEVELS:readonly RicochetLevel[]=[
- {start:p(-1.05,1.25),goal:p(1.05,-1.05),mirrors:[A],solution:[A.angle],obstacles:[{x:0,z:.24,hx:.2,hz:.65}],required:1},
- {start:p(-1.05,1.25),goal:p(1.05,1.25),mirrors:[A,B],solution:[A.angle,B.angle],obstacles:[{x:0,z:.08,hx:.44,hz:.68}],required:2},
- {start:p(-1.05,1.25),goal:p(-.42,1.05),mirrors:[A,B,C],solution:[A.angle,B.angle,C.angle],obstacles:[{x:0,z:0,hx:.43,hz:.63},{x:-.67,z:1.47,hx:.075,hz:.15}],required:3},
- reflectionRoute([p(-1.1,1.25),p(-1.1,-1.08),p(.95,-1.08),p(.95,.8),p(-.7,.8)],[{x:0,z:-.1,hx:.30,hz:.42}],.7),
- reflectionRoute([p(-1.15,1.35),p(-1.15,-1.25),p(1.15,-1.25),p(1.15,1),p(-.2,1),p(-.2,-.35)],[{x:.55,z:0,hx:.18,hz:.46}],.73),
+ {start:p(-.82,1.25),goal:p(.82,-1.02),mirrors:[A],solution:[A.angle],obstacles:[{x:0,z:.18,hx:.16,hz:.6}],required:1},
+ {start:p(-.82,1.25),goal:p(.82,1.25),mirrors:[A,B],solution:[A.angle,B.angle],obstacles:[{x:0,z:.08,hx:.30,hz:.62}],required:2},
+ {start:p(-.82,1.25),goal:p(-.42,1.02),mirrors:[A,B,C],solution:[A.angle,B.angle,C.angle],obstacles:[{x:0,z:0,hx:.30,hz:.55}],required:3},
+ reflectionRoute([p(-.95,1.25),p(-.95,-1.06),p(.9,-1.06),p(.9,.8),p(-.7,.8)],[{x:0,z:-.1,hx:.27,hz:.40}],.7),
+ reflectionRoute([p(-.9,1.32),p(-.9,-1.15),p(.9,-1.15),p(.9,1),p(-.2,1),p(-.2,-.35)],[{x:.44,z:0,hx:.14,hz:.42}],.73),
 ];
 export type Ring={x:number;z:number;radius:number;amplitude:number;speed:number;phase:number};
 export type RingsLevel={start:Point;goal:Point;rings:Ring[]};
@@ -85,7 +89,7 @@ export function createTabletopGame(mode:Mode,onWin:(points:number,result:Tableto
  function reset(nextLevel=level){
   level=((Math.trunc(Number.isFinite(nextLevel)?nextLevel:0)%levelCount)+levelCount)%levelCount;phase='ready';elapsed=flightTime=delay=accumulator=fall=0;velocity.x=velocity.z=tilt.x=tilt.z=0;stars.clear();bounces.clear();passed.clear();attempts=failures=0;
   Object.assign(ball,start());
-  angles=mode==='ricochet'?ricochet().mirrors.map((m,i)=>m.angle+(i%2?-.32:.32)):[];
+  angles=mode==='ricochet'?ricochet().mirrors.map((m,i)=>snapMirrorAngle(m.angle+(i%2?-.32:.32))):[];
  }
  function retry(){phase='ready';elapsed=flightTime=delay=fall=0;velocity.x=velocity.z=0;stars.clear();bounces.clear();passed.clear();Object.assign(ball,start());}
  function win(){if(phase==='won')return;phase='won';delay=1.7;const points=mode==='balance'?3:Math.max(1,4-attempts);score+=points;rounds++;onWin(points,{mode,level,attempts,failures,passed:passed.size});}
@@ -141,7 +145,7 @@ export function createTabletopGame(mode:Mode,onWin:(points:number,result:Tableto
   reset,
   retry(){failures++;retry();accumulator=0;},
   setTilt(x:number,z:number){tilt.x=clamp(Number.isFinite(x)?x:0,-.32,.32);tilt.z=clamp(Number.isFinite(z)?z:0,-.32,.32);},
-  turnMirror(index:number,angle:number){if(mode!=='ricochet'||phase==='playing'||phase==='won'||!Number.isFinite(angle)||index<0||index>=angles.length)return false;angles[index]=Math.atan2(Math.sin(angle),Math.cos(angle));return true;},
+  turnMirror(index:number,angle:number){if(mode!=='ricochet'||phase==='playing'||phase==='won'||!Number.isFinite(angle)||index<0||index>=angles.length)return false;angles[index]=snapMirrorAngle(angle);return true;},
   launch(direction:Point){
    if(mode==='balance'||phase!=='ready'||!Number.isFinite(direction.x)||!Number.isFinite(direction.z))return false;
    const d=Math.hypot(direction.x,direction.z);if(d<.001)return false;

@@ -1,6 +1,6 @@
 import {jellyColor,playableStyle} from '../core/appearance';
 import type {JellyColorId} from '../core/appearance';
-import { ACCESSORIES, SHOTS, STYLES, THROWS } from '../core/config';
+import { normalizeAccessory, SHOTS, STYLES, THROWS } from '../core/config';
 import type { AccessoryId, Language, ShotId, StyleId, ThrowId, TimeOfDay, Weather } from '../core/config';
 import { CHALLENGES, accessoryAvailable } from '../progression/challenges';
 import type { ChallengeId } from '../progression/challenges';
@@ -48,8 +48,9 @@ export function migrate(value: unknown): SaveData {
     d.stylesUsed = [...new Set(d.stylesUsed.filter(s=>s==='jelly'||s==='fur'||s==='bubble'))];
     d.challenges.styles5 = (d.challenges.styles5||0)>=3?3:d.stylesUsed.length;
     const done = CHALLENGES.filter(([id, goal]) => (d.challenges[id] || 0) >= goal).length;
-    if (ACCESSORIES.includes(raw.accessory as AccessoryId) && accessoryAvailable(String(raw.accessory),done,d.challenges))
-        d.accessory = raw.accessory as AccessoryId;
+    const accessory=normalizeAccessory(raw.accessory);
+    if (accessoryAvailable(accessory,done,d.challenges))
+        d.accessory = accessory;
     if (['day', 'dusk', 'night', 'dawn', 'auto'].includes(String(raw.time)))
         d.time = raw.time as TimeOfDay;
     if (['clear', 'rain', 'snow', 'auto'].includes(String(raw.weather)))

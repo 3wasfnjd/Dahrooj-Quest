@@ -10,7 +10,7 @@ export type MenuPage=typeof MENU_PAGES[number][0];
 export const MENU_STYLES=[['jelly','جلي','Jelly'],['fur','فرو','Fur'],['bubble','فقاعة','Bubble']] as const;
 export const MENU_THROWS=[['trigger','زناد','Trigger'],['hand','يد','Hand'],['sling','نبيطة','Slingshot']] as const;
 export const MENU_SHOTS=[['bolt','برق','Bolt'],['mini','دحروج','Dahrooj'],['bubble','فقاعة','Bubble'],['firework','ألعاب نارية','Firework']] as const;
-export const MENU_ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14],['laurel','إكليل','Laurel',UNLOCKS.laurel],['woodhat','قبعة خشبية','Wooden hat',UNLOCKS.woodhat],['starGlasses','نظارة نجوم','Star glasses',UNLOCKS.starGlasses]] as const;
+export const MENU_ACCESSORIES=[['','بدون','None',0],['party','قبعة حفلة','Party hat',1],['glasses','نظارة شمسية','Sunglasses',3],['cap','كاب','Cap',5],['flower','وردة','Flower',7],['crown','تاج','Crown',10],['headphones','سماعات','Headphones',12],['scarf','وشاح','Scarf',14],['aviator','قبعة طيّار','Aviator cap',UNLOCKS.aviator],['woodhat','قبعة خشبية','Wooden hat',UNLOCKS.woodhat],['starGlasses','نظارة نجوم','Star glasses',UNLOCKS.starGlasses]] as const;
 // Names and descriptions taken from the shipped credits.html, not new ownership claims.
 export const MENU_CREDITS=[
  ['Aboden Games','دحروج والتصميم والموسيقى والأصوات الأصلية','Dahrooj, design, original music and sounds'],
