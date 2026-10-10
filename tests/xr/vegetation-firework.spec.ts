@@ -17,7 +17,7 @@ test('the audited trees and original grass are restored',async({page},info)=>{
  await info.attach('restored-vegetation',{body:JSON.stringify(data,null,2),contentType:'application/json'});
 });
 
-test('recorded firework cues follow launch and explosion while water suppresses the burst',async({page},info)=>{
+test('procedural firework cues follow launch and explosion while water suppresses the burst',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);
  await page.locator('#enter-vr').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
@@ -47,7 +47,7 @@ test('recorded firework cues follow launch and explosion while water suppresses 
  await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.blast.shots.length===0);
  expect(await page.evaluate(()=>(window as any).fireworkProbe.burst)).toBe(dry.burst);
  await page.waitForTimeout(1100);
- // Stress only the dedicated recorded voices, then verify focus immediately releases them.
+ // Stress only the dedicated procedural voices, then verify focus immediately releases them.
  const bounded=await page.evaluate(()=>{const w=window as any,g=w.__DAHROOJ_REFERENCE__.game;w.fireworkProbe.max=0;for(let i=0;i<40;i++)g.g.playAt(g.ctx.V(0,1,0),()=>g.g.fireworkBurst());const max=w.fireworkProbe.max;g.g.focus(false);return {max,remaining:w.fireworkProbe.voices};});
  expect(bounded.max).toBeLessThanOrEqual(12);expect(bounded.remaining).toBe(0);expect(errors).toEqual([]);
  await info.attach('firework-cues',{body:JSON.stringify({dry,bounded},null,2),contentType:'application/json'});

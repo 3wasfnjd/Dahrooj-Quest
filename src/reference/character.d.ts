@@ -12,4 +12,4 @@ export interface ReferenceFactory {
     updateProbe(...args:unknown[]):void;
 }
 export function createReferenceCharacter(three:typeof T, options:{radius:number;drawFace:typeof import("./face.js").drawReferenceFace;renderer?:T.WebGLRenderer}):ReferenceFactory;
-export interface ReferenceCrowd {group:T.Group;count:number;begin():void;end():void;add(style:StyleId,pos:T.Vector3,radius:number,toward:T.Vector3|null,squash:number[],eyes:string|null,accessoryId?:string):void;}
+export interface ReferenceCrowd {group:T.Group;count:number;begin():void;end():void;add(style:StyleId,pos:T.Vector3,radius:number,toward:T.Vector3|null,squash:number[],eyes:string|null,accessoryId?:string,color?:number):void;}

@@ -1,13 +1,12 @@
 # Third-party notices — Dahrooj Quest
 
-Audit date: 2026-10-09. Game code, Dahrooj identity, icons and original score: Aboden Games, all rights reserved unless a file says otherwise. This notice does not relicense third-party work.
+Audit updated: 2026-10-10. Game code, Dahrooj identity, icons and original score: Aboden Games, all rights reserved unless a file says otherwise. This notice does not relicense third-party work.
 
 ## Reused assets
 
 | Work | Source and owner | Terms | Included notice |
 |---|---|---|---|
 | Birch/cherry/oak GLBs, bench, lantern, pole light, explosive crate, bowling pin, slabs and foliageSDF textures | Bruno Simon, [folio-2025](https://github.com/brunosimon/folio-2025), through audited legacy commit | MIT; commercial use and redistribution permitted with copyright/license | `public/licenses/folio-2025-MIT.txt` |
-| Whistle and Explosion Single_Firework, edited into launch/burst cues | [Rudmer_Rotteveel, Freesound sound 336008](https://freesound.org/people/Rudmer_Rotteveel/sounds/336008/) | CC0 1.0; commercial use, modification and redistribution permitted; attribution retained voluntarily | `public/licenses/firework-CC0.txt` |
 | Baloo Bhaijaan 2 Arabic and Latin WOFF2, unchanged | The Baloo 2 Project Authors (2019), [Ek Type / Baloo2](https://github.com/EkType/Baloo2) | SIL OFL 1.1; embedding/redistribution permitted, not sold alone | `public/licenses/baloo-OFL.txt` |
 | Touch controller GLBs | Amazon (2019), [WebXR Input Profiles assets](https://github.com/immersive-web/webxr-input-profiles) | MIT | `public/licenses/controller-profiles-MIT.txt` |
 | Dahrooj icons and original melody | Aboden Games; owner authorized reuse in rebuild directive | Proprietary; permission for this game, not a public asset grant | `LICENSE`; `docs/asset-ledger.json` |
@@ -16,7 +15,7 @@ The ledger records each migrated file, source commit, SHA-256, ownership, commer
 
 The environment implementation also contains adaptations of Bruno Simon’s folio-2025 work, covered by the same preserved MIT notice. Asset ownership is attributed directly to the original author; the transfer repository is recorded only as technical provenance in the ledger. Original upstream license rechecked on 2026-10-09 at [folio-2025, license revision 3f7b3bfb](https://github.com/brunosimon/folio-2025/blob/3f7b3bfb7f96cc27ad9db172c65e211166b7953f/license.md).
 
-The temporary procedural tree/grass replacement was reverted on 2026-10-09 at the owner’s request. The audited tree GLBs, foliage texture and original grass renderer are shipped again, with original author rights retained. The two locally hosted firework cues remain credited separately above; all other music and sounds remain the existing reference audio.
+The temporary procedural tree/grass replacement was reverted on 2026-10-09 at the owner’s request. The audited tree GLBs, foliage texture and original grass renderer are shipped again, with original author rights retained. On 2026-10-10 the two recorded firework cues were removed and replaced with original procedural synthesis in the game code. Their historical provenance remains in `docs/retired-assets/firework-CC0.txt` and the retired ledger entries; no recording is shipped. Other music and sounds retain the existing reference synthesis.
 
 ## Runtime software
 

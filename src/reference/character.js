@@ -133,11 +133,11 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
         const g=new T.Group(),mat=(o)=>new T.MeshStandardMaterial({roughness:.5,...o});
         const add=(geo,m,pos,rot,scale)=>{const o=new T.Mesh(geo,m);if(pos)o.position.copy(pos);if(rot)o.rotation.set(...rot);if(scale)o.scale.set(...scale);o.castShadow=true;g.add(o);return o;};
         if(id==='party'){
-          const stripes=canvas(128,256,(c,w,h)=>{const colors=['#ff6969','#ffb34e','#ffe65c','#66d88d','#65c5ff','#9d7fff'];for(let i=0;i<12;i++){c.fillStyle=colors[i%colors.length];c.fillRect(0,i*h/12,w,h/12);}});
-          const hat=new T.Group();hat.position.set(r*.12,r*.92,r*.05);hat.rotation.set(-.15,0,-.32);g.add(hat);
-          const cone=new T.Mesh(new T.ConeGeometry(r*.3,r*.72,lite?12:28,1,true),mat({map:stripes,side:T.DoubleSide}));cone.position.y=r*.36;hat.add(cone);
-          const pom=new T.Mesh(new T.SphereGeometry(r*.09,lite?8:16,lite?6:12),mat({color:0xf2c14e,roughness:.8}));pom.position.y=r*.74;hat.add(pom);
-          const trim=new T.Mesh(new T.TorusGeometry(r*.3,r*.022,8,lite?16:40),mat({color:0xffdf73,metalness:.4,roughness:.3}));trim.rotation.x=Math.PI/2;hat.add(trim);
+          const stripes=canvas(256,256,(c,w,h)=>{const colors=['#ff697e','#ffa04e','#ffe65c','#66d88d','#65c5ff','#8086ed','#c080df'];for(let i=0;i<7;i++){c.fillStyle=colors[i];c.fillRect(0,i*h/7,w,h/7+1);}c.fillStyle='#fff3da';for(let i=0;i<18;i++){c.beginPath();c.arc((i*73+25)%w,(i*51+22)%h,3,0,Math.PI*2);c.fill();}});
+          const hat=new T.Group();hat.position.set(r*.06,r*.90,r*.015);hat.rotation.set(-.09,0,-.14);g.add(hat);
+          const cone=new T.Mesh(new T.ConeGeometry(r*.44,r*1.02,lite?18:40,1,true),mat({map:stripes,side:T.DoubleSide,roughness:.65}));cone.position.y=r*.51;hat.add(cone);
+          const pom=new T.Mesh(new T.SphereGeometry(r*.13,lite?10:20,lite?8:14),mat({color:0xffedb1,roughness:.85}));pom.position.y=r*1.035;hat.add(pom);
+          const trim=new T.Mesh(new T.TorusGeometry(r*.44,r*.044,lite?8:12,lite?24:48),mat({color:0xffdf73,roughness:.6}));trim.rotation.x=Math.PI/2;hat.add(trim);
         }else if(id==='glasses'){
           // Out in front of the 3D eyes, which stand a little proud of the face.
           const frame=mat({color:0x2c2d3d,roughness:.35}),lens=new T.MeshPhysicalMaterial({color:0x1b2233,roughness:.08,metalness:.2,clearcoat:1,envMap:env,envMapIntensity:.8,transparent:!lite,opacity:lite?1:.86});
@@ -297,6 +297,14 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
       bubble:(()=>{const b=MATERIALS.bubble();return instanced(instanced(b,'modelViewMatrix*vec4(position,1.)','modelViewMatrix*instanceMatrix*vec4(position,1.)'),'normalMatrix*normal','normalMatrix*mat3(instanceMatrix)*normal');})()
     };
     crowdMats.bubble.transparent=true;crowdMats.bubble.depthWrite=false;
+    // Instance colours live on each crowd mesh, never in the player's shared material uniforms.
+    for(const id of ['jelly','bubble']){
+      const m=crowdMats[id];
+      m.vertexShader='varying vec3 vInstanceTint;\n'+m.vertexShader.replace('void main(){','void main(){\n#ifdef USE_INSTANCING_COLOR\n vInstanceTint=instanceColor;\n#else\n vInstanceTint=vec3(1.);\n#endif\n');
+      m.fragmentShader='varying vec3 vInstanceTint;\n'+m.fragmentShader;
+    }
+    crowdMats.jelly.fragmentShader=crowdMats.jelly.fragmentShader.replace('void main(){','void main(){vec3 absorption=vec3(.08)+(vec3(1.)-vInstanceTint)*1.2;').replace('-uAbsorb*','-absorption*').replaceAll('uTint*','vInstanceTint*');
+    crowdMats.bubble.fragmentShader=crowdMats.bubble.fragmentShader.replace('gl_FragColor=vec4(col*','gl_FragColor=vec4(col*mix(vec3(1.),vInstanceTint,.55)*');
     // The eye parts in a ball's own frame for each look: open, wide and shut. [white, pupil, glint] per side.
     const EYE_LOOKS={open:[1,1],wide:[1,.42/.55],shut:[.12,1]};
     const eyeLocal={};
@@ -323,7 +331,8 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
     const crowdBody=new T.SphereGeometry(r,16,12),crowdEye=new T.SphereGeometry(1,10,6),crowdGlint=new T.SphereGeometry(1,6,4);
     function crowd(max,withAccessories=false){
       const group=new T.Group(),mk=(geo,mat,n,order=0)=>{const m=new T.InstancedMesh(geo,mat,n);m.count=0;m.frustumCulled=true;m.renderOrder=order;group.add(m);return m;};
-      const bodies={};for(const s of Object.keys(crowdMats))bodies[s]=mk(crowdBody,crowdMats[s],max,s==='bubble'?3:0);
+      const bodies={};for(const s of Object.keys(crowdMats)){bodies[s]=mk(crowdBody,crowdMats[s],max,s==='bubble'?3:0);bodies[s].name='dahrooj-crowd-'+s;}
+      const instanceTint=new T.Color();
       const whites=mk(crowdEye,sclera,max*2),pupils=mk(crowdEye,pupilMat,max*2),glints=mk(crowdGlint,glintMat,max*2);
       const loops=mk(loopGeo,bowRed,max*2),knots=mk(knotGeo,bowDark,max);
       const accessories={};
@@ -338,19 +347,20 @@ export function createReferenceCharacter(T,{radius,drawFace,renderer}){
         group,
         begin(){for(const m of group.children)m.count=0;},
         // One ball: style, centre, radius, the point it faces (or null), squash [sx, sy], eyes 'open' | 'wide' | 'shut' | null.
-        add(style,pos,radius,toward,squash,eyes,accessoryId=''){
+        add(style,pos,radius,toward,squash,eyes,accessoryId='',color){
           const body=bodies[style]||bodies.jelly;if(body.count>=max)return;
           const k=radius/r;
           if(toward){look.lookAt(toward,pos,up);q.setFromRotationMatrix(look);}else q.identity();
           R.makeRotationFromQuaternion(q);S.makeScale(k*squash[0],k*squash[1],k*squash[0]);
           M.makeTranslation(pos.x,pos.y,pos.z).multiply(S).multiply(R);
-          put(body,M);
+          if(color===undefined){if(style==='jelly')instanceTint.copy(jellyU.uTint.value);else instanceTint.setHex(0xffffff);}else instanceTint.setHex(color);
+          body.setColorAt(body.count,instanceTint);put(body,M);
           if(accessories[accessoryId]){const matrix=style==='fur'?tmp.multiplyMatrices(M,accessoryScale):M;for(const m of accessories[accessoryId])put(m,matrix);}
           if(style==='fur'&&!HEADWEAR.has(accessoryId)){for(const l of bowLocal.loops)put(loops,tmp.multiplyMatrices(M,l));put(knots,tmp.multiplyMatrices(M,bowLocal.knot));}
           if(eyes){const base=M;
             for(const [w,p,gl] of eyeLocal[eyes]||eyeLocal.open){put(whites,tmp.multiplyMatrices(base,w));put(pupils,tmp.multiplyMatrices(base,p));put(glints,tmp.multiplyMatrices(base,gl));}}
         },
-        end(){for(const m of group.children){m.instanceMatrix.needsUpdate=true;m.computeBoundingSphere();}bubbleTime.value=performance.now()/1000;},
+        end(){for(const m of group.children){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true;m.computeBoundingSphere();}bubbleTime.value=performance.now()/1000;},
         get count(){return Object.values(bodies).reduce((n,m)=>n+m.count,0);}
       };
     }

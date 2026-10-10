@@ -37,8 +37,8 @@ for(const kind of ['vr','ar'] as const)test(`all unified menu sections remain op
  await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengesOpen);
  const challenges=await surfaces('xr-menu');solid(challenges);
  const initial=await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset);
- await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='page'&&b.id==='next'));});
- expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset)).toBe(initial+1);
+ await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='scrollStep'&&b.id==='down'));});
+ expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset)).toBeGreaterThan(initial);
  solid(await surfaces('xr-menu'));
  await page.screenshot({path:info.outputPath('opaque-challenges-'+kind+'.png')});
  await press('left','y-button');

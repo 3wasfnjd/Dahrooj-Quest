@@ -2,9 +2,9 @@ import {afterEach,describe,expect,it,vi} from 'vitest';
 import {Group,NoBlending,Raycaster,Vector3} from '@iwsdk/core';
 import {createFlatModePanel,MENU_PAGES,modeAtUV,type MenuModel} from '../../src/reference/flat-mode-panel';
 const modes=['goal','hoop','window','cans','bowling','bricks','fair','climb','rain'].map(id=>[id,id,id] as const);
-const model=(english=false,kind='immersive-vr'):MenuModel=>({english,kind,mode:'goal',style:'jelly',jellyColor:'blue',throwStyle:'trigger',shotStyle:'bolt',time:'day',weather:'snow',accessory:'',done:0,resetArmed:false,challenges:Array.from({length:16},(_,i)=>({id:String(i),title:'تحدي',en:'Challenge',value:0,goal:3}))});
+const model=(english=false,kind='immersive-vr'):MenuModel=>({english,kind,mode:'goal',style:'jelly',jellyColor:'blue',throwStyle:'trigger',shotStyle:'bolt',time:'day',weather:'snow',accessory:'',done:0,resetArmed:false,challenges:Array.from({length:16},(_,i)=>({id:String(i),title:`تحدي ${i}`,en:`Challenge ${i}`,value:0,goal:3}))});
 afterEach(()=>vi.unstubAllGlobals());
-function panel(){const ctx=new Proxy({},{get:()=>()=>{},set:()=>true});vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>ctx})});return createFlatModePanel(modes);}
+function panel(drawn:string[]=[]){const ctx=new Proxy({},{get:(_t,k)=>k==='fillText'?(t:string)=>drawn.push(t):()=>{},set:()=>true});vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>ctx})});return createFlatModePanel(modes);}
 describe('single XR menu surface',()=>{
  it('selects all nine coloured modes through actual rays in both languages',()=>{
   const ui=panel(),root=new Group();root.add(ui.mesh);root.position.set(2,1,-3);root.rotation.y=.4;root.scale.setScalar(.5);root.updateMatrixWorld(true);
@@ -38,8 +38,23 @@ describe('single XR menu surface',()=>{
   go('tab','appearance');expect(ui.buttons.filter(b=>b.kind==='jellyColor')).toHaveLength(7);
   go('appearance','accessories');const index=ui.buttons.findIndex(b=>b.id==='headphones');expect(ui.action(index)).toBeNull();
   m.done=14;ui.draw(m);expect(ui.action(index)?.id).toBe('headphones');
-  go('tab','challenges');expect(ui.action(ui.buttons.findIndex(b=>b.id==='prev'))).toBeNull();
-  go('page','next');go('page','next');expect(ui.challengePage).toBe(2);expect(ui.action(ui.buttons.findIndex(b=>b.id==='next'))).toBeNull();
+  go('tab','challenges');expect(ui.action(ui.buttons.findIndex(b=>b.id==='up'))).toBeNull();
+  go('scrollStep','down');expect(ui.challengeScroll.offset).toBeGreaterThan(0);
+  ui.scrollBy(100000);ui.draw(m);expect(ui.challengeScroll.offset).toBe(ui.challengeScroll.max);expect(ui.action(ui.buttons.findIndex(b=>b.id==='down'))).toBeNull();
   go('tab','about');expect(ui.page).toBe('about');ui.show('modes');ui.draw(m);expect(ui.buttons.filter(b=>b.kind==='mode')).toHaveLength(9);
+ });
+ it('scrolls one clipped list by stick or dragging, reaches every row and clamps both ends',()=>{
+  const drawn:string[]=[],ui=panel(drawn),m=model(true);ui.draw(m);expect(ui.scrollAxis(1,.02)).toBe(false);
+  ui.show('challenges');ui.draw(m);expect(drawn).toContain('Challenge 0');expect(drawn).not.toContain('Challenge 15');
+  expect(ui.scrollAxis(.1,.02)).toBe(false);expect(ui.scrollAxis(NaN,.02)).toBe(false);
+  ui.scrollAxis(1,.02);expect(ui.challengeScroll.offset).toBeGreaterThan(0);
+  const before=ui.challengeScroll.offset;ui.dragScroll(.5,.6);expect(ui.challengeScroll.offset).toBeGreaterThan(before);
+  for(let i=0;i<20;i++){ui.scrollBy(96);ui.draw(m);}for(let i=0;i<16;i++)expect(drawn).toContain(`Challenge ${i}`);
+  expect(ui.challengeScroll.offset).toBe(ui.challengeScroll.max);
+  drawn.length=0;ui.draw({...m,done:1});expect(drawn).not.toContain('Challenge 0');expect(drawn).toContain('Challenge 15');
+  ui.dragScroll(.5,1,true);expect(ui.challengeScroll.offset).toBeLessThan(ui.challengeScroll.max);
+  ui.scrollBy(-100000);expect(ui.challengeScroll.offset).toBe(0);
+  m.challenges=[];ui.draw(m);expect(ui.challengeScroll.max).toBe(0);expect(ui.dragScroll(.4,.5,true)).toBe(false);
+  expect(ui.buttons.some(b=>b.kind==='page')).toBe(false);
  });
 });

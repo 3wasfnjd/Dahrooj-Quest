@@ -32,4 +32,17 @@ describe('character appearance on real Three geometry',()=>{
    expect(maximum).toBeGreaterThan(20);main.dispose();
   }
  });
+ it('keeps all seven rain colours in one draw per style without changing the player or later crowds',()=>{
+  const models=character(),rain=models.crowd(21),shots=models.crowd(2),tint=new T.Color();models.setJellyColor('purple');
+  rain.begin();for(const style of ['jelly','fur','bubble'] as const)for(const c of JELLY_COLORS)rain.add(style,new T.Vector3(),.12,null,[1,1],null,'',c.hex);rain.end();
+  expect(rain.count).toBe(21);expect(models.mats.jelly.uniforms.uTint.value.getHex()).toBe(0xb878ff);
+  for(const style of ['jelly','fur','bubble']){const body=rain.group.getObjectByName('dahrooj-crowd-'+style) as T.InstancedMesh;
+   expect(body.count).toBe(7);for(let i=0;i<7;i++){body.getColorAt(i,tint);expect(tint.getHex()).toBe(JELLY_COLORS[i].hex);}
+   expect(body.instanceColor!.version).toBeGreaterThan(0);
+  }
+  shots.begin();shots.add('jelly',new T.Vector3(),.12,null,[1,1],null);shots.end();
+  (shots.group.getObjectByName('dahrooj-crowd-jelly') as T.InstancedMesh).getColorAt(0,tint);expect(tint.getHex()).toBe(0xb878ff);
+  rain.begin();rain.add('fur',new T.Vector3(),.12,null,[1,1],null);rain.end();
+  (rain.group.getObjectByName('dahrooj-crowd-fur') as T.InstancedMesh).getColorAt(0,tint);expect(tint.getHex()).toBe(0xffffff);
+ });
 });

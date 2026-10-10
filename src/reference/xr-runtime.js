@@ -1,3 +1,5 @@
+import {JELLY_COLORS} from '../core/appearance';
+import {drawMenuIcon} from './menu-art';
 import {DAHROOJ_COLORS} from './palette.js';
 import {createFlatModePanel,MENU_ACCESSORIES,MENU_SHOTS} from './flat-mode-panel';
 import {rainSpawn,guideRain} from './rain-field';
@@ -220,7 +222,7 @@ export const createReferenceXR=(() => {
       c.save();c.globalAlpha*=locked?.35:1;
       const bg=c.createRadialGradient(cx-8,cy-8,3,cx,cy,26);bg.addColorStop(0,'#ffffff');bg.addColorStop(1,'#c9b8a2');c.fillStyle=bg;c.beginPath();c.arc(cx,cy+6,24,0,7);c.fill();
       for(const ex of [-8,8]){c.fillStyle='#ffffff';c.beginPath();c.arc(cx+ex,cy+3,5,0,7);c.fill();c.fillStyle=INK;c.beginPath();c.arc(cx+ex,cy+4,2.6,0,7);c.fill();}
-      if(id==='party'){c.fillStyle='#e2603f';c.beginPath();c.moveTo(cx-12,cy-14);c.lineTo(cx+12,cy-14);c.lineTo(cx+3,cy-40);c.closePath();c.fill();c.fillStyle='#f2c14e';c.beginPath();c.arc(cx+3,cy-41,4,0,7);c.fill();}
+      if(id==='party')drawMenuIcon(c,'party',cx,cy-28,51);
       else if(id==='glasses'){c.fillStyle='#1b2233';for(const ex of [-9,9]){c.beginPath();c.ellipse(cx+ex,cy+3,8,6,0,0,7);c.fill();}c.fillRect(cx-2,cy+1,4,2);}
       else if(id==='cap'){c.fillStyle='#c8442f';c.beginPath();c.arc(cx,cy-6,21,Math.PI,0);c.fill();c.fillRect(cx-4,cy-8,28,5);}
       else if(id==='flower'){c.fillStyle='#ff7f9a';for(let k=0;k<5;k++){const a=k/5*Math.PI*2;c.beginPath();c.arc(cx+14+Math.cos(a)*6,cy-14+Math.sin(a)*6,4.5,0,7);c.fill();}c.fillStyle='#f2c14e';c.beginPath();c.arc(cx+14,cy-14,3.5,0,7);c.fill();}
@@ -304,7 +306,7 @@ export const createReferenceXR=(() => {
       const raw=INTRO_R*(.75+Math.random()*.5),rad=I.rain&&raw>INTRO_R?INTRO_R+(raw-INTRO_R)*.5:raw,sp=.2+Math.random()*.5,dirA=Math.random()*Math.PI*2;
       // Pick once per spawn; cosmetics never change the player's unlocks or add physics bodies.
       const accessory=I.rain?RAIN_ACCESSORIES[Math.random()*RAIN_ACCESSORIES.length|0]:'';
-      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*INTRO_STYLES.length|0],R:rad,accessory,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
+      I.balls.push({id:++ballIds,style:INTRO_STYLES[Math.random()*INTRO_STYLES.length|0],R:rad,accessory,color:I.rain?JELLY_COLORS[ballIds%JELLY_COLORS.length].hex:undefined,p:V(c.x+Math.sin(a)*dist,c.y+.6+Math.random()*1.8,c.z-Math.cos(a)*dist),v:V(0,0,0),
         pending:I.rain,born:I.t+delay,gx:Math.cos(dirA)*sp,gz:Math.sin(dirA)*sp,hop:.5+Math.random()*2.5,d:0,dv:0,hit:0,blink:0,next:1+Math.random()*3});
     }
     function spawnIntro(){
@@ -437,7 +439,7 @@ export const createReferenceXR=(() => {
       for(const b of intro.balls){
         if(intro.t<b.born||b.pending)continue;
         const falling=b.p.y>b.R+.02&&b.v.y<-1.5;
-        crowd.add(b.style,V(b.p.x,b.p.y-b.R*Math.max(0,b.d),b.p.z),b.R*k,toward,[1+b.d*.75,1-b.d],b.hit>0||b.blink>0?'shut':falling?'wide':'open',b.accessory);
+        crowd.add(b.style,V(b.p.x,b.p.y-b.R*Math.max(0,b.d),b.p.z),b.R*k,toward,[1+b.d*.75,1-b.d],b.hit>0||b.blink>0?'shut':falling?'wide':'open',b.accessory,b.color);
       }
       crowd.end();
     }
@@ -508,7 +510,7 @@ export const createReferenceXR=(() => {
 
     function press(h,how){if(!session||session.visibilityState!=='visible')return;
       if(!session)return;
-      if(menuOpen&&h.hover>=0&&how==='trigger'){menuAction(h.hover);return;}
+      if(menuOpen&&h.hover>=0&&how==='trigger'){const b=modePanel.action(h.hover);if(b?.kind==='scroll'&&h.menuUV){h.scrollDrag={v:h.menuUV.y,track:b.id==='track'};return;}menuAction(h.hover);return;}
       if(uiBusy())return;
       // Holding a shooting trigger keeps firing (see autoFire), in every mode.
       if(intro){if(h.onStart)endIntro();else{fireIntro(h);h.autoT=clock;h.auto={fire:()=>fireIntro(h),every:.13};}return;}
@@ -552,12 +554,8 @@ export const createReferenceXR=(() => {
     const styleFor=fromIntro=>shotChosen?shotStyle:fromIntro?'mini':'bolt';
     const shotGeo=new T.CylinderGeometry(.006,.006,1,6,1,true).rotateX(Math.PI/2),shotMat=new T.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:.95,depthWrite:false});
     const headGeo=new T.SphereGeometry(.012,10,8),headMat=new T.MeshBasicMaterial({color:0xfff4d6});
-    const rocketMat=new T.MeshBasicMaterial({color:0xfff0b0,toneMapped:false});
-    const glowCanvas=document.createElement('canvas');glowCanvas.width=glowCanvas.height=64;
-    const glowCtx=glowCanvas.getContext('2d'),glowGradient=glowCtx.createRadialGradient(32,32,0,32,32,32);
-    glowGradient.addColorStop(0,'rgba(255,250,210,1)');glowGradient.addColorStop(.22,'rgba(255,190,60,.75)');glowGradient.addColorStop(1,'rgba(255,110,20,0)');
-    glowCtx.fillStyle=glowGradient;glowCtx.fillRect(0,0,64,64);
-    const rocketGlow=new T.SpriteMaterial({map:new T.CanvasTexture(glowCanvas),color:0xffcc77,transparent:true,blending:T.AdditiveBlending,depthWrite:false,depthTest:true,toneMapped:false});
+    const rocketMat=new T.MeshBasicMaterial({color:0xffb347});
+
     // Mini Dahroojs and bubbles are drawn by a crowd in the scene (game units).
     const shotCrowd=models?.crowd?models.crowd(96):null;if(shotCrowd)scene.add(shotCrowd.group);
     const FIRE_COLS=[0xe2603f,0xf2c14e,0x6fa8d6,0x7bbf8a,0xc9a2e6,0xfffaf2];
@@ -573,7 +571,7 @@ export const createReferenceXR=(() => {
       let m=null;
       if(kind_==='bolt'){m=new T.Group();const tr=new T.Mesh(shotGeo,shotMat),hd=new T.Mesh(headGeo,headMat);
         tr.scale.set(k,k,.35*k);tr.position.z=-.175*k;hd.scale.setScalar(k);m.add(tr,hd);m.position.copy(p);m.lookAt(p.clone().add(dir));scene.add(m);}
-      else if(kind_==='firework'){m=new T.Mesh(headGeo,rocketMat);const glow=new T.Sprite(rocketGlow);glow.scale.set(.13,.13,1);m.add(glow);m.scale.setScalar(1.4*k);m.position.copy(p);scene.add(m);}
+      else if(kind_==='firework'){m=new T.Mesh(headGeo,rocketMat);m.scale.setScalar(1.4*k);m.position.copy(p);scene.add(m);}
       const look=INTRO_STYLES[(blast.fired)%INTRO_STYLES.length];
       blast.shots.push({kind:kind_,m,p,v:dir.clone().multiplyScalar(P.speed*k),dir:dir.clone(),t:0,r:P.r*k,look,wob:Math.random()*6,fromIntro});
       // Muzzle flash (not for a bubble).
@@ -1100,6 +1098,8 @@ export const createReferenceXR=(() => {
         while(h.hist.length&&clock-h.hist[0].t>.25)h.hist.shift();
         const r=rayOf(h);ray.set(r.origin,r.dir);
         const hit=menuOpen&&h!==leftHand()?ray.intersectObject(modePanel.mesh,false)[0]:null;
+        h.menuUV=hit?.uv||null;
+        if(h.scrollDrag){if(hit?.uv&&modePanel.page==='challenges'){modePanel.dragScroll(h.scrollDrag.v,hit.uv.y,h.scrollDrag.track);h.scrollDrag.v=hit.uv.y;}else h.scrollDrag=null;}
         const previous=h.hover;h.hover=hit?.uv?modePanel.hit(hit.uv.x,hit.uv.y):-1;
         if(h.hover>=0&&h.hover!==previous)buzz(h,.12,12);
         h.onStart=!hit&&start.mesh.visible&&!!ray.intersectObject(start.mesh,false)[0];if(h.onStart)startHot=true;
@@ -1108,7 +1108,7 @@ export const createReferenceXR=(() => {
         const pad=h.source?.gamepad,axes=pad?.axes;
         // A shooting trigger held down fires again and again until it's let go.
         if(h.auto){if(!session||uiBusy()||(h.hover>=0)){h.auto=null;}else if(clock-(h.autoT||0)>=h.auto.every){h.autoT=clock;h.auto.fire();}}
-        if(uiBusy())continue;
+        if(uiBusy()){if(h!==leftHand()&&axes?.length>3&&!h.scrollDrag)modePanel.scrollAxis(axes[3],dt);continue;}
         if(climbOn&&axes&&axes.length>3){
           if(h===leftHand()||!leftHand())stickX=Math.abs(axes[2])>.25?axes[2]:stickX;
           // Right stick up/down resizes in VR and AR without moving the rig or the confirmed anchor.
@@ -1203,7 +1203,7 @@ export const createReferenceXR=(() => {
     }
 
     return {enter,frame:loop,get presenting(){return !!session;},get kind(){return kind;},get holding(){return !!holder;},
-      ...(import.meta.env.DEV?{action:menuAction,choosePlaza}:{}),get placing(){return placing;},get rests(){return rests;},get ballShown(){return !!ballModel?.group.visible;},get challengesOpen(){return menuOpen&&modePanel.page==='challenges';},get challengeScroll(){return {offset:modePanel.challengePage,max:Math.ceil(headsetChallenges().length/6)-1};},get challengeIds(){return headsetChallenges().map(c=>c.id);},get lang(){return lang;},get session(){return session;},get chargeNow(){return holder?chargePower(holder):0;},get roomPlanes(){return roomPlanes.size;},...(import.meta.env.DEV?{addTestPlane}:{}),
+      ...(import.meta.env.DEV?{action:menuAction,choosePlaza}:{}),get placing(){return placing;},get rests(){return rests;},get ballShown(){return !!ballModel?.group.visible;},get challengesOpen(){return menuOpen&&modePanel.page==='challenges';},get challengeScroll(){return modePanel.challengeScroll;},get challengeIds(){return headsetChallenges().map(c=>c.id);},get lang(){return lang;},get session(){return session;},get chargeNow(){return holder?chargePower(holder):0;},get roomPlanes(){return roomPlanes.size;},...(import.meta.env.DEV?{addTestPlane}:{}),
       // For tests: pin the court as if the hit test found this spot and surface normal.
       // Tests: let go of Dahrooj and drop him at P with velocity v, as if thrown there.
       ...(import.meta.env.DEV?{rainSnapshot:()=>intro?.rain?intro.balls.filter(b=>intro.t>=b.born&&!b.pending).map(b=>({id:b.id,age:intro.t-b.born,p:b.p.toArray()})):[],testDrop(P,v){parked=false;holder=null;S.held=false;S.pos.set(...P);S.vel.set(...v);S.side.set(0,0,0);S.shot=true;S.grounded=false;S.shotT=0;S.scoredT=0;S.missT=0;},

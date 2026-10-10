@@ -2,7 +2,7 @@ import { mkdir, cp, readFile, readdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 await rm('public/assets', { recursive:true, force:true });
 await mkdir('public/assets', { recursive: true });
-for (const kind of ['models', 'textures', 'fonts', 'audio'])
+for (const kind of ['models', 'textures', 'fonts'])
     await cp(`assets/${kind}`, `public/assets/${kind}`, { recursive: true });
 await rm('public/vendor/profiles', { recursive: true, force: true });
 const profiles = ['meta-quest-touch-plus', 'meta-quest-touch-plus-v2', 'meta-quest-touch-pro', 'oculus-touch-v2', 'oculus-touch-v3'];

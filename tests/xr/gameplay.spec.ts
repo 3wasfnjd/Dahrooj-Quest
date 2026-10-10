@@ -34,13 +34,13 @@ test('original mixed reality placement and session recovery',async({page})=>{
  await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;r.testPin([0,0,-2],[0,1,0]);});expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.placing)).toBe(false);
  await page.waitForTimeout(500);await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.session.end());await expect(page.locator('#gate')).toBeVisible();await page.locator('#enter-ar').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.placing);expect(errors).toEqual([]);
 });
-test('paginated Arabic challenges and bounded world leftovers',async({page},info)=>{
+test('scrollable Arabic challenges and bounded world leftovers',async({page},info)=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
  await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;if(r.lang!=='ar'){r.setMenu(true,'system');r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='lang'));r.setMenu(false);}(window as any).IWER_DEVICE.controllers.left.updateButtonValue('x-button',1);});
  await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengesOpen);await page.evaluate(()=>(window as any).IWER_DEVICE.controllers.left.updateButtonValue('x-button',0));await page.waitForTimeout(600);
  await page.screenshot({path:info.outputPath('challenges-ar-top.png')});
- await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;for(let i=0;i<r.challengeScroll.max;i++)r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='page'&&b.id==='next'));});
+ await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;for(let i=0;i<Math.ceil(r.challengeScroll.max/192);i++)r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='scrollStep'&&b.id==='down'));});
  await page.waitForFunction(()=>{const s=(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll;return s.max>0&&s.offset===s.max;});
  const textureVersion=await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-menu').material.map.version);
  await page.waitForTimeout(150);expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.world.scene.getObjectByName('xr-menu').material.map.version)).toBe(textureVersion);await page.screenshot({path:info.outputPath('challenges-ar-bottom.png')});

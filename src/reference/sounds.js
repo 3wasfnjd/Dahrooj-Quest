@@ -23,7 +23,7 @@ function setListener(pos,fwd,up,ref){
   else { L.setPosition(pos.x,pos.y,pos.z); L.setOrientation(fwd.x,fwd.y,fwd.z,up.x,up.y,up.z); }
 }
 function ensureAudio(){
-  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)();fireworks=createFireworkAudio(audio,sfxOut);void fireworks.load();}catch(_){}}
+  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)();fireworks=createFireworkAudio(audio,sfxOut);}catch(_){}}
   else if(audio.state==='suspended') audio.resume();
 }
 function thump(s){

@@ -1,4 +1,4 @@
-// Preserve the recorded firework cues when regenerating the reference port.
+// Preserve the procedural firework cues when regenerating the reference port.
 const replacements=[
   [
     "src/reference/sounds.js",
@@ -8,7 +8,7 @@ const replacements=[
   [
     "src/reference/sounds.js",
     "function ensureAudio(){\n  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)()}catch(_){}}\n  else if(audio.state==='suspended') audio.resume();\n",
-    "function ensureAudio(){\n  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)();fireworks=createFireworkAudio(audio,sfxOut);void fireworks.load();}catch(_){}}\n  else if(audio.state==='suspended') audio.resume();\n"
+    "function ensureAudio(){\n  if(!audio){try{audio=new (window.AudioContext||window.webkitAudioContext)();fireworks=createFireworkAudio(audio,sfxOut);}catch(_){}}\n  else if(audio.state==='suspended') audio.resume();\n"
   ],
   [
     "src/reference/sounds.js",

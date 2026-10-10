@@ -242,10 +242,11 @@
     "license": "CC0-1.0",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/firework-CC0.txt (voluntary attribution)",
+    "attribution": "docs/retired-assets/firework-CC0.txt (historical provenance only; not shipped)",
     "verification": "Original sound page and CC0 deed checked 2026-10-09; public HQ preview, no restricted download used.",
     "sha256": "290669a28db5b8fdcb69ed2d5eb1c71417f0b5ec072c58149294d7ec4cf82b8e",
-    "optimization": "Mono 44.1kHz/64kbps MP3; crop and gain details in included notice; decoded once, spatial voices capped at 12."
+    "optimization": "Mono 44.1kHz/64kbps MP3; crop and gain details in included notice; decoded once, spatial voices capped at 12.",
+    "status": "Retired 2026-10-10: recordings removed from source assets and production; original procedural firework synthesis replaces both cues."
   },
   {
     "source": "https://freesound.org/people/Rudmer_Rotteveel/sounds/336008/",
@@ -256,9 +257,10 @@
     "license": "CC0-1.0",
     "commercial_use": true,
     "redistribution": true,
-    "attribution": "public/licenses/firework-CC0.txt (voluntary attribution)",
+    "attribution": "docs/retired-assets/firework-CC0.txt (historical provenance only; not shipped)",
     "verification": "Original sound page and CC0 deed checked 2026-10-09; public HQ preview, no restricted download used.",
     "sha256": "c7229dc96f1edea807d0a1bf8dc1442c3fd868e4e1c07c5c7d0471dde7d470ce",
-    "optimization": "Mono 44.1kHz/64kbps MP3; crop and gain details in included notice; decoded once, spatial voices capped at 12."
+    "optimization": "Mono 44.1kHz/64kbps MP3; crop and gain details in included notice; decoded once, spatial voices capped at 12.",
+    "status": "Retired 2026-10-10: recordings removed from source assets and production; original procedural firework synthesis replaces both cues."
   }
 ]

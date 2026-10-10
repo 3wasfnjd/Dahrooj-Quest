@@ -21,9 +21,9 @@ test('the unified menu ignores old throws and switches sections on one surface',
   await button('left','y-button');await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.plaza.open);expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.menuOpen)).toBe(true);
  }
 });
-test('challenge pagination never throws a ball',async({page})=>{
+test('challenge scrolling never throws a ball',async({page})=>{
  await page.goto('/');await page.waitForFunction(()=>!!(window as any).__DAHROOJ_REFERENCE__?.ready);await page.locator('#enter-vr').click();await page.waitForFunction(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.presenting);
- await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;r.setMenu(true,'challenges');r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='page'&&b.id==='next'));});
- expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset)).toBe(1);
+ await page.evaluate(()=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;r.setMenu(true,'challenges');r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='scrollStep'&&b.id==='down'));});
+ expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.challengeScroll.offset)).toBeGreaterThan(0);
  expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.S.shot)).toBe(false);expect(await page.evaluate(()=>(window as any).__DAHROOJ_REFERENCE__.game.runtime.blast.fired)).toBe(0);
 });
