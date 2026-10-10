@@ -2,7 +2,7 @@ import {jellyColor,playableStyle} from '../core/appearance';
 import type {JellyColorId} from '../core/appearance';
 import { normalizeAccessory, SHOTS, STYLES, THROWS } from '../core/config';
 import type { AccessoryId, Language, ShotId, StyleId, ThrowId, TimeOfDay, Weather } from '../core/config';
-import { CHALLENGES, accessoryAvailable } from '../progression/challenges';
+import { CHALLENGES, accessoryAvailable, preserveRingsRewards } from '../progression/challenges';
 import type { ChallengeId } from '../progression/challenges';
 export interface SaveData {
     version: 2;
@@ -42,6 +42,7 @@ export function migrate(value: unknown): SaveData {
     if (SHOTS.includes(raw.shot as ShotId))
         d.shot = raw.shot as ShotId;
     d.challenges = numericRecord(raw.challenges);
+    preserveRingsRewards(d.challenges);
     d.best = numericRecord(raw.best);
     d.stylesUsed = [...new Set(Array.isArray(raw.stylesUsed) ? raw.stylesUsed.filter((s): s is StyleId => STYLES.includes(s)) : [])];
     // Preserve earned legacy style rewards; partial progress counts only remaining styles.

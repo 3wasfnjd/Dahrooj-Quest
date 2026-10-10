@@ -1,5 +1,5 @@
 import {describe,expect,it,vi} from 'vitest';
-import {BALANCE_LEVELS,RICOCHET_LEVELS,RINGS_LEVELS,createTabletopGame,sweepBox} from '../../src/reference/tabletop-games';
+import {BALANCE_LEVELS,RICOCHET_LEVELS,MAZE_LEVELS,TABLE_RADIUS,createTabletopGame,sweepBox} from '../../src/reference/tabletop-games';
 
 describe('balance courses',()=>{
  it.each([72,90,120])('finishes all five courses through tilt physics at %i Hz, including the moving gate',fps=>{
@@ -66,38 +66,50 @@ describe('ricochet courses',()=>{
  });
 });
 
-describe('rings courses',()=>{
- it.each([72,90,120])('passes every ring in all five courses at %i Hz, including moving rings',fps=>{
-  const won=vi.fn(),g=createTabletopGame('rings');
-  for(let level=0;level<RINGS_LEVELS.length;level++){
-   const game=createTabletopGame('rings',won);game.reset(level);const l=RINGS_LEVELS[level];
-   expect(game.launch({x:l.goal.x-l.start.x,z:l.goal.z-l.start.z})).toBe(true);
-   for(let f=0;f<fps*8&&game.phase==='playing';f++)game.step(1/fps);
-   expect(game.phase,`rings ${level+1}: ${JSON.stringify(game.ball)}`).toBe('won');
-   expect(game.passed.size).toBe(l.rings.length);expect(won).toHaveBeenCalledTimes(level+1);
+describe('maze courses with a continuous floor',()=>{
+ it.each([72,90,120])('navigates all five mazes through actual tilt and wall collisions at %i Hz',fps=>{
+  const won=vi.fn(),g=createTabletopGame('maze',won);
+  for(let level=0;level<MAZE_LEVELS.length;level++){
+   g.reset(level);const route=MAZE_LEVELS[level].route;let target=1,frames=0;
+   while(g.phase!=='won'&&frames++<fps*150){
+    const p=route[target],x=p.x-g.ball.x,z=p.z-g.ball.z;
+    if(Math.hypot(x,z)<.07&&target<route.length-1)target++;
+    g.setTilt((x*4-g.velocity.x*3)/7,(z*4-g.velocity.z*3)/7);g.step(1/fps);
+    expect(g.fall).toBe(0);expect(g.failures).toBe(0);
+   }
+   expect(g.phase,`maze ${level+1}: ${JSON.stringify(g.ball)}, waypoint ${target}`).toBe('won');
+   expect(g.stars.size).toBe(3);expect(won).toHaveBeenNthCalledWith(level+1,3,expect.objectContaining({mode:'maze',level,stars:3,failures:0}));
   }
-  expect(g.levelCount).toBe(5);
+  for(let i=0;i<210;i++)g.step(1/120);expect(g.level).toBe(0);expect(won).toHaveBeenCalledTimes(5);
  });
- it('makes launch timing matter in the moving-ring course',()=>{
-  const g=createTabletopGame('rings');g.reset(3);for(let i=0;i<120;i++)g.step(1/120);
-  g.launch({x:0,z:-1});for(let i=0;i<500&&g.phase==='playing';i++)g.step(1/120);
-  expect(g.phase).toBe('falling');expect(g.passed.size).toBe(0);
- });
- it('rejects a rim hit, a missed ring and a backwards throw; retry clears passes but not attempts',()=>{
-  const won=vi.fn(),g=createTabletopGame('rings',won);
-  for(const direction of [{x:.32,z:-1},{x:1,z:0},{x:0,z:1}]){
-   g.reset();g.launch(direction);for(let i=0;i<1000&&g.phase==='playing';i++)g.step(1/120);
-   expect(g.phase).toBe('falling');expect(won).not.toHaveBeenCalled();
+ it('keeps Dahrooj on the board under sustained maximum tilt toward walls and corners',()=>{
+  const g=createTabletopGame('maze');
+  for(let level=0;level<5;level++)for(let d=0;d<8;d++){
+   g.reset(level);g.setTilt(Math.cos(d*Math.PI/4),Math.sin(d*Math.PI/4));
+   for(let i=0;i<300;i++){
+    g.step(.05);expect(g.phase).not.toBe('falling');expect(g.fall).toBe(0);expect(g.failures).toBe(0);
+    expect(Math.abs(g.ball.x)).toBeLessThanOrEqual(1.5-.09-TABLE_RADIUS+.00001);
+    expect(Math.abs(g.ball.z)).toBeLessThanOrEqual(1.7-.09-TABLE_RADIUS+.00001);
+    for(const wall of MAZE_LEVELS[g.level].walls)expect(Math.abs(g.ball.x-wall.x)<wall.hx+TABLE_RADIUS-.00001&&Math.abs(g.ball.z-wall.z)<wall.hz+TABLE_RADIUS-.00001).toBe(false);
+   }
   }
-  g.reset(2);g.launch({x:0,z:-1});for(let i=0;i<1000&&g.phase==='playing';i++)g.step(1/120);
-  for(let i=0;i<200&&g.phase==='falling';i++)g.step(1/120);
-  expect(g.phase).toBe('ready');expect(g.passed.size).toBe(0);expect(g.attempts).toBe(1);expect(g.failures).toBe(1);
  });
- it('pauses ring motion and flight, prevents repeat launch, and wraps only after the fifth round',()=>{
-  const g=createTabletopGame('rings');g.reset(4);const l=RINGS_LEVELS[4];g.launch({x:l.goal.x-l.start.x,z:l.goal.z-l.start.z});g.step(.05);
-  const saved={ball:{...g.ball},rings:g.rings};for(let i=0;i<200;i++)g.step(.05,false);
-  expect(g.ball).toEqual(saved.ball);expect(g.rings).toEqual(saved.rings);expect(g.launch({x:0,z:-1})).toBe(false);
-  for(let i=0;i<1000&&g.phase==='playing';i++)g.step(1/120);expect(g.phase).toBe('won');
-  for(let i=0;i<210;i++)g.step(1/120);expect(g.level).toBe(0);expect(g.phase).toBe('ready');
+ it('stops a fast ball at an internal divider and slides along it',()=>{
+  const g=createTabletopGame('maze');g.reset(4);const wall=MAZE_LEVELS[4].walls.slice(4).find(w=>w.hx<w.hz)!;
+  Object.assign(g.ball,{x:wall.x-wall.hx-TABLE_RADIUS-.05,z:wall.z});Object.assign(g.velocity,{x:40,z:0});g.step(.05);
+  expect(g.ball.x).toBeLessThan(wall.x-wall.hx-TABLE_RADIUS);expect(g.fall).toBe(0);expect(g.velocity.x).toBe(0);
+  g.setTilt(.32,.15);const z=g.ball.z;g.step(.05);expect(g.ball.z).toBeGreaterThan(z);
+ });
+ it('has no overlapping coplanar wall tops and keeps every wall inside the solid floor',()=>{
+  for(const l of MAZE_LEVELS)for(let i=0;i<l.walls.length;i++){
+   const a=l.walls[i];expect(Math.abs(a.x)+a.hx).toBeLessThanOrEqual(1.5+1e-9);expect(Math.abs(a.z)+a.hz).toBeLessThanOrEqual(1.7+1e-9);
+   for(const b of l.walls.slice(i+1))expect(Math.abs(a.x-b.x)<a.hx+b.hx-1e-9&&Math.abs(a.z-b.z)<a.hz+b.hz-1e-9).toBe(false);
+  }
+ });
+ it('requires all stars, rejects launching, freezes without a grip and retries without a drop',()=>{
+  const won=vi.fn(),g=createTabletopGame('maze',won);Object.assign(g.ball,MAZE_LEVELS[0].goal);g.step(.05);expect(won).not.toHaveBeenCalled();
+  g.reset();expect(g.launch({x:0,z:-1})).toBe(false);g.setTilt(.2,-.2);g.step(.05);const saved={ball:{...g.ball},velocity:{...g.velocity},stars:[...g.stars]};
+  for(let i=0;i<200;i++)g.step(.05,false);expect(g.ball).toEqual(saved.ball);expect(g.velocity).toEqual(saved.velocity);expect([...g.stars]).toEqual(saved.stars);
+  g.retry();expect(g.phase).toBe('ready');expect(g.ball).toEqual(MAZE_LEVELS[0].start);expect(g.failures).toBe(1);expect(g.fall).toBe(0);
  });
 });

@@ -1,7 +1,7 @@
-import {CanvasTexture,LinearFilter,LinearMipmapLinearFilter,Mesh,MeshBasicMaterial,PlaneGeometry,SRGBColorSpace,Vector3} from '@iwsdk/core';
+import {CanvasTexture,LinearFilter,LinearMipmapLinearFilter,Mesh,MeshBasicMaterial,Shape,ShapeGeometry,SRGBColorSpace,Vector3} from '@iwsdk/core';
 import {menuDepth} from './menu-depth';
 import {JELLY_COLORS} from '../core/appearance';
-import {drawMenuCard,drawMenuIcon,drawMenuPaper,drawMenuFooter,MENU_INK,MENU_LIGHT} from './menu-art';
+import {drawMenuCard,drawMenuIcon,drawMenuPaper,drawMenuFooter,MENU_INK,MENU_LIGHT,MENU_CORNER} from './menu-art';
 import {UNLOCKS,CHALLENGES,accessoryAvailable} from '../progression/challenges';
 import {XR_MODE_CATALOG} from './mode-catalog';
 
@@ -18,7 +18,7 @@ export const MENU_CREDITS=[
  ['Amazon','نماذج وحدات التحكم','Controller models'],
  ['Meta · Three.js / super-three','أدوات الواقع الممتد ومكتبات الرسم','Immersive tools and rendering libraries'],
 ] as const;
-export type MenuModel={english:boolean;kind:string|null;mode:string;style:string;jellyColor:string;throwStyle:string;shotStyle:string;time:string;weather:string;accessory:string;done:number;resetArmed:boolean;challenges:{id:string;title:string;en:string;value:number;goal:number}[]};
+export type MenuModel={english:boolean;kind:string|null;mode:string;style:string;jellyColor:string;throwStyle:string;shotStyle:string;time:string;weather:string;accessory:string;done:number;resetArmed:boolean;rewards?:Record<string,number>;challenges:{id:string;title:string;en:string;value:number;goal:number}[]};
 export type MenuButton={kind:string;id:string;ar:string;en:string;x:number;y:number;w:number;h:number;selected?:boolean;disabled?:boolean;color?:string;fill?:string;icon?:string;sub?:string};
 type Mode=readonly [string,string,string,...string[]];
 const W=1200,H=1000,WIDTH=.765,HEIGHT=WIDTH*H/W;
@@ -37,7 +37,16 @@ export function createFlatModePanel(modes:readonly Mode[]){
  // across levels instead of undersampling thin strokes with a single linear lookup.
  texture.generateMipmaps=true;texture.minFilter=LinearMipmapLinearFilter;texture.magFilter=LinearFilter;texture.anisotropy=4;
  const material=menuDepth(new MeshBasicMaterial({map:texture,fog:false,toneMapped:false}),true);material.depthTest=false;material.depthWrite=false;
- const mesh=new Mesh(new PlaneGeometry(WIDTH,HEIGHT),material);mesh.name='xr-menu';mesh.renderOrder=50;
+ // Cut the corners in the geometry itself: still one opaque, flat surface,
+ // with no transparent mask or extra border layer competing between the eyes.
+ const shape=new Shape(),r=MENU_CORNER/W*WIDTH,x=WIDTH/2,y=HEIGHT/2;
+ shape.moveTo(-x+r,-y);shape.lineTo(x-r,-y);shape.absarc(x-r,-y+r,r,-Math.PI/2,0,false);
+ shape.lineTo(x,y-r);shape.absarc(x-r,y-r,r,0,Math.PI/2,false);
+ shape.lineTo(-x+r,y);shape.absarc(-x+r,y-r,r,Math.PI/2,Math.PI,false);
+ shape.lineTo(-x,-y+r);shape.absarc(-x+r,-y+r,r,Math.PI,Math.PI*1.5,false);shape.closePath();
+ const geometry=new ShapeGeometry(shape,12),positions=geometry.getAttribute('position'),uv=geometry.getAttribute('uv');
+ for(let i=0;i<uv.count;i++)uv.setXY(i,positions.getX(i)/WIDTH+.5,positions.getY(i)/HEIGHT+.5);
+ const mesh=new Mesh(geometry,material);mesh.name='xr-menu';mesh.renderOrder=50;
  let key='',page:MenuPage='modes',appearance='character',challengeOffset=0,buttons:MenuButton[]=[],lastModel:MenuModel|null=null;
  const tr=(a:string,b:string)=>lastModel?.english?b:a;
  const text=(value:string,x:number,y:number,size=32,color=MENU_INK,max=850)=>{ctx.fillStyle=color;ctx.font=`500 ${size}px "Dahrooj",Tahoma,sans-serif`;ctx.fillText(value,x,y,max);};
@@ -57,7 +66,7 @@ export function createFlatModePanel(modes:readonly Mode[]){
     MENU_STYLES.forEach(([id,ar,en],i)=>add('style',id,ar,en,grid(i,3,300,200,english),{selected:id===m.style,icon:id}));
     JELLY_COLORS.forEach((c,i)=>add('jellyColor',c.id,c.ar,c.en,grid(i,4,575,102,english),{selected:c.id===m.jellyColor,color:'#'+c.hex.toString(16).padStart(6,'0')}));
    }else {
-    const progress=Object.fromEntries(m.challenges.map(c=>[c.id,c.value]));
+    const progress=m.rewards??Object.fromEntries(m.challenges.map(c=>[c.id,c.value]));
     MENU_ACCESSORIES.forEach(([id,ar,en,need],i)=>{const open=accessoryAvailable(id,m.done,progress),ch=CHALLENGES.find(c=>c[0]===need);
      add('acc',id,ar,en,grid(i,4,304,168,english),{selected:id===m.accessory,disabled:!open,sub:open?undefined:ch?tr(ch[2],ch[3]):tr(`يحتاج ${need} تحديات`,`Needs ${need} challenges`)});
     });
@@ -97,7 +106,7 @@ export function createFlatModePanel(modes:readonly Mode[]){
    ctx.fillStyle=b.color!;ctx.beginPath();ctx.arc(cx,cy,29,0,Math.PI*2);ctx.fill();
    if(on)drawMenuIcon(ctx,'check',cx,cy,29,MENU_INK);
   }else{
-   drawMenuIcon(ctx,b.icon!,cx,cy,b.kind==='scrollStep'?24:b.kind==='tab'||b.kind==='close'?43:Math.min(77,b.h-34,b.w-38),ink);
+   drawMenuIcon(ctx,b.icon!,cx,cy,b.kind==='scrollStep'?24:b.kind==='tab'||b.kind==='close'?45:Math.min(82,b.h-34,b.w-38),ink);
    if(b.disabled&&b.kind==='acc')drawMenuIcon(ctx,'lock',cx+43,cy+40,24,MENU_INK);
   }
  }
@@ -152,7 +161,7 @@ export function createFlatModePanel(modes:readonly Mode[]){
   },
   draw(model:MenuModel,hot=-1){
    // Progress/weather changes on hidden pages must not upload a whole menu texture.
-   const visible=page==='modes'?[model.mode]:page==='appearance'?[model.style,model.jellyColor,model.accessory,model.done,model.challenges]:page==='play'?[model.throwStyle,model.shotStyle]:page==='world'?[model.kind,model.time,model.weather]:page==='challenges'?[model.resetArmed,model.challenges]:[];
+   const visible=page==='modes'?[model.mode]:page==='appearance'?[model.style,model.jellyColor,model.accessory,model.done,model.challenges,model.rewards]:page==='play'?[model.throwStyle,model.shotStyle]:page==='world'?[model.kind,model.time,model.weather]:page==='challenges'?[model.resetArmed,model.challenges]:[];
    const next=JSON.stringify([page,appearance,challengeOffset,hot,model.english,visible]);lastModel=model;if(key===next)return;key=next;buttons=layout(model);
    drawMenuPaper(ctx,model.english);ctx.textAlign='center';ctx.direction=model.english?'ltr':'rtl';
    const base=contentX(model.english);

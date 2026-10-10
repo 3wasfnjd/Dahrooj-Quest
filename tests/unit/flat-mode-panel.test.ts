@@ -26,6 +26,23 @@ describe('single XR menu surface',()=>{
   const initial=ui.mesh.matrix.clone();ui.draw(m);const version=texture.version;ui.draw(m);expect(texture.version).toBe(version);
   for(const [page] of MENU_PAGES){ui.show(page);ui.draw(m);for(let i=0;i<ui.buttons.length;i++){ui.draw(m,i);ui.mesh.updateMatrix();expect(ui.mesh.matrix.equals(initial)).toBe(true);}expect(ui.mesh.children).toHaveLength(0);}
  });
+ it('cuts away the four outside corners while retaining correct UVs and every page target',()=>{
+  const ui=panel();ui.mesh.updateMatrixWorld(true);
+  const hit=(u:number,v:number)=>new Raycaster(new Vector3((u-.5)*.765,(v-.5)*.6375,1),new Vector3(0,0,-1)).intersectObject(ui.mesh)[0];
+  for(const x of [.002,.998])for(const y of [.002,.998])expect(hit(x,y)).toBeUndefined();
+  for(const [u,v] of [[.5,.005],[.005,.5],[.5,.995],[.995,.5],[.04,.048],[.96,.952]]){
+   const h=hit(u,v);expect(h).toBeDefined();expect(h.uv!.x).toBeCloseTo(u,5);expect(h.uv!.y).toBeCloseTo(v,5);
+  }
+  for(const english of [false,true])for(const [page] of MENU_PAGES){ui.show(page);ui.draw(model(english));for(const b of ui.buttons){
+   const u=(b.x+b.w/2)/1200,v=1-(b.y+b.h/2)/1000,h=hit(u,v);expect(h).toBeDefined();expect(ui.buttons[ui.hit(h.uv!.x,h.uv!.y)]).toBe(b);
+  }}
+ });
+ it('keeps an earned retired reward selectable without completing the new maze challenges',()=>{
+  const ui=panel(),m=model();m.rewards={'reward:starGlasses':1};ui.show('appearance');ui.draw(m);
+  ui.navigate(ui.buttons.find(b=>b.kind==='appearance'&&b.id==='accessories')!);ui.draw(m);
+  const index=ui.buttons.findIndex(b=>b.id==='starGlasses');expect(ui.action(index)?.id).toBe('starGlasses');
+  ui.draw({...m,rewards:{}});expect(ui.action(index)).toBeNull();expect(ui.buttons[index].sub).toContain('المتاهات');
+ });
  it('keeps visible button targets within bounds and disjoint across all sections in VR and AR',()=>{
   const ui=panel();
   for(const english of [false,true])for(const kind of ['immersive-vr','immersive-ar'])for(const [page] of MENU_PAGES){

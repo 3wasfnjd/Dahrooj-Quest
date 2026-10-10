@@ -12,13 +12,13 @@ import {drawReferenceFace} from './face.js';
 import climbCore from './summit-core.js';
 import tabletop from './stages/tabletop.js';
 import goal from './stages/goal.js';import hoop from './stages/hoop.js';import windowStage from './stages/window.js';import cans from './stages/cans.js';import bowling from './stages/bowling.js';import bricks from './stages/bricks.js';import fair from './stages/fair.js';
-const T={...Core,GLTFLoader},builders={goal,hoop,window:windowStage,cans,bowling,bricks,fair,balance:ctx=>tabletop(ctx,'balance'),ricochet:ctx=>tabletop(ctx,'ricochet'),rings:ctx=>tabletop(ctx,'rings')};
+const T={...Core,GLTFLoader},builders={goal,hoop,window:windowStage,cans,bowling,bricks,fair,balance:ctx=>tabletop(ctx,'balance'),ricochet:ctx=>tabletop(ctx,'ricochet'),maze:ctx=>tabletop(ctx,'maze')};
 export function createCompleteGame(world,store){
  const {scene,camera,renderer}=world,V=(x=0,y=0,z=0)=>new T.Vector3(x,y,z),UP=V(0,1,0),BR=.24,GRAV=13;
  const S={pos:V(0,BR+1.2,0),vel:V(),side:V(),axis:UP.clone(),d:0,dv:0,shot:false,shotT:0,zMax:6,xMax:16,scoredT:0,missT:0,mood:null,moodT:0,moodNext:null,idle:0,restT:0,hitT:0,blink:0,nextBlink:2,grounded:false,lastHit:0,prevZ:0,prevY:0};
  const hemi=new T.HemisphereLight(0xfff8ee,0xc1c8d6,1.8),sun=new T.DirectionalLight(0xffffff,2);sun.position.set(3,10,-4);sun.target.position.set(0,0,-9);scene.add(hemi,sun,sun.target);
  const ground=new T.Mesh(new T.PlaneGeometry(80,80),new T.ShadowMaterial({opacity:.17}));ground.name='xr-world-shadow-ground';ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
- const sound=createReferenceSounds(),confetti=createReferenceConfetti({T,scene,camera,V,BR}),counts={goal:0,hoop:0,window:0,cans:0,bowling:0,bricks:0,fair:0,climb:0,balance:0,ricochet:0,rings:0};
+ const sound=createReferenceSounds(),confetti=createReferenceConfetti({T,scene,camera,V,BR}),counts={goal:0,hoop:0,window:0,cans:0,bowling:0,bricks:0,fair:0,climb:0,balance:0,ricochet:0,maze:0};
  let mode='goal',style=store.data.style,stage=null,runtime=null,toastMessage='',toastUntil=0,hoopStreak=0,focused=false,requested='immersive-vr';const cache=new Map(),samples=[],dtSamples=[];
  const toast=text=>{toastMessage=text;toastUntil=performance.now()+2300;};
  const chProgress=(id,value)=>{const c=challenges.find(c=>c.id===id);if(!c)return;const before=store.data.challenges[id]||0;const next=challengeValue(id,before,c.goal,value);if(next===before)return;store.data.challenges[id]=next;store.touch();if(before<c.goal&&value>=c.goal){toast('✓ '+(store.data.language==='en'?c.en:c.title));sound.chime();}};
@@ -39,6 +39,7 @@ export function createCompleteGame(world,store){
  climbEvent(e){if(['pop','stomp','kill'].includes(e.type))sound.startPopSound();if(['stomp','kill'].includes(e.type))chProgress('monsters15',(store.data.challenges.monsters15||0)+1);if(e.type==='checkpoint'){sound.chime();toast('نقطة حفظ ✓');}if(e.type==='summit'){sound.chime();ctx.addCount('climb');chProgress('summit1',1);const m=Math.floor(e.time/60),s=Math.round(e.time%60);toast(`وصلت القمة في ${m?ctx.ar(m)+' د ':''}${ctx.ar(s)} ث`);}},
  recall(){if(S.shot&&S.scoredT<=0&&S.missT<=0&&mode==='hoop')resetStreak();state.respawn();},canHold:()=>!S.shot&&!S.scoredT&&!S.missT,
  noteStyle,
+ rewardProgress:()=>store.data.challenges,
  challenges:()=>challenges.map(c=>({...c,value:Math.min(c.goal,store.data.challenges[c.id]||0)})),chAdd:id=>chProgress(id,(store.data.challenges[id]||0)+1),
  resetChallenges(){for(const k of Object.keys(store.data.challenges))delete store.data.challenges[k];store.data.stylesUsed=[];clearTabletopProgress(store.data.best);hoopStreak=0;store.touch();},
  setLang(lang){store.data.language=lang;store.touch();},texts:()=>({count:counts[mode],toast:performance.now()<toastUntil?toastMessage:'',title:''}),paper:()=>({jelly:'#ddd2c1',fabric:'#bccab1',clay:'#dcae88',fur:'#e3bcae',bubble:'#b1cade'}[style]),

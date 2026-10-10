@@ -2,18 +2,18 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import * as T from '@iwsdk/core';
 import {createCompleteGame} from '../../src/reference/complete-game.js';
-import {defaults} from '../../src/save/store';
+import {defaults,migrate} from '../../src/save/store';
 // Asset fetching/audio are outside this controller-routing test. The real new stages and character render objects run.
 vi.mock('../../src/reference/nature.js',()=>({createReferenceNature:()=>null}));
 afterEach(()=>vi.unstubAllGlobals());
-async function platform(kind:string){
+async function platform(kind:string,saved=defaults()){
  const context=new Proxy({},{get:(_t,k)=>k==='createLinearGradient'||k==='createRadialGradient'?()=>({addColorStop(){}}):k==='measureText'?()=>({width:80}):()=>{},set:()=>true});
  vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>context}),getElementById:()=>({hidden:false})});
- vi.stubGlobal('localStorage',{getItem:()=>null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener(){},removeEventListener(){}});vi.stubGlobal('navigator',{xr:{}});
+ vi.stubGlobal('localStorage',{getItem:(key:string)=>key==='dahrooj-acc'?saved.accessory:null,setItem:vi.fn()});vi.stubGlobal('window',{addEventListener(){},removeEventListener(){}});vi.stubGlobal('navigator',{xr:{}});
  const scene=new T.Scene(),player=new T.Group(),camera=new T.PerspectiveCamera();scene.add(player);player.add(camera);camera.position.set(0,1.6,0);
  const controllers=[new T.Group(),new T.Group()],grips=[new T.Group(),new T.Group()],session=new T.EventDispatcher() as any;session.visibilityState='visible';
  const xr={getController:(i:number)=>controllers[i],getControllerGrip:(i:number)=>grips[i],getSession:()=>session,addEventListener(){},setReferenceSpaceType(){},setFoveation(){},getReferenceSpace:()=>({})};
- const renderer={xr,capabilities:{getMaxAnisotropy:()=>4},info:{render:{calls:0,triangles:0}}},store={data:defaults(),touch:vi.fn(),flush:vi.fn()};
+ const renderer={xr,capabilities:{getMaxAnisotropy:()=>4},info:{render:{calls:0,triangles:0}}},store={data:saved,touch:vi.fn(),flush:vi.fn()};
  const game:any=createCompleteGame({scene,player,camera,renderer,onXRFrame(){}} as any,store as any),r=game.runtime;
  game.setMode('goal');await r.enter(kind);
  controllers.forEach((h,i)=>{h.position.set(i?.25:-.25,1.1,-.3);grips[i].position.copy(h.position);h.dispatchEvent({type:'connected',data:{handedness:i?'right':'left',gamepad:{buttons:[],axes:[0,0,0,0]}}} as any);});
@@ -25,6 +25,16 @@ async function platform(kind:string){
  return {game,r,scene,player,grips,session,store,frame,choose,event,pointAt};
 }
 describe.each(['immersive-vr','immersive-ar'])('tabletop controller routing in %s',kind=>{
+ it('carries an earned rings accessory into the maze and clears it on explicit reset',async()=>{
+  const saved=migrate({version:2,accessory:'starGlasses',challenges:{rings5:5}});
+  const {r,store,frame,choose}=await platform(kind,saved),stage=choose('maze');frame();
+  expect(stage.grp.getObjectByName('dahrooj-accessory-starGlasses')).toBeDefined();expect(store.data.challenges.maze5).toBeUndefined();
+  r.setMenu(true,'appearance');r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='appearance'&&b.id==='accessories'));
+  expect(r.menuLayout.buttons.find((b:any)=>b.id==='starGlasses').disabled).toBe(false);
+  r.setMenu(true,'challenges');for(let i=0;i<2;i++)r.action(r.menuLayout.buttons.findIndex((b:any)=>b.kind==='reset'));
+  expect(store.data.challenges['reward:starGlasses']).toBeUndefined();r.setMenu(true,'appearance');
+  expect(r.menuLayout.buttons.find((b:any)=>b.id==='starGlasses').disabled).toBe(true);
+ });
  it('tilts the balance board, pauses on menus/tracking loss, restores style and exits cleanly',async()=>{
   const {game,r,scene,player,grips,frame,choose,event}=await platform(kind),stage=choose('balance');
   expect(stage.game.failures).toBe(0);
@@ -52,28 +62,39 @@ describe.each(['immersive-vr','immersive-ar'])('tabletop controller routing in %
   stage.game.retry();event('selectstart');frame(false);event('selectend');expect(stage.game.phase).toBe('ready');
   session.dispatchEvent({type:'end'});expect(stage.grp.visible).toBe(false);expect(r.presenting).toBe(false);
  });
- it('plays all five ring rounds through controller aiming, persists their reward, equips it and resets progress',async()=>{
-  const {r,game,store,frame,choose,event,pointAt}=await platform(kind),stage=choose('rings');
-  expect(r.plaza.ids).toHaveLength(12);expect(stage.game.levelCount).toBe(5);expect(stage.game.failures).toBe(0);
-  const menu=r.menuLayout.mesh;
+ it('plays five mazes by controller tilt, pauses safely, equips the reward and resets progress',async()=>{
+  const {r,game,grips,store,frame,choose,event}=await platform(kind),stage=choose('maze');
+  expect(r.plaza.ids).toHaveLength(12);expect(r.plaza.ids).not.toContain('rings');expect(stage.game.failures).toBe(0);
+  const menu=r.menuLayout.mesh,floor=stage.grp.getObjectByName('tabletop-floor');
+  expect(floor.material.alphaTest).toBe(0);expect(floor.material.transparent).toBe(false);
   for(let level=0;level<5;level++){
-   stage.game.reset(level);frame();const board=stage.grp.children[0],goal=stage.game.definition.goal;
-   pointAt(board.localToWorld(new T.Vector3(goal.x,.14,goal.z)));frame();
-   event('selectstart');event('selectend');expect(stage.game.phase).toBe('playing');
-   if(level===0){r.setMenu(true);const saved={ball:{...stage.game.ball},rings:stage.game.rings};for(let i=0;i<20;i++)frame();expect(stage.game.ball).toEqual(saved.ball);expect(stage.game.rings).toEqual(saved.rings);r.setMenu(false);}
-   for(let i=0;i<500&&stage.game.phase==='playing';i++)frame();
-   expect(stage.game.phase,`round ${level+1}`).toBe('won');expect(store.data.challenges.rings5).toBe(level+1);
+   stage.game.reset(level);frame();grips[1].rotation.set(0,0,0);event('squeezestart');
+   const route=stage.game.definition.route,walls=stage.grp.getObjectByName('maze-walls'),matrix=new T.Matrix4(),v=new T.Vector3(),q=new T.Quaternion(),scale=new T.Vector3();
+   expect(walls.count).toBe(stage.game.definition.walls.length);
+   stage.game.definition.walls.forEach((w:any,i:number)=>{walls.getMatrixAt(i,matrix);matrix.decompose(v,q,scale);expect(v.x).toBeCloseTo(w.x);expect(v.z).toBeCloseTo(w.z);expect(scale.x).toBeCloseTo(w.hx*2);expect(scale.z).toBeCloseTo(w.hz*2);});
+   if(level===0){
+    grips[1].rotation.z=-.2;for(let i=0;i<12;i++)frame();r.setMenu(true);const saved={...stage.game.ball};for(let i=0;i<20;i++)frame();expect(stage.game.ball).toEqual(saved);
+    r.setMenu(false);for(let i=0;i<20;i++)frame();expect(stage.game.ball).toEqual(saved);grips[1].rotation.set(0,0,0);event('squeezestart');frame(false);const lost={...stage.game.ball};for(let i=0;i<10;i++)frame();expect(stage.game.ball).toEqual(lost);event('squeezestart');
+   }
+   let target=1;
+   for(let i=0;i<90*150&&stage.game.phase!=='won';i++){
+    const p=route[target],x=p.x-stage.game.ball.x,z=p.z-stage.game.ball.z;
+    if(Math.hypot(x,z)<.07&&target<route.length-1)target++;
+    const clamp=(v:number)=>Math.max(-.32,Math.min(.32,v)),tx=clamp((x*4-stage.game.velocity.x*3)/7),tz=clamp((z*4-stage.game.velocity.z*3)/7);
+    // Generate the controller orientation that tilts its up vector by these angles.
+    grips[1].quaternion.setFromUnitVectors(new T.Vector3(0,1,0),new T.Vector3(Math.tan(tx),1,Math.tan(tz)).normalize());frame();
+   }
+   event('squeezeend');expect(stage.game.phase,`maze ${level+1}`).toBe('won');expect(store.data.challenges.maze5).toBe(level+1);expect(stage.game.fall).toBe(0);
   }
-  expect(store.data.best['tabletop:rings:cleared']).toBe(31);expect(store.data.challenges.ringsClean).toBe(1);expect(store.touch).toHaveBeenCalled();
+  expect(store.data.best['tabletop:maze:cleared']).toBe(31);expect(store.data.challenges.mazeClean).toBe(1);expect(store.touch).toHaveBeenCalled();
   r.setMenu(true,'appearance');const click=(key:string,id:string)=>{const i=r.menuLayout.buttons.findIndex((b:any)=>b.kind===key&&b.id===id);expect(i).toBeGreaterThanOrEqual(0);r.action(i);};
   click('appearance','accessories');click('acc','starGlasses');r.setMenu(false);frame();
   expect(stage.grp.getObjectByName('dahrooj-accessory-starGlasses')).toBeDefined();expect(r.menuLayout.mesh).toBe(menu);expect(r.blast.fired).toBe(0);
-  stage.game.retry();event('selectstart');frame(false);event('selectend');expect(stage.game.phase).toBe('ready');
   r.setMenu(true,'challenges');click('reset','reset');click('reset','reset');
-  expect(store.data.challenges.rings5).toBeUndefined();expect(store.data.best['tabletop:rings:cleared']).toBeUndefined();
-  r.setMenu(true,'appearance');click('appearance','accessories');const locked=r.menuLayout.buttons.find((b:any)=>b.id==='starGlasses');expect(locked.disabled).toBe(true);
+  expect(store.data.challenges.maze5).toBeUndefined();expect(store.data.best['tabletop:maze:cleared']).toBeUndefined();
+  r.setMenu(true,'appearance');click('appearance','accessories');expect(r.menuLayout.buttons.find((b:any)=>b.id==='starGlasses').disabled).toBe(true);
   choose('goal');expect(stage.grp.visible).toBe(false);expect(game.S.shot).toBe(false);
- });
+ },20000);
  it('solves round three using grip rotation and trigger input, keeping every rotating wooden part inside the tray',async()=>{
   const {grips,store,frame,choose,event,pointAt}=await platform(kind),stage=choose('ricochet'),board=stage.grp.children[0];
   // Check the rendered caps, inlays and pivot too, at every allowed angle in every round.

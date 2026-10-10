@@ -71,5 +71,5 @@ export const challenges=[
   {id:'fair25',   title:'اجمع ٢٥ نقطة في جولة ملاهي', en:'Score 25 in one round at the fair', goal:25},
   {id:'bell3',    title:'اضرب جرس الملاهي ٣ مرات', en:'Ring the fair bell 3 times', goal:3},
   {id:'pop20',    title:'فجّر ٢٠ دحروج بالطلقات',     en:'Pop 20 Dahroojs with your shots', goal:20},
-  ...CHALLENGES.filter(([id])=>/^(balance|ricochet|rings)/.test(id)).map(([id,goal,title,en])=>({id,goal,title,en})),
+  ...CHALLENGES.filter(([id])=>/^(balance|ricochet|maze)/.test(id)).map(([id,goal,title,en])=>({id,goal,title,en})),
 ];

@@ -1,7 +1,7 @@
 /** Isolated tabletop solvers. No changes to the existing throw/world physics. */
 export type Point={x:number;z:number};
-export type Mode='balance'|'ricochet'|'rings';
-export type TabletopWin={mode:Mode;level:number;attempts:number;failures:number;passed:number};
+export type Mode='balance'|'ricochet'|'maze';
+export type TabletopWin={mode:Mode;level:number;attempts:number;failures:number;stars:number};
 type Phase='ready'|'playing'|'falling'|'won';
 export const TABLE_RADIUS=.14;
 export const MIRROR_ANGLE_STEP=Math.PI/36;
@@ -41,21 +41,39 @@ export const RICOCHET_LEVELS:readonly RicochetLevel[]=[
  reflectionRoute([p(-.95,1.25),p(-.95,-1.06),p(.9,-1.06),p(.9,.8),p(-.7,.8)],[{x:0,z:-.1,hx:.27,hz:.40}],.7),
  reflectionRoute([p(-.9,1.32),p(-.9,-1.15),p(.9,-1.15),p(.9,1),p(-.2,1),p(-.2,-.35)],[{x:.44,z:0,hx:.14,hz:.42}],.73),
 ];
-export type Ring={x:number;z:number;radius:number;amplitude:number;speed:number;phase:number};
-export type RingsLevel={start:Point;goal:Point;rings:Ring[]};
-function ringRoute(start:Point,goal:Point,zs:number[],radius:number,amplitude=0):RingsLevel{
- const distance=dist(start,goal);
- return {start,goal,rings:zs.map((z,i)=>{const t=(z-start.z)/(goal.z-start.z),speed=1.25+i*.35;
-  return {x:start.x+(goal.x-start.x)*t,z,radius,amplitude,speed,phase:-distance*t/3.4*speed};
- })};
+export type MazeLevel={start:Point;goal:Point;walls:Block[];stars:Point[];route:Point[]};
+export const MAZE_WALL_HEIGHT=.24;
+const MAZE_WALL=.09;
+/** Fixed seeds define five repeatable mazes. A spanning tree keeps every cell
+ * reachable, including dead ends; the farthest cell is the finish. No holes. */
+function mazeLevel(cols:number,rows:number,seed:number):MazeLevel{
+ const xEdge=LIMIT_X-MAZE_WALL/2,zEdge=LIMIT_Z-MAZE_WALL/2,dx=xEdge*2/cols,dz=zEdge*2/rows;
+ const centre=(id:number)=>p(-xEdge+(id%cols+.5)*dx,-zEdge+(Math.floor(id/cols)+.5)*dz);
+ const start=(rows-1)*cols,parents=new Map<number,number>([[start,-1]]),stack=[start],open=new Set<string>();
+ const edge=(a:number,b:number)=>a<b?`${a}:${b}`:`${b}:${a}`;
+ while(stack.length){
+  const a=stack[stack.length-1],x=a%cols,z=Math.floor(a/cols);
+  const choices=[[x-1,z],[x+1,z],[x,z-1],[x,z+1]].filter(([x,z])=>x>=0&&x<cols&&z>=0&&z<rows).map(([x,z])=>z*cols+x).filter(b=>!parents.has(b));
+  if(!choices.length){stack.pop();continue;}
+  seed=(Math.imul(seed,1664525)+1013904223)>>>0;const b=choices[seed%choices.length];
+  parents.set(b,a);open.add(edge(a,b));stack.push(b);
+ }
+ const pathTo=(id:number)=>{const ids:number[]=[];while(id>=0){ids.push(id);id=parents.get(id)!;}return ids.reverse();};
+ const ids=[...parents.keys()].map(pathTo).reduce((longest,path)=>path.length>longest.length?path:longest,[] as number[]),route=ids.map(centre);
+ const walls:Block[]=[{x:-xEdge,z:0,hx:MAZE_WALL/2,hz:LIMIT_Z},{x:xEdge,z:0,hx:MAZE_WALL/2,hz:LIMIT_Z},{x:0,z:-zEdge,hx:LIMIT_X-MAZE_WALL,hz:MAZE_WALL/2},{x:0,z:zEdge,hx:LIMIT_X-MAZE_WALL,hz:MAZE_WALL/2}];
+ const joints=new Set<string>();
+ const joint=(x:number,z:number)=>{if(x>0&&x<cols&&z>0&&z<rows)joints.add(`${x}:${z}`);};
+ for(let z=0;z<rows;z++)for(let x=0;x<cols;x++){
+  const a=z*cols+x,c=centre(a);
+  if(x<cols-1&&!open.has(edge(a,a+1))){walls.push({x:c.x+dx/2,z:c.z,hx:MAZE_WALL/2,hz:(dz-MAZE_WALL)/2});joint(x+1,z);joint(x+1,z+1);}
+  if(z<rows-1&&!open.has(edge(a,a+cols))){walls.push({x:c.x,z:c.z+dz/2,hx:(dx-MAZE_WALL)/2,hz:MAZE_WALL/2});joint(x,z+1);joint(x+1,z+1);}
+ }
+ // Butt joints fill the junctions exactly once. Overlapping grain-covered tops
+ // at the same height would fight in the depth buffer as the board tilts.
+ for(const key of joints){const [x,z]=key.split(':').map(Number);walls.push({x:-xEdge+x*dx,z:-zEdge+z*dz,hx:MAZE_WALL/2,hz:MAZE_WALL/2});}
+ return {start:route[0],goal:route[route.length-1],walls,route,stars:[.25,.5,.75].map(t=>route[Math.floor((route.length-1)*t)])};
 }
-export const RINGS_LEVELS:readonly RingsLevel[]=[
- ringRoute(p(0,1.3),p(0,-1.35),[0],.52),
- ringRoute(p(-.75,1.3),p(.75,-1.35),[.45,-.55],.48),
- ringRoute(p(.7,1.3),p(-.7,-1.35),[.65,-.1,-.85],.44),
- ringRoute(p(0,1.3),p(0,-1.35),[.65,-.1,-.85],.43,.32),
- ringRoute(p(-.65,1.3),p(.65,-1.35),[.7,.1,-.5,-1.05],.40,.32),
-];
+export const MAZE_LEVELS:readonly MazeLevel[]=[mazeLevel(3,3,17),mazeLevel(3,4,28),mazeLevel(4,4,39),mazeLevel(4,5,50),mazeLevel(5,5,61)];
 function segmentDistance(q:Point,a:Point,b:Point){const x=b.x-a.x,z=b.z-a.z,t=clamp(((q.x-a.x)*x+(q.z-a.z)*z)/(x*x+z*z||1),0,1);return Math.hypot(q.x-a.x-x*t,q.z-a.z-z*t);}
 
 type Contact={t:number;nx:number;nz:number};
@@ -79,20 +97,19 @@ export function sweepBox(start:Point,delta:Point,box:Block,angle=0,radius=TABLE_
  return {t:enter,nx:nx*c-nz*s,nz:nx*s+nz*c};
 }
 export function createTabletopGame(mode:Mode,onWin:(points:number,result:TabletopWin)=>void=()=>{}){
- let level=0,phase:Phase='ready',elapsed=0,flightTime=0,delay=0,accumulator=0,attempts=0,failures=0,score=0,rounds=0,fall=0;
- const ball=p(0,0),velocity=p(0,0),tilt=p(0,0),stars=new Set<number>(),bounces=new Set<number>(),passed=new Set<number>();
+ let level=0,phase:Phase='ready',elapsed=0,delay=0,accumulator=0,attempts=0,failures=0,score=0,rounds=0,fall=0;
+ const ball=p(0,0),velocity=p(0,0),tilt=p(0,0),stars=new Set<number>(),bounces=new Set<number>();
  let angles:number[]=[];
- const balance=()=>BALANCE_LEVELS[level],ricochet=()=>RICOCHET_LEVELS[level],rings=()=>RINGS_LEVELS[level];
- const levelCount=mode==='balance'?BALANCE_LEVELS.length:mode==='ricochet'?RICOCHET_LEVELS.length:RINGS_LEVELS.length;
- const start=()=>mode==='balance'?balance().path[0]:mode==='ricochet'?ricochet().start:rings().start;
- const ringX=(r:Ring,t:number)=>r.x+Math.sin(t*r.speed+r.phase)*r.amplitude;
+ const balance=()=>BALANCE_LEVELS[level],ricochet=()=>RICOCHET_LEVELS[level],maze=()=>MAZE_LEVELS[level];
+ const levelCount=mode==='balance'?BALANCE_LEVELS.length:mode==='ricochet'?RICOCHET_LEVELS.length:MAZE_LEVELS.length;
+ const start=()=>mode==='balance'?balance().path[0]:mode==='ricochet'?ricochet().start:maze().start;
  function reset(nextLevel=level){
-  level=((Math.trunc(Number.isFinite(nextLevel)?nextLevel:0)%levelCount)+levelCount)%levelCount;phase='ready';elapsed=flightTime=delay=accumulator=fall=0;velocity.x=velocity.z=tilt.x=tilt.z=0;stars.clear();bounces.clear();passed.clear();attempts=failures=0;
+  level=((Math.trunc(Number.isFinite(nextLevel)?nextLevel:0)%levelCount)+levelCount)%levelCount;phase='ready';elapsed=delay=accumulator=fall=0;velocity.x=velocity.z=tilt.x=tilt.z=0;stars.clear();bounces.clear();attempts=failures=0;
   Object.assign(ball,start());
   angles=mode==='ricochet'?ricochet().mirrors.map((m,i)=>snapMirrorAngle(m.angle+(i%2?-.32:.32))):[];
  }
- function retry(){phase='ready';elapsed=flightTime=delay=fall=0;velocity.x=velocity.z=0;stars.clear();bounces.clear();passed.clear();Object.assign(ball,start());}
- function win(){if(phase==='won')return;phase='won';delay=1.7;const points=mode==='balance'?3:Math.max(1,4-attempts);score+=points;rounds++;onWin(points,{mode,level,attempts,failures,passed:passed.size});}
+ function retry(){phase='ready';elapsed=delay=fall=0;velocity.x=velocity.z=0;stars.clear();bounces.clear();Object.assign(ball,start());}
+ function win(){if(phase==='won')return;phase='won';delay=1.7;const points=mode==='ricochet'?Math.max(1,4-attempts):3;score+=points;rounds++;onWin(points,{mode,level,attempts,failures,stars:stars.size});}
  function fail(){phase='falling';delay=.8;fall=0;failures++;velocity.x=velocity.z=0;}
  function gate(){const g=mode==='balance'?balance().gate:null;return g?{x:g.x,z:g.z+Math.sin(elapsed*1.5)*(balance().gateTravel??.43),hx:.08,hz:.21}:null;}
  function stepBalance(dt:number){
@@ -124,32 +141,37 @@ export function createTabletopGame(mode:Mode,onWin:(points:number,result:Tableto
   }
   if(phase==='playing'&&(Math.abs(ball.x)>LIMIT_X+TABLE_RADIUS||Math.abs(ball.z)>LIMIT_Z+TABLE_RADIUS||elapsed>8))fail();
  }
- function stepRings(dt:number){
-  const l=rings(),previous={...ball};ball.x+=velocity.x*dt;ball.z+=velocity.z*dt;
-  // Sweep every crossed ring plane, using its position at the instant of crossing.
-  for(let i=0;i<l.rings.length;i++){
-   const r=l.rings[i];if(passed.has(i)||previous.z<r.z||ball.z>r.z||ball.z===previous.z)continue;
-   const t=(r.z-previous.z)/(ball.z-previous.z),x=previous.x+(ball.x-previous.x)*t;
-   if(i!==passed.size||Math.abs(x-ringX(r,elapsed-dt+dt*t))>r.radius-.035-TABLE_RADIUS){ball.x=x;ball.z=r.z;fail();return;}
-   passed.add(i);
+ function stepMaze(dt:number){
+  const l=maze(),drag=Math.exp(-2.4*dt);
+  velocity.x=(velocity.x+Math.sin(tilt.x)*7*dt)*drag;velocity.z=(velocity.z+Math.sin(tilt.z)*7*dt)*drag;
+  let left=dt;
+  // Sweep each segment, then slide along the contacted wall. Multiple contacts
+  // in a corner cannot skip a wall or transfer the ball through a thin divider.
+  for(let i=0;i<6&&left>1e-7;i++){
+   const delta=p(velocity.x*left,velocity.z*left);let hit:Contact|null=null;
+   for(const wall of l.walls){const contact=sweepBox(ball,delta,wall);if(contact&&(!hit||contact.t<hit.t))hit=contact;}
+   const end=p(ball.x+delta.x*(hit?.t??1),ball.z+delta.z*(hit?.t??1));
+   l.stars.forEach((s,i)=>{if(segmentDistance(s,ball,end)<.22)stars.add(i);});
+   if(stars.size===3&&segmentDistance(l.goal,ball,end)<.22){Object.assign(ball,l.goal);velocity.x=velocity.z=0;win();return;}
+   Object.assign(ball,end);if(!hit)break;
+   ball.x+=hit.nx*.0001;ball.z+=hit.nz*.0001;
+   const inward=velocity.x*hit.nx+velocity.z*hit.nz;if(inward<0){velocity.x-=hit.nx*inward;velocity.z-=hit.nz*inward;}
+   left*=1-hit.t;
   }
-  if(passed.size===l.rings.length&&segmentDistance(l.goal,previous,ball)<.24){Object.assign(ball,l.goal);velocity.x=velocity.z=0;win();return;}
-  if(Math.abs(ball.x)>LIMIT_X+TABLE_RADIUS||Math.abs(ball.z)>LIMIT_Z+TABLE_RADIUS||flightTime>8)fail();
  }
  reset();
  return {
-  mode,ball,velocity,tilt,stars,bounces,passed,levelCount,
+  mode,ball,velocity,tilt,stars,bounces,levelCount,
   get level(){return level;},get phase(){return phase;},get attempts(){return attempts;},get failures(){return failures;},get score(){return score;},get rounds(){return rounds;},get fall(){return fall;},get angles(){return angles;},get gate(){return gate();},
-  get rings(){return mode==='rings'?rings().rings.map(r=>({...r,x:ringX(r,elapsed)})):[];},
-  get definition(){return mode==='balance'?balance():mode==='ricochet'?ricochet():rings();},
+  get definition(){return mode==='balance'?balance():mode==='ricochet'?ricochet():maze();},
   reset,
   retry(){failures++;retry();accumulator=0;},
   setTilt(x:number,z:number){tilt.x=clamp(Number.isFinite(x)?x:0,-.32,.32);tilt.z=clamp(Number.isFinite(z)?z:0,-.32,.32);},
   turnMirror(index:number,angle:number){if(mode!=='ricochet'||phase==='playing'||phase==='won'||!Number.isFinite(angle)||index<0||index>=angles.length)return false;angles[index]=snapMirrorAngle(angle);return true;},
   launch(direction:Point){
-   if(mode==='balance'||phase!=='ready'||!Number.isFinite(direction.x)||!Number.isFinite(direction.z))return false;
+   if(mode!=='ricochet'||phase!=='ready'||!Number.isFinite(direction.x)||!Number.isFinite(direction.z))return false;
    const d=Math.hypot(direction.x,direction.z);if(d<.001)return false;
-   attempts++;bounces.clear();passed.clear();phase='playing';flightTime=0;if(mode==='ricochet')elapsed=0;velocity.x=direction.x/d*3.4;velocity.z=direction.z/d*3.4;return true;
+   attempts++;bounces.clear();phase='playing';elapsed=0;velocity.x=direction.x/d*3.4;velocity.z=direction.z/d*3.4;return true;
   },
   step(dt:number,active=true){
    // Freeze exactly during menus, tracking loss and a released balance grip. No catch-up burst.
@@ -162,7 +184,7 @@ export function createTabletopGame(mode:Mode,onWin:(points:number,result:Tableto
      if(delay<=0){if(phase==='won')reset(level+1);else retry();}continue;
     }
     if(mode==='balance'){phase='playing';elapsed+=STEP;stepBalance(STEP);}
-    else if(mode==='rings'){elapsed+=STEP;if(phase==='playing'){flightTime+=STEP;stepRings(STEP);}}
+    else if(mode==='maze'){phase='playing';stepMaze(STEP);}
     else if(phase==='playing'){elapsed+=STEP;stepRicochet(STEP);}
    }
   },

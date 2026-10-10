@@ -204,8 +204,8 @@ export const createReferenceXR=(() => {
     let resetArm=0,wearing='';try{const saved=localStorage.getItem('dahrooj-acc');wearing=normalizeAccessory(saved);if(saved&&saved!==wearing)localStorage.setItem('dahrooj-acc',wearing);}catch(_){}
     const challengesDone=()=>(g.challenges?g.challenges():[]).filter(c=>c.value>=c.goal).length;
     let doneNow=challengesDone(),doneCheck=0;
-    let rewardProgress=Object.fromEntries(headsetChallenges().map(c=>[c.id,c.value]));
-    const refreshRewards=()=>{const list=g.challenges?g.challenges():[];doneNow=list.filter(c=>c.value>=c.goal).length;rewardProgress=Object.fromEntries(list.map(c=>[c.id,c.value]));};
+    let rewardProgress=g.rewardProgress?.()??Object.fromEntries(headsetChallenges().map(c=>[c.id,c.value]));
+    const refreshRewards=()=>{const list=g.challenges?g.challenges():[];doneNow=list.filter(c=>c.value>=c.goal).length;rewardProgress=g.rewardProgress?.()??Object.fromEntries(list.map(c=>[c.id,c.value]));};
     const accOpen=a=>accessoryAvailable(a.id,doneNow,rewardProgress);
     let knownRewards=new Set(accButtons.filter(accOpen).map(a=>a.id));
     const wornNow=()=>{const a=accButtons.find(b=>b.id===wearing);return a&&accOpen(a)?wearing:'';};
@@ -1045,7 +1045,7 @@ export const createReferenceXR=(() => {
       plaza.quaternion.setFromRotationMatrix(new T.Matrix4().lookAt(pos,plaza.position,UP));plaza.updateWorldMatrix(true,true);
     }
     function drawPanel(){if(menuOpen){const sky=nature?.settings||{time:'auto',weather:'auto'};
-      modePanel.draw({english:lang==='en',kind,mode:modeNow(),style:g.style(),jellyColor:g.jellyColor(),throwStyle,shotStyle,time:sky.time,weather:sky.weather,accessory:wornNow(),done:doneNow,resetArmed:resetArm>0,challenges:headsetChallenges()},hands.find(h=>h.hover>=0)?.hover??-1);}}
+      modePanel.draw({english:lang==='en',kind,mode:modeNow(),style:g.style(),jellyColor:g.jellyColor(),throwStyle,shotStyle,time:sky.time,weather:sky.weather,accessory:wornNow(),done:doneNow,resetArmed:resetArm>0,challenges:headsetChallenges(),rewards:rewardProgress},hands.find(h=>h.hover>=0)?.hover??-1);}}
     function setMenu(on,page='modes'){
       const was=menuOpen;if(on){stopGameplayInput();modePanel.show(page);if(!was)placePlaza();}
       menuOpen=plaza.visible=on;if(!on){resetArm=0;for(const h of hands)h.hover=-1;}

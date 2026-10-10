@@ -2,10 +2,14 @@
 export const MENU_INK='#292a35';
 export const MENU_PAPER='#efeee8';
 export const MENU_LIGHT='#faf9f5';
+export const MENU_CORNER=76;
 type C=CanvasRenderingContext2D;
 function round(c:C,x:number,y:number,w:number,h:number,r:number,fill:string){c.beginPath();c.roundRect(x,y,w,h,r);c.fillStyle=fill;c.fill();}
 export function drawMenuPaper(c:C,english:boolean){
+ // The geometry supplies the rounded silhouette. Keep even unused corner texels
+ // opaque so mip filtering cannot introduce a dark/transparent edge fringe.
  c.save();c.fillStyle=MENU_PAPER;c.fillRect(0,0,1200,1000);
+ c.strokeStyle='#d6d5ce';c.lineWidth=3;c.beginPath();c.roundRect(2,2,1196,996,MENU_CORNER-2);c.stroke();
  round(c,english?45:1017,155,138,770,64,MENU_LIGHT);
  c.strokeStyle='#d6d5ce';c.lineWidth=2;c.beginPath();c.moveTo(english?220:92,153);c.lineTo(english?1108:980,153);c.stroke();c.restore();
 }
@@ -18,37 +22,46 @@ export function drawMenuCard(c:C,x:number,y:number,w:number,h:number,selected:bo
 }
 /** Large, low-detail strokes avoid the tiny net/grain highlights of the illustrated menu. */
 export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color=MENU_INK){
- c.save();c.translate(x,y);c.scale(size/100,size/100);c.lineWidth=5;c.lineCap='round';c.lineJoin='round';c.strokeStyle=c.fillStyle=color;
+ c.save();c.translate(x,y);c.scale(size/100,size/100);c.lineWidth=5.25;c.lineCap='round';c.lineJoin='round';c.strokeStyle=c.fillStyle=color;
  const line=(p:number[][],close=false)=>{c.beginPath();p.forEach(([a,b],i)=>i?c.lineTo(a,b):c.moveTo(a,b));if(close)c.closePath();c.stroke();};
  const oval=(x:number,y:number,rx:number,ry=rx,filled=false)=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,Math.PI*2);if(filled)c.fill();else c.stroke();};
  const box=(x:number,y:number,w:number,h:number,r=4)=>{c.beginPath();c.roundRect(x,y,w,h,r);c.stroke();};
  const arc=(x:number,y:number,r:number,a:number,b:number)=>{c.beginPath();c.arc(x,y,r,a,b);c.stroke();};
  const star=(x:number,y:number,r:number)=>line(Array.from({length:10},(_,i)=>{const a=i*Math.PI/5-Math.PI/2,s=i%2?r*.44:r;return [x+Math.cos(a)*s,y+Math.sin(a)*s];}),true);
  const bow=()=>{line([[-4,-32],[-23,-44],[-23,-21],[-4,-32],[4,-32],[23,-44],[23,-21],[4,-32]]);oval(0,-32,4,4,true);};
+ const face=(x:number,y:number,r:number)=>{oval(x,y,r);oval(x-r*.3,y-r*.05,r*.09,r*.14,true);oval(x+r*.3,y-r*.05,r*.09,r*.14,true);};
  if(id==='goal'){
-  line([[-38,34],[-38,-30],[38,-30],[38,34]]);for(const x of [-13,13])line([[x,-30],[x,30]]);for(const y of [-10,12])line([[-38,y],[38,y]]);
+  line([[-43,31],[-43,-33],[27,-33],[27,5]]);line([[-43,-33],[-32,-20],[39,-20],[27,-33]]);line([[-32,-20],[-32,24],[5,24]]);
+  for(const x of [-12,9])line([[x,-20],[x,5]]);line([[-32,2],[17,2]]);face(28,27,17);
  }else if(id==='hoop'){
-  box(-34,-39,68,37);box(-12,-25,24,22,0);line([[-27,10],[27,10]]);line([[-24,10],[-15,39],[15,39],[24,10]]);line([[-7,10],[-4,39]]);line([[7,10],[4,39]]);
+  box(-38,-38,62,37,7);box(-18,-23,24,20,2);oval(-6,6,26,6);
+  line([[-29,11],[-20,40],[8,40],[17,11]]);line([[-18,12],[3,38]]);line([[7,12],[-14,38]]);face(32,-15,14);
  }else if(id==='window'){
-  box(-33,-34,66,66,0);line([[0,-34],[0,32]]);line([[-33,-1],[33,-1]]);line([[-42,41],[42,41]]);
+  box(-31,-38,62,70,6);line([[0,-38],[0,32]]);line([[-31,-4],[31,-4]]);box(-42,34,84,8,3);line([[-21,-26],[-11,-16]]);line([[12,9],[21,18]]);
  }else if(id==='bricks'){
-  for(const [x,y] of [[-41,17],[-12,17],[17,17],[-32,-7],[-3,-7],[-16,-31]])box(x,y,26,20,2);
+  for(const [x,y] of [[-41,17],[-12,17],[17,17],[-32,-7],[-3,-7],[-16,-31]])box(x,y,26,20,3);line([[25,-26],[34,-36]]);line([[34,-13],[44,-15]]);
  }else if(id==='cans'){
-  for(const [x,y] of [[-36,7],[-9,7],[18,7],[-23,-28],[4,-28]])box(x,y,22,30,4);
+  for(const [x,y] of [[-34,4],[6,4],[-14,-37]]){
+   oval(x+14,y+6,14,5);c.beginPath();c.moveTo(x,y+6);c.lineTo(x,y+29);c.bezierCurveTo(x,y+37,x+28,y+37,x+28,y+29);c.lineTo(x+28,y+6);c.stroke();
+  }
  }else if(id==='bowling'){
-  c.beginPath();c.moveTo(-27,39);c.bezierCurveTo(-41,16,-18,5,-24,-14);c.bezierCurveTo(-33,-46,0,-46,-9,-14);c.bezierCurveTo(-15,5,7,16,-6,39);c.closePath();c.stroke();line([[-24,-12],[-9,-12]]);oval(27,24,17);
+  c.beginPath();c.moveTo(-29,39);c.bezierCurveTo(-42,15,-22,3,-27,-15);c.bezierCurveTo(-34,-44,-4,-44,-11,-15);c.bezierCurveTo(-16,3,4,15,-9,39);c.closePath();c.stroke();line([[-26,-10],[-12,-10]]);line([[-26,-2],[-12,-2]]);
+  oval(24,23,20);for(const [x,y] of [[20,14],[29,16],[22,24]])oval(x,y,2,2,true);
  }else if(id==='climb'){
-  line([[-44,36],[-14,-18],[4,14],[20,-10],[46,36],[-44,36]]);line([[20,-10],[20,-44],[41,-35],[20,-27]]);
+  line([[-44,36],[-14,-22],[17,36],[-44,36]]);line([[2,5],[20,-15],[46,36],[17,36]]);line([[-23,-4],[-14,3],[-5,-4]]);line([[-14,-22],[-14,-45],[8,-37],[-14,-29]]);
  }else if(id==='fair'){
-  line([[-39,-4],[0,-39],[39,-4],[-39,-4]]);line([[-33,-4],[-33,35],[33,35],[33,-4]]);line([[-10,35],[-10,10],[10,10],[10,35]]);line([[0,-39],[0,-49],[17,-44]]);
+  line([[-42,-3],[0,-36],[42,-3],[-42,-3]]);line([[0,-36],[-16,-3]]);line([[0,-36],[16,-3]]);
+  line([[-34,-3],[-37,37],[-13,37],[0,5],[13,37],[37,37],[34,-3]]);line([[0,-36],[0,-49],[18,-44],[0,-39]]);
  }else if(id==='rain'){
-  for(const [x,y] of [[-28,-2],[0,-25],[28,-2],[-14,29],[23,30]]){oval(x,y,10);oval(x-3,y,1.5,1.5,true);oval(x+3,y,1.5,1.5,true);}line([[-28,-36],[-28,-23]]);line([[28,-36],[28,-23]]);
+  face(-27,9,14);face(8,-16,16);face(28,30,12);line([[-27,-34],[-27,-15]]);line([[8,-45],[8,-39]]);line([[36,-18],[36,4]]);line([[-6,20],[-6,37]]);
  }else if(id==='balance'){
-  line([[-43,3],[43,-9],[45,3],[-41,15]],true);line([[-13,39],[0,12],[13,39]],true);oval(-20,-21,12);line([[-49,1],[-49,18]]);line([[51,-14],[51,3]]);
+  c.save();c.rotate(-.16);box(-35,-19,70,52,9);line([[-24,10],[0,10],[0,-8],[24,-8]]);box(-47,-7,12,27,5);box(35,-7,12,27,5);face(-20,-28,13);c.restore();
  }else if(id==='ricochet'){
-  line([[-39,34],[-39,-31],[37,-31],[37,14]]);line([[27,3],[37,14],[46,3]]);oval(-39,34,7);line([[-50,-17],[-25,-42]]);line([[25,-43],[49,-19]]);oval(37,34,8);
- }else if(id==='rings'){
-  oval(-23,0,17,35);oval(8,0,13,28);oval(32,0,9,20);line([[-46,39],[43,39]]);
+  face(-30,29,12);line([[-30,7],[-30,-25],[30,-25],[30,27]]);line([[19,15],[30,27],[41,15]]);
+  line([[-44,-13],[-18,-39]]);line([[18,-39],[44,-13]]);line([[19,39],[41,39]]);
+ }else if(id==='maze'){
+  box(-41,-41,82,82,9);line([[-41,-15],[-13,-15],[-13,12],[12,12],[12,41]]);
+  line([[12,-41],[12,-15],[41,-15]]);line([[-41,15],[-28,15]]);face(-26,-28,7);star(27,26,9);
  }else if(['character','appearance','mini','jelly','fur','bubble'].includes(id)){
   if(id==='fur'){const pts=Array.from({length:40},(_,i)=>{const a=i*Math.PI/20,r=i%2?32:37;return [Math.cos(a)*r,Math.sin(a)*r+3];});line(pts,true);bow();}
   else oval(0,3,35);
@@ -81,7 +94,7 @@ export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color=MENU_
  }else if(id==='world'){
   oval(0,0,37);oval(0,0,17,37);line([[-35,-12],[35,-12]]);line([[-35,12],[35,12]]);
  }else if(id==='system'){
-  for(let i=0;i<8;i++){const a=i*Math.PI/4;line([[Math.cos(a)*29,Math.sin(a)*29],[Math.cos(a)*42,Math.sin(a)*42]]);}oval(0,0,28);oval(0,0,11);
+  line(Array.from({length:32},(_,i)=>{const a=(i+.5)*Math.PI/16,r=i%4<2?41:31;return [Math.cos(a)*r,Math.sin(a)*r];}),true);oval(0,0,13);
  }else if(id==='about'){
   oval(0,0,36);oval(0,-18,3,3,true);line([[0,-3],[0,22]]);
  }else if(id==='trigger'){
