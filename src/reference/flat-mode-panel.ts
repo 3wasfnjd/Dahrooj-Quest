@@ -134,7 +134,6 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
    text('Dahrooj Quest',cx,209,42);text(tr('امسك دحروج وارمه في تسعة أنماط مرحة.','Grab and throw Dahrooj across nine playful modes.'),cx,265,29);
    text(tr('واقع افتراضي وواقع مختلط.','Virtual and mixed reality.'),cx,304,28,'#666a74');
    MENU_CREDITS.forEach(([name,ar,en],i)=>{const y=397+i*100;ctx.direction='ltr';text(name,cx,y,i===0?34:28);ctx.direction=m.english?'ltr':'rtl';text(tr(ar,en),cx,y+34,24,'#88745d');});
-   text(tr('خط مفتوح · بقية الإشعارات في صفحة الحقوق','Open font · Full notices on the credits page'),cx,881,24,'#88745d');
   }
  }
  return {mesh,
