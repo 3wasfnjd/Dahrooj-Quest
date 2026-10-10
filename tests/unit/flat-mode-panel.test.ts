@@ -1,19 +1,20 @@
 import {afterEach,describe,expect,it,vi} from 'vitest';
 import {Group,NoBlending,Raycaster,Vector3} from '@iwsdk/core';
 import {createFlatModePanel,MENU_PAGES,modeAtUV,type MenuModel} from '../../src/reference/flat-mode-panel';
-const modes=['goal','hoop','window','cans','bowling','bricks','fair','climb','rain'].map(id=>[id,id,id] as const);
+import {XR_MODE_CATALOG} from '../../src/reference/mode-catalog';
+const modes=XR_MODE_CATALOG;
 const model=(english=false,kind='immersive-vr'):MenuModel=>({english,kind,mode:'goal',style:'jelly',jellyColor:'blue',throwStyle:'trigger',shotStyle:'bolt',time:'day',weather:'snow',accessory:'',done:0,resetArmed:false,challenges:Array.from({length:16},(_,i)=>({id:String(i),title:`تحدي ${i}`,en:`Challenge ${i}`,value:0,goal:3}))});
 afterEach(()=>vi.unstubAllGlobals());
 function panel(drawn:string[]=[]){const ctx=new Proxy({},{get:(_t,k)=>k==='fillText'?(t:string)=>drawn.push(t):()=>{},set:()=>true});vi.stubGlobal('document',{createElement:()=>({width:0,height:0,getContext:()=>ctx})});return createFlatModePanel(modes);}
 describe('single XR menu surface',()=>{
- it('selects all nine coloured modes through actual rays in both languages',()=>{
+ it('selects all eleven coloured modes through actual rays in both languages',()=>{
   const ui=panel(),root=new Group();root.add(ui.mesh);root.position.set(2,1,-3);root.rotation.y=.4;root.scale.setScalar(.5);root.updateMatrixWorld(true);
-  for(const english of [false,true]){ui.draw(model(english));for(let i=0;i<9;i++){
+  for(const english of [false,true]){ui.draw(model(english));for(let i=0;i<modes.length;i++){
    const target=root.localToWorld(ui.point(i,english)),normal=new Vector3(0,0,1).transformDirection(root.matrixWorld);
    const hit=new Raycaster(target.clone().add(normal),normal.negate()).intersectObject(ui.mesh)[0];
    expect(ui.action(ui.hit(hit.uv!.x,hit.uv!.y))?.id).toBe(modes[i][0]);
   }}
-  expect(new Set(ui.buttons.filter(b=>b.kind==='mode').map(b=>b.fill)).size).toBe(9);
+  expect(new Set(ui.buttons.filter(b=>b.kind==='mode').map(b=>b.fill)).size).toBe(modes.length);
   expect(ui.point(0,false).x).toBeGreaterThan(ui.point(0,true).x);
   for(const [u,v] of [[0,0],[.5,.98],[.5,.02],[-1,.5],[NaN,0]])expect(modeAtUV(u,v,false)).toBe(-1);
  });
@@ -41,7 +42,7 @@ describe('single XR menu surface',()=>{
   go('tab','challenges');expect(ui.action(ui.buttons.findIndex(b=>b.id==='up'))).toBeNull();
   go('scrollStep','down');expect(ui.challengeScroll.offset).toBeGreaterThan(0);
   ui.scrollBy(100000);ui.draw(m);expect(ui.challengeScroll.offset).toBe(ui.challengeScroll.max);expect(ui.action(ui.buttons.findIndex(b=>b.id==='down'))).toBeNull();
-  go('tab','about');expect(ui.page).toBe('about');ui.show('modes');ui.draw(m);expect(ui.buttons.filter(b=>b.kind==='mode')).toHaveLength(9);
+  go('tab','about');expect(ui.page).toBe('about');ui.show('modes');ui.draw(m);expect(ui.buttons.filter(b=>b.kind==='mode')).toHaveLength(modes.length);
  });
  it('scrolls one clipped list by stick or dragging, reaches every row and clamps both ends',()=>{
   const drawn:string[]=[],ui=panel(drawn),m=model(true);ui.draw(m);expect(ui.scrollAxis(1,.02)).toBe(false);

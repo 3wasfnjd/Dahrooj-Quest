@@ -2,6 +2,7 @@ import {CanvasTexture,LinearFilter,Mesh,MeshBasicMaterial,PlaneGeometry,SRGBColo
 import {menuDepth} from './menu-depth';
 import {JELLY_COLORS} from '../core/appearance';
 import {drawMenuCard,drawMenuIcon,drawMenuPaper,MENU_INK} from './menu-art';
+import {XR_MODE_CATALOG} from './mode-catalog';
 
 export const MENU_PAGES=[['modes','الأنماط','Modes'],['appearance','المظهر','Appearance'],['play','اللعب','Play'],['world','العالم','World'],['challenges','التحديات','Challenges'],['system','عام','General'],['about','عن اللعبة','About']] as const;
 export type MenuPage=typeof MENU_PAGES[number][0];
@@ -21,13 +22,13 @@ export type MenuButton={kind:string;id:string;ar:string;en:string;x:number;y:num
 type Mode=readonly [string,string,string,...string[]];
 const W=1200,H=1000,WIDTH=.765,HEIGHT=WIDTH*H/W;
 const LIST_TOP=244,LIST_HEIGHT=552,ROW_HEIGHT=96,TRACK_TOP=300,TRACK_HEIGHT=440;
-const COLORS=[['#e2603f','#fff0e9'],['#ba7c15','#fff5d9'],['#52809e','#eaf4fb'],['#558365','#ecf6eb'],['#9367ae','#f3ecfa'],['#b56356','#faeee7'],['#b87426','#fff1da'],['#57827b','#eaf5f0'],['#7c73b3','#f1efff']];
+const COLORS=[['#e2603f','#fff0e9'],['#ba7c15','#fff5d9'],['#52809e','#eaf4fb'],['#558365','#ecf6eb'],['#9367ae','#f3ecfa'],['#b56356','#faeee7'],['#b87426','#fff1da'],['#57827b','#eaf5f0'],['#7c73b3','#f1efff'],['#558d85','#e9f5df'],['#ae7290','#fff0f4']];
 const contentX=(english:boolean)=>english?288:24;
 const grid=(index:number,cols:number,y:number,h:number,english:boolean,gap=16)=>{const w=(888-gap*(cols-1))/cols,col=index%cols;return {x:contentX(english)+(english?col:cols-1-col)*(w+gap),y:y+Math.floor(index/cols)*(h+gap),w,h};};
-export function modeCell(index:number,english:boolean){return grid(index,3,184,216,english);}
+export function modeCell(index:number,english:boolean){return grid(index,3,184,164,english);}
 export function modeAtUV(u:number,v:number,english:boolean){
  if(!Number.isFinite(u)||!Number.isFinite(v))return -1;
- const x=u*W,y=(1-v)*H;for(let i=0;i<9;i++){const b=modeCell(i,english);if(x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h)return i;}return -1;
+ const x=u*W,y=(1-v)*H;for(let i=0;i<XR_MODE_CATALOG.length;i++){const b=modeCell(i,english);if(x>=b.x&&x<b.x+b.w&&y>=b.y&&y<b.y+b.h)return i;}return -1;
 }
 export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:CanvasRenderingContext2D,id:string,x:number,y:number,locked:boolean)=>void){
  const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
@@ -83,7 +84,7 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
   if(b.kind==='scroll')return;
   const on=b.selected,hover=index===hot&&!b.disabled,cx=b.x+b.w/2,ink=b.color||'#e2603f';
   drawMenuCard(ctx,b.x,b.y,b.w,b.h,b.fill||(on?'#fae6c0':'#fffdf4'),ink,!!on,hover,!!b.disabled);
-  if(b.kind==='mode'){drawMenuIcon(ctx,b.id,cx,b.y+85,110,ink);text(tr(b.ar,b.en),cx,b.y+183,31,MENU_INK,b.w-26);}
+  if(b.kind==='mode'){drawMenuIcon(ctx,b.id,cx,b.y+62,85,ink);text(tr(b.ar,b.en),cx,b.y+139,30,MENU_INK,b.w-26);}
   else if(b.kind==='style'){
    const color=b.id==='jelly'?JELLY_COLORS.find(c=>c.id===lastModel?.jellyColor)?.hex??0xff69b4:b.id==='fur'?0xdcccb7:0xb9dfef;
    drawMenuIcon(ctx,b.id,cx,b.y+76,100,'#'+color.toString(16).padStart(6,'0'));
@@ -131,7 +132,7 @@ export function createFlatModePanel(modes:readonly Mode[],drawAccessory?:(ctx:Ca
   }
   if(page==='system'){text(tr('اللغة','Language'),cx,238,32);text(tr('جلسة اللعب','Play session'),cx,504,32);}
   if(page==='about'){
-   text('Dahrooj Quest',cx,209,42);text(tr('امسك دحروج وارمه في تسعة أنماط مرحة.','Grab and throw Dahrooj across nine playful modes.'),cx,265,29);
+   text('Dahrooj Quest',cx,209,42);text(tr('امسك دحروج والعب في ١١ نمطًا مرحًا.','Play with Dahrooj across 11 playful modes.'),cx,265,29);
    text(tr('واقع افتراضي وواقع مختلط.','Virtual and mixed reality.'),cx,304,28,'#666a74');
    MENU_CREDITS.forEach(([name,ar,en],i)=>{const y=397+i*100;ctx.direction='ltr';text(name,cx,y,i===0?34:28);ctx.direction=m.english?'ltr':'rtl';text(tr(ar,en),cx,y+34,24,'#88745d');});
   }

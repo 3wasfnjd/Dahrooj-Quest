@@ -43,7 +43,7 @@ export function drawMenuCard(c:C,x:number,y:number,w:number,h:number,fill:string
 export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color='#df7952'){
  c.save();c.translate(x,y);c.scale(size/100,size/100);c.lineWidth=5;c.lineCap='round';c.lineJoin='round';
  const line=(p:number[][])=>path(c,p),orb=(a:number,b:number,r:number,f:string)=>oval(c,a,b,r,r,f);
- if(['goal','hoop','window','cans','bowling','bricks','fair','climb','rain'].includes(id)){
+ if(['goal','hoop','window','cans','bowling','bricks','fair','climb','rain','balance','ricochet'].includes(id)){
   // Illustrated mini scenes, each with a distinct setting, object and Dahrooj.
   oval(c,0,35,57,12,'#cad8a1','');c.lineWidth=3;
   if(id==='goal'){
@@ -78,6 +78,12 @@ export function drawMenuIcon(c:C,id:string,x:number,y:number,size=48,color='#df7
    path(c,[[-54,39],[-12,-41],[16,0],[29,-23],[58,39]],'#83ada1');path(c,[[-12,-41],[-29,-10],[-11,-18],[1,-9]],'#fff7e5');
    line([[-12,-42],[-12,-62]]);path(c,[[-10,-62],[15,-55],[-10,-47]],'#eb8a68');
    path(c,[[-20,36],[-8,23],[-18,13],[-3,-4]],undefined,'#f3dbaa');face(c,27,30,18,'#f4cc73');
+  }else if(id==='balance'){
+   path(c,[[-12,39],[3,10],[21,39]],'#c69667');c.save();c.rotate(-.15);box(c,-54,0,108,14,'#c59161',5);box(c,-49,-9,98,14,'#f9e8bd',5);oval(c,16,-2,10,4,'#7b624e');face(c,-18,-25,20,'#9ec4a1');star(c,40,-29,12);c.restore();
+   line([[-62,6],[-62,-7]]);line([[62,-9],[62,-22]]);
+  }else if(id==='ricochet'){
+   box(c,-54,-43,108,82,'#f9e8bd',8);c.lineWidth=9;path(c,[[-43,-25],[-22,-42]],undefined,'#80b5a1');path(c,[[25,-40],[46,-23]],undefined,'#b69cd8');c.lineWidth=3;
+   c.setLineDash([4,6]);path(c,[[-35,25],[-35,-23],[34,-23],[34,18]],undefined,'#bd865d');c.setLineDash([]);star(c,34,24,13);face(c,-35,27,17,'#eca5be');box(c,-12,-9,24,35,'#bd916a',4);
   }else{for(let i=0;i<5;i++){const a=[-36,3,38,-23,25][i],b=[-28,-40,-21,17,26][i];path(c,[[a-3,b-32],[a-7,b-23]],undefined,'#83b7c5');face(c,a,b,16,SPECTRUM[i+1]);}}
  }else if(id==='character'||id==='appearance'||id==='mini'||id==='jelly'||id==='fur'||id==='bubble'){
   face(c,0,3,35,id==='fur'?'#e3ceb3':id==='bubble'?'#b9dfea':color,id==='fur');if(id==='bubble'){orb(29,-28,9,'#f8d3e2');}

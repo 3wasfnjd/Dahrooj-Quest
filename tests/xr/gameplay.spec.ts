@@ -10,9 +10,9 @@ async function openVR(page:Page){
  const action=async(kind:string,id:string)=>page.evaluate(({kind,id})=>{const r=(window as any).__DAHROOJ_REFERENCE__.game.runtime;if(kind==='mode'){r.choosePlaza(r.plaza.ids.indexOf(id));return;}r.setMenu(true,kind==='style'?'appearance':kind==='lang'?'system':'play');const i=r.menuLayout.buttons.findIndex((b:any)=>b.kind===kind&&b.id===id);if(i<0)throw Error('Missing menu item '+id);r.action(i);r.setMenu(false);},{kind,id});
  return {errors,external,action};
 }
-test('original world, nine modes and three styles',async({page},info)=>{
+test('original world, eleven modes and three styles',async({page},info)=>{
  const {errors,external,action}=await openVR(page);
- for(const mode of ['goal','hoop','window','cans','bowling','bricks','fair','climb','rain']){await action('mode',mode);await page.waitForTimeout(350);expect(errors,mode).toEqual([]);}
+ for(const mode of ['goal','hoop','window','cans','bowling','bricks','fair','climb','rain','balance','ricochet']){await action('mode',mode);await page.waitForTimeout(350);expect(errors,mode).toEqual([]);}
  await action('mode','goal');
  for(const style of ['jelly','fur','bubble']){await action('style',style);await page.waitForTimeout(120);}
  expect(errors).toEqual([]);expect(external).toEqual([]);

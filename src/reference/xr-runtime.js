@@ -7,6 +7,7 @@ import {menuDepth,menuGroup} from './menu-depth';
 import {ballImpactSpeed} from './ball-impact';
 import {createScorePopup} from './score-popup';
 import {GOAL_AIM_Z} from './court-layout.js';
+import {XR_MODE_CATALOG} from './mode-catalog';
 /* Aboden Games reference implementation, owner-authorized complete port 2026-10-08. See COMPLETE-REFERENCE-PORT-AR.md. */
 import {createReferenceCharacter} from './character.js';
 import {createReferenceNature} from './nature.js';
@@ -26,7 +27,7 @@ export const createReferenceXR=(() => {
   // Strong enough to reach targets at the cans' distance (about ten real metres in VR).
   const GAIN=2, SLING_K=23, SLING_MIN=.06, SLING_MAX=.65, MIN_THROW=1, MAX_SPEED=46, SPAN=.04;
   // Headset texts in Arabic and English: [id, Arabic, English].
-  const MODES=[['goal','مرمى','Goal'],['hoop','سلة','Hoop'],['window','شباك','Window'],['cans','علب','Cans'],['bowling','بولينغ','Bowling'],['bricks','الطوب','Bricks'],['fair','ملاهي','Fair'],['climb','الجبل','Summit'],['rain','مطر دحاريج','Dahrooj Rain']];
+  const MODES=XR_MODE_CATALOG;
   const XR_MODES=new Set(MODES.map(m=>m[0]));
   let lang='ar';try{if(localStorage.getItem('dahrooj-lang')==='en')lang='en';}catch(_){}
   const tr=(ar,en)=>lang==='en'?en:ar;
@@ -43,7 +44,8 @@ export const createReferenceXR=(() => {
     // The Summit's size in metres per game unit: life-size in the VR world, tabletop in AR; the right stick changes it.
     // VR: the mountain stands as far off as the goal and the other targets (about 10.5 m), a little larger to suit.
     const CLIMB_Z=GOAL_AIM_Z,CLIMB_VR=.14,CLIMB_AR=CLIMB_VR*2/8; // AR: the VR size against the court (scale 2 there, 8 here), until pinning sets it
-    let climbOn=false,climb3=null,climbSpot=null,climbUnit=CLIMB_AR,climbZoom=1;
+    let climbOn=false,climb3=null,climbSpot=null,climbUnit=CLIMB_AR,climbZoom=1,tableSpot=null;
+    const tabletopOn=()=>!climbOn&&!rainOn&&!!g.stage()?.tabletop;
     const modeNow=()=>rainOn?'rain':climbOn?'climb':g.mode();
     const rig=g.player;rig.name='xr-rig';
     const menuLayer=menuGroup(new T.Group());menuLayer.name='xr-menu-layer';rig.add(menuLayer);
@@ -459,9 +461,9 @@ export const createReferenceXR=(() => {
       });
       target.addEventListener('disconnected',()=>{release(h,true);h.source=null;hitSources.get(h)?.cancel();hitSources.delete(h);});
       target.addEventListener('selectstart',()=>press(h,'trigger'));
-      target.addEventListener('selectend',()=>release(h));
-      target.addEventListener('squeezestart',()=>press(h));
-      target.addEventListener('squeezeend',()=>release(h));
+      target.addEventListener('selectend',()=>release(h,false,'trigger'));
+      target.addEventListener('squeezestart',()=>press(h,'grip'));
+      target.addEventListener('squeezeend',()=>release(h,false,'grip'));
       return h;
     });
     const leftHand=()=>hands.find(h=>h.source?.handedness==='left');
@@ -471,6 +473,7 @@ export const createReferenceXR=(() => {
       h.target.getWorldPosition(wp);h.target.getWorldQuaternion(wq);
       return {origin:wp.clone(),dir:V(0,0,-1).applyQuaternion(wq).normalize()};
     }
+    const tableInput=h=>({id:h,ray:rayOf(h),position:h.grip.getWorldPosition(V()),rotation:h.grip.getWorldQuaternion(new T.Quaternion())});
     // Hand velocity in world units: the fastest ~40 ms stretch of the last 200 ms. Players often
     // let go just after the peak of a swing, so the latest instant alone would feel weak.
     function velocity(h){
@@ -515,6 +518,7 @@ export const createReferenceXR=(() => {
       // Holding a shooting trigger keeps firing (see autoFire), in every mode.
       if(intro){if(h.onStart)endIntro();else{fireIntro(h);h.autoT=clock;h.auto={fire:()=>fireIntro(h),every:.13};}return;}
       if(menuOpen&&h===leftHand())return;
+      if(tabletopOn()&&!placing){if(h.grip.visible)g.stage().xrPress(tableInput(h),how);return;}
       // Controllers: the left trigger is a blaster that pops the Dahroojs around the modes.
       if(how==='trigger'&&h===leftHand()&&h.source?.gamepad&&!placing&&!climbOn&&!forkHand()){fireBlast(h);h.autoT=clock;h.auto={fire:()=>fireBlast(h),every:.13};return;}
       if(placing){if(anchor){placing=false;g.respawn();}return;}
@@ -525,7 +529,8 @@ export const createReferenceXR=(() => {
       // Dahrooj appears straight in the hand with a little pop, rather than flying over to it.
       if(!holder&&g.canHold()){holder=h;holdT=0;popT=0;h.chargeT=0;parked=false;S.held=true;S.vel.set(0,0,0);S.shot=false;buzz(h,.25,25);}
     }
-    function release(h,lost){if(session?.visibilityState!=='visible'||uiBusy())lost=true;
+    function release(h,lost,how){if(session?.visibilityState!=='visible'||uiBusy())lost=true;
+      g.stage()?.xrRelease?.(h,!!lost,how);
       if(h.scrollDrag){h.scrollDrag=null;h.auto=null;return;}
       h.auto=null;
       if(holder===h){
@@ -686,6 +691,7 @@ export const createReferenceXR=(() => {
     function clearBlast(){for(const s of blast.shots)if(s.m)scene.remove(s.m);for(const s of blast.sparks){scene.remove(s.m);s.m.material.dispose();}blast.shots.length=blast.sparks.length=0;if(shotCrowd){shotCrowd.begin();shotCrowd.end();}}
     // A or X: Dahrooj comes back at once.
     function recall(){
+      if(tabletopOn()){g.stage().xrCancel();g.stage().game.retry();return;}
       g.clearVolley();if(S.shot){holder=null;g.recall();}
     }
 
@@ -710,7 +716,7 @@ export const createReferenceXR=(() => {
     const CURVE_K=.4;
     const FAR_Z=-20;
     function place(){
-      const A=targetPoint();placedFor=g.mode();
+      const A=targetPoint();placedFor=g.mode();tableSpot=null;
       if(kind!=='immersive-ar'){
         // Every target stands as far away as the cans: you step back from the nearer ones.
         // Bowling keeps its own lane (farZ); Summit shares the goal court. The wall and the fair keep their
@@ -727,6 +733,15 @@ export const createReferenceXR=(() => {
       // The score board as in VR: up at a comfortable height just behind the target, out of the line of throw, and large.
       const away=V(Math.sin(anchor.theta),0,-Math.cos(anchor.theta));
       hud.mesh.position.copy(anchor.P).addScaledVector(away,anchor.wall?0:.35).setY(Math.max(anchor.P.y+.75,1.55));hud.mesh.scale.setScalar(.95);
+    }
+    function placeTable(){
+      const st=g.stage();if(!tabletopOn())return;
+      let spot,unit;
+      if(kind==='immersive-ar'&&anchor){spot={P:anchor.P.clone().add(V(0,.07,0)),theta:anchor.theta};unit=clamp(3.2/arScale,.1,.44);}
+      else{if(!tableSpot){camera.updateWorldMatrix(true,false);const {pos,dir}=headLocal();tableSpot={P:pos.clone().addScaledVector(dir,.82).setY(Math.max(.55,pos.y-.62)),theta:Math.atan2(dir.x,-dir.z)};}spot=tableSpot;unit=.32;}
+      rig.updateWorldMatrix(true,false);st.grp.position.copy(rig.localToWorld(spot.P.clone()));
+      st.grp.quaternion.copy(rig.getWorldQuaternion(new T.Quaternion())).multiply(new T.Quaternion().setFromAxisAngle(UP,-spot.theta));
+      st.grp.scale.setScalar(unit*scaleNow());st.grp.updateMatrixWorld(true);
     }
     function aimAtSurface(frame){
       // The headset's own surfaces (hit test) first, the floor otherwise.
@@ -895,6 +910,7 @@ export const createReferenceXR=(() => {
       climbSpot=null;climbZoom=1;climbUnit=mode==='immersive-ar'?CLIMB_AR:CLIMB_VR;climb3?.setUnit(climbUnit);if(climb)setClimb(true);
     }
     function onEnd(){
+      g.stage()?.xrCancel?.();
       // IWSDK keeps its render loop.
       for(const s of hitSources.values())s.cancel?.();hitSources.clear();
       rainOn=false;clearIntro();start.mesh.visible=false;
@@ -1006,7 +1022,7 @@ export const createReferenceXR=(() => {
     }
     function drawRests(){
       for(const r of rests){
-        if(!r.m)continue;r.m.group.visible=!climbOn&&!intro;
+        if(!r.m)continue;r.m.group.visible=!climbOn&&!intro&&!tabletopOn();
         const sp=Math.hypot(r.v.x,r.v.z);
         r.m.update({pos:V(r.p.x,r.p.y-BR*Math.max(0,r.d),r.p.z),toward:eye,faceName:r.moodT>0?r.mood:sp>5?'wide':'open',blink:r.blink>0,squash:[1+r.d*.75,1-r.d]});r.m.group.scale.multiplyScalar(Math.min(1,(REST_LIFE-r.age)/.75));
       }
@@ -1030,7 +1046,7 @@ export const createReferenceXR=(() => {
     }
     function setPlaza(on){setMenu(on,'modes');}
     function choosePlaza(i){
-      const c=PLAZA[i];if(!c)return;holder=null;const soundPos=plaza.getWorldPosition(V());setMenu(false);
+      const c=PLAZA[i];if(!c)return;stopGameplayInput();g.stage()?.xrCancel?.();holder=null;parked=false;S.held=false;tableSpot=null;const soundPos=plaza.getWorldPosition(V());setMenu(false);
       if(c[0]==='rain'){setClimb(false);setRain(true);}else{setRain(false);if(c[0]==='climb')setClimb(true);else{setClimb(false);g.setMode(c[0]);}}
       at(soundPos,()=>g.whoosh(.5));for(const h of hands)buzz(h,.45,70);
     }
@@ -1080,6 +1096,7 @@ export const createReferenceXR=(() => {
       // The shared jelly highlight follows the sun; updateProbe does not capture or re-render the world.
       models?.updateProbe?.(renderer,scene,S.pos,{sun:g.sun,on:natureOn()&&g.style()==='jelly',dt,skip:[grassMesh||(grassMesh=scene.getObjectByName('xr-grass'))]});
       if(placedFor!==g.mode())place();
+      if(tabletopOn())placeTable();
       if(st.useStone){const want=natureOn()&&!!nature.stoneMaterial;if(st.stoneOn!==want){st.stoneOn=want;st.useStone(want?c=>nature.stoneMaterial(c):null);}}
       updateMenu(dt);
       // AR placement: aim at a surface and the court follows; the trigger pins it.
@@ -1092,7 +1109,7 @@ export const createReferenceXR=(() => {
       }else reticle.visible=false;
       if(kind==='immersive-ar')showPlanes(frame);
       updateRoom(frame);
-      const F=climbOn?null:forkHand();let startHot=false,stickX=0;
+      const F=climbOn||tabletopOn()?null:forkHand();let startHot=false,stickX=0;
       for(const h of hands){
         h.grip.getWorldPosition(wp);h.hist.push({p:wp.clone(),t:clock});
         while(h.hist.length&&clock-h.hist[0].t>.25)h.hist.shift();
@@ -1130,7 +1147,7 @@ export const createReferenceXR=(() => {
       eyeNow();hud.mesh.lookAt(eye);
       // Dahrooj waits by your hand (or in the slingshot) between throws.
       // Only once the headset has reported a few poses, so he doesn't appear somewhere else first.
-      if(!S.shot&&!holder&&!placing&&!intro&&!climbOn&&!parked&&frames>3){parked=true;popT=0;S.pos.copy(updateParkSpot(F));}
+      if(!S.shot&&!holder&&!placing&&!intro&&!climbOn&&!tabletopOn()&&!parked&&frames>3){parked=true;popT=0;S.pos.copy(updateParkSpot(F));}
       if(parked){S.held=true;S.pos.lerp(updateParkSpot(F),1-Math.exp(-dt*10));S.vel.set(0,0,0);S.grounded=false;}
       popT+=dt;
       // The held ball rides in front of the hand (in the pouch with the slingshot), easing in.
@@ -1159,6 +1176,10 @@ export const createReferenceXR=(() => {
         }
       }else for(const d of dots)d.visible=false;
       if(climbOn){eyeNow();climb3.update(dt,{style:g.style(),eye,onEvent:climbEvent});}
+      else if(tabletopOn()){
+        placeTable();eyeNow();st.xrFrame(dt,{inputs:hands.filter(h=>h.source&&h.grip.visible).map(tableInput),active:!uiBusy()&&!placing,models,style:g.style(),accessory:wornNow(),eye,english:lang==='en'});
+        g.stepEffects(dt);drawRests();
+      }
       else{
         g.step(dt*timeK());
         stepRests(dt*timeK());stepWorldContacts(dt*timeK());feelHands(dt);
@@ -1180,7 +1201,7 @@ export const createReferenceXR=(() => {
         }
       }
       // Dahrooj shows only while the trigger holds him or he flies; waiting, he's out of sight (in the slingshot he waits in the pouch).
-      const d=S.d,shown=!(placing||intro||climbOn||!((parked&&F?.source)||holder||S.shot));
+      const d=S.d,shown=!(placing||intro||climbOn||tabletopOn()||!((parked&&F?.source)||holder||S.shot));
       const face=parked&&!(S.mood&&S.moodT>0)?'open':g.ballFace();
       if(models){
         ballModel=model(ballModel,g.style(),true);
