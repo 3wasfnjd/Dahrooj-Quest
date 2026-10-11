@@ -14,7 +14,8 @@ public final class LocalAssetServer implements AutoCloseable {
     }
     public static final String CSP = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; "
         + "style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; "
-        + "connect-src 'self' data:; worker-src 'self' blob:; font-src 'self'; "
+        // GLTFLoader's ImageBitmapLoader fetches embedded GLB images through local blob URLs.
+        + "connect-src 'self' data: blob:; worker-src 'self' blob:; font-src 'self'; "
         + "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
     private final Assets assets;
     private final ServerSocket listener;

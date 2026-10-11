@@ -1,0 +1,178 @@
+{
+  "runtime": "Packaged APK assets + production Java server + desktop Chromium; NOT Android/Quest",
+  "assertions": [
+    "All 119 packaged assets served byte-for-byte over loopback",
+    "Packaged and hosted content policies match",
+    "Fresh browser profile loads the bundled entry with external requests blocked",
+    "Loopback is a secure context and WebXR API is exposed in desktop Chromium",
+    "No emulator or development game bridge in the payload",
+    "Desktop without XR hardware does not falsely claim VR support",
+    "Local service worker does not depend on first-visit precaching",
+    "Local save origin survives reload without clearing player storage",
+    "Optional diagnostics load from bundled files",
+    "Bundled rights page remains accessible",
+    "All three reported models are exercised",
+    "bench.glb: tests actual embedded base-color textures"
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "browser": "155.0.8059.39",
+  "materials": [
+    {
+      "name": "bench.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    },
+    {
+      "name": "birchTreesVisual.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    },
+    {
+      "name": "bowlingPin.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    },
+    {
+      "name": "cherryTreesVisual.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    },
+    {
+      "name": "explosiveCrate.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    },
+    {
+      "name": "lantern.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    },
+    {
+      "name": "oakTreesVisual.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    },
+    {
+      "name": "poleLight.glb",
+      "materials": [
+        {
+          "name": "palette",
+          "hasMap": false,
+          "imageBitmap": false,
+          "width": 0,
+          "height": 0,
+          "srgb": false,
+          "nonBlackPixels": 0,
+          "uniqueColors": 0
+        }
+      ]
+    }
+  ],
+  "materialPolicyViolations": [
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    },
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    },
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    },
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    },
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    },
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    },
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    },
+    {
+      "directive": "connect-src",
+      "blockedURI": "blob"
+    }
+  ],
+  "status": "failed",
+  "failure": "Error: bench.glb/palette: GLTFLoader decodes a colored sRGB ImageBitmap under the production CSP"
+}

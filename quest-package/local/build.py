@@ -5,8 +5,10 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
+import xml.etree.ElementTree as ET
 import zipfile
 
 HERE = Path(__file__).resolve().parent
@@ -15,17 +17,30 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--sdk', default=os.environ.get('ANDROID_SDK_ROOT'))
 parser.add_argument('--jdk', default=os.environ.get('JAVA_HOME'))
 parser.add_argument('--dist', type=Path, default=REPO / 'dist')
+parser.add_argument('--work-dir', type=Path, help='Optional isolated staging directory for this build')
 args = parser.parse_args()
 if not args.sdk or not args.jdk:
     parser.error('Specify --sdk and --jdk (or ANDROID_SDK_ROOT and JAVA_HOME).')
 sdk, jdk, dist = Path(args.sdk).resolve(), Path(args.jdk).resolve(), args.dist.resolve()
 out = REPO / 'quest-package/generated/local'
-work = out / 'work'
+work = args.work_dir.resolve() if args.work_dir else out / 'work'
+if out not in work.parents:
+    raise SystemExit('--work-dir must be a subdirectory of quest-package/generated/local')
 key = out / 'local-test.keystore'
 release = REPO / 'release'
 tools = sdk / 'build-tools/36.0.0'
 android = sdk / 'platforms/android-34/android.jar'
 env = dict(os.environ, JAVA_HOME=str(jdk), PATH=str(jdk / 'bin') + os.pathsep + os.environ.get('PATH',''))
+manifest_settings = ET.parse(HERE/'AndroidManifest.xml').getroot()
+android_namespace = '{http://schemas.android.com/apk/res/android}'
+package_id = manifest_settings.attrib['package']
+version_code = int(manifest_settings.attrib[android_namespace + 'versionCode'])
+version_name = manifest_settings.attrib[android_namespace + 'versionName']
+release_name = f'Dahrooj-local-test-v{version_code}'
+# An update must remain installable over the delivered v1 without deleting player data.
+v1_certificate = '4c8cebcce50fff6b2fddafe9d44b9de9882491d8a8fac98fa9c22fb790829967'
+if version_code > 1 and not key.is_file():
+    raise SystemExit(f'Restore the original local test signing key before building an update: {key}')
 
 def run(*command, capture=False):
     result = subprocess.run([str(c) for c in command], env=env, check=True, text=True,
@@ -53,7 +68,7 @@ for file in sorted(game.rglob('*')):
 (work/'assets/game-index.tsv').write_text(''.join(f'{p}\t{n}\t{h}\n' for p,n,h in inventory),encoding='utf-8')
 game_build = json.loads((dist/'build.json').read_text())
 (work/'assets/package-info.json').write_text(json.dumps({
-    'package':'com.abodengames.dahrooj.localtest','versionCode':1,
+    'package':package_id,'versionCode':version_code,'versionName':version_name,
     'gameBuild':game_build,'assetCount':len(inventory),'browser':'com.oculus.browser',
     'origin':'http://127.0.0.1:48189/','signing':'local test certificate',
     'questHardwareTested':False,'modifiedGameFiles':['sw.js'],
@@ -83,7 +98,7 @@ if not key.exists():
     run(jdk/'bin/keytool','-genkeypair','-keystore',key,'-storepass','android','-keypass','android',
         '-alias','androiddebugkey','-keyalg','RSA','-keysize','2048','-validity','10000',
         '-dname','CN=Dahrooj Local Test,O=Aboden Games,C=SA')
-apk_path = release/'Dahrooj-local-test-v1.apk'
+apk_path = release/(release_name + '.apk')
 run(tools/'apksigner','sign','--ks',key,'--ks-key-alias','androiddebugkey','--ks-pass','pass:android',
     '--key-pass','pass:android','--v1-signing-enabled','false','--v2-signing-enabled','true',
     '--v3-signing-enabled','true','--out',apk_path,work/'aligned.apk')
@@ -92,9 +107,14 @@ if 'Verified using v2 scheme (APK Signature Scheme v2): true' not in verificatio
     raise SystemExit('APK v2 signature verification failed')
 if 'Verified using v3 scheme (APK Signature Scheme v3): true' not in verification:
     raise SystemExit('APK v3 signature verification failed')
+certificate = re.search(r'Signer #1 certificate SHA-256 digest: ([0-9a-f]+)',verification).group(1)
+if version_code > 1 and certificate != v1_certificate:
+    raise SystemExit('Signing certificate differs from v1; do not distribute this as an update')
 run(tools/'zipalign','-c','-p','4',apk_path)
 manifest = run(tools/'aapt2','dump','badging',apk_path,capture=True)
 if "package: name='com.abodengames.dahrooj.localtest'" not in manifest: raise SystemExit('Wrong package')
+if f"versionCode='{version_code}'" not in manifest or f"versionName='{version_name}'" not in manifest:
+    raise SystemExit('APK version does not match package-info.json')
 with zipfile.ZipFile(apk_path) as apk:
     names = apk.namelist()
     if len(set(names)) != len(names): raise SystemExit('Duplicate APK entries')
@@ -107,12 +127,14 @@ with zipfile.ZipFile(apk_path) as apk:
 sha = digest(apk_path.read_bytes())
 (release/(apk_path.name + '.sha256')).write_text(f'{sha}  {apk_path.name}\n')
 report = {'status':'built-and-verified','apk':apk_path.name,'bytes':apk_path.stat().st_size,'sha256':sha,
+    'package':package_id,'versionCode':version_code,'versionName':version_name,
+    'signingCertificateSha256':certificate,'sameCertificateAsV1':certificate==v1_certificate,
     'gameBuild':game_build,'assetCount':len(inventory),'assetBytes':sum(n for _,n,_ in inventory),
     'unmodifiedGameFiles':len(inventory)-1,'modifiedGameFiles':['sw.js'],
     'serverTests':test_result.strip(),'v2SignatureVerified':True,'v3SignatureVerified':True,'zipAlignmentVerified':True,
     'questHardwareTested':False,'nativeUnityPort':False,'requiresQuestBrowser':True,
     'firstLaunchWithoutInternetOnQuest':'NOT TESTED','vrAndArOnQuest':'NOT TESTED'}
-(release/'Dahrooj-local-test-v1-build-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+(release/(release_name + '-build-report.json')).write_text(json.dumps(report,ensure_ascii=False,indent=2))
 (out/'signature.txt').write_text(verification)
 (out/'manifest.txt').write_text(manifest)
 print(json.dumps(report,ensure_ascii=False,indent=2))

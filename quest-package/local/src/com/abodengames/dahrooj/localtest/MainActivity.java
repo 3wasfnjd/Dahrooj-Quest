@@ -69,7 +69,7 @@ public final class MainActivity extends Activity {
         status = label("للتجربة: أوقف Wi-Fi قبل أول تشغيل.\nتحقق من VR وMR والحفظ على نظارتك.", 15);
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         panel.addView(status);
-        panel.addView(label("© 2026 Aboden Games • 0.1 local test", 13));
+        panel.addView(label("© 2026 Aboden Games • 0.2 local test", 13));
         setContentView(scroll);
     }
     private TextView label(String text, int size) {

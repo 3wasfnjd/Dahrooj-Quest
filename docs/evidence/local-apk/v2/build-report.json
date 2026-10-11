@@ -1,0 +1,34 @@
+{
+  "status": "built-and-verified",
+  "apk": "Dahrooj-local-test-v2.apk",
+  "bytes": 6537028,
+  "sha256": "c5220f72357e09337141cca3b340e6d5dbd634e425eb9bd59929299417f25095",
+  "package": "com.abodengames.dahrooj.localtest",
+  "versionCode": 2,
+  "versionName": "0.2-local-test",
+  "signingCertificateSha256": "4c8cebcce50fff6b2fddafe9d44b9de9882491d8a8fac98fa9c22fb790829967",
+  "sameCertificateAsV1": true,
+  "gameBuild": {
+    "version": "c19a44cfa3cff2",
+    "builtAt": "2026-10-10T03:59:27.369Z",
+    "source": "95dac398081d6f0c047db3cb4e7fde4efd42fd27",
+    "iwsdk": "1.0.1",
+    "three": "super-three@0.181.0",
+    "physicsHz": 60
+  },
+  "assetCount": 119,
+  "assetBytes": 11652991,
+  "unmodifiedGameFiles": 118,
+  "modifiedGameFiles": [
+    "sw.js"
+  ],
+  "serverTests": "PASS: 50 local-server assertions (JVM, not Quest hardware)",
+  "v2SignatureVerified": true,
+  "v3SignatureVerified": true,
+  "zipAlignmentVerified": true,
+  "questHardwareTested": false,
+  "nativeUnityPort": false,
+  "requiresQuestBrowser": true,
+  "firstLaunchWithoutInternetOnQuest": "NOT TESTED",
+  "vrAndArOnQuest": "NOT TESTED"
+}
