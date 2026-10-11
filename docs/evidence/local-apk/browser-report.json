@@ -1,0 +1,20 @@
+{
+  "runtime": "Packaged APK assets + production Java server + desktop Chromium; NOT Android/Quest",
+  "assertions": [
+    "All 119 packaged assets served byte-for-byte over loopback",
+    "Fresh browser profile loads the bundled entry with external requests blocked",
+    "Loopback is a secure context and WebXR API is exposed in desktop Chromium",
+    "No emulator or development game bridge in the payload",
+    "Desktop without XR hardware does not falsely claim VR support",
+    "Local service worker does not depend on first-visit precaching",
+    "Local save origin survives reload without clearing player storage",
+    "Optional diagnostics load from bundled files",
+    "Bundled rights page remains accessible",
+    "No browser page or asset loading errors",
+    "No external game requests during entry, reload, diagnostics or credits"
+  ],
+  "errors": [],
+  "externalRequests": [],
+  "browser": "155.0.8059.39",
+  "status": "passed"
+}

@@ -1,0 +1,29 @@
+{
+  "status": "built-and-verified",
+  "apk": "Dahrooj-local-test-v1.apk",
+  "bytes": 6537028,
+  "sha256": "bc0e017f3c153d93e872a01298d8293858f9dbb34d57b005d82c827d3568dfd1",
+  "gameBuild": {
+    "version": "c19a44cfa3cff2",
+    "builtAt": "2026-10-10T03:59:27.369Z",
+    "source": "95dac398081d6f0c047db3cb4e7fde4efd42fd27",
+    "iwsdk": "1.0.1",
+    "three": "super-three@0.181.0",
+    "physicsHz": 60
+  },
+  "assetCount": 119,
+  "assetBytes": 11652991,
+  "unmodifiedGameFiles": 118,
+  "modifiedGameFiles": [
+    "sw.js"
+  ],
+  "serverTests": "PASS: 50 local-server assertions (JVM, not Quest hardware)",
+  "v2SignatureVerified": true,
+  "v3SignatureVerified": true,
+  "zipAlignmentVerified": true,
+  "questHardwareTested": false,
+  "nativeUnityPort": false,
+  "requiresQuestBrowser": true,
+  "firstLaunchWithoutInternetOnQuest": "NOT TESTED",
+  "vrAndArOnQuest": "NOT TESTED"
+}

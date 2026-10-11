@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.abodengames.dahrooj.localtest" android:versionCode="1" android:versionName="0.1-local-test">
+    <uses-sdk android:minSdkVersion="32" android:targetSdkVersion="34" />
+    <!-- Android requires INTERNET for loopback sockets; the server binds only to 127.0.0.1. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <queries>
+        <package android:name="com.oculus.vrshell" />
+        <package android:name="com.oculus.browser" />
+    </queries>
+    <application android:label="@string/app_name" android:icon="@drawable/game_icon" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false" android:supportsRtl="true" android:usesCleartextTraffic="false">
+        <!-- This launcher is a 2D app. Quest Browser owns the immersive WebXR session. -->
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <service android:name=".GameService" android:exported="false" android:foregroundServiceType="specialUse" android:stopWithTask="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Serve bundled offline game assets over loopback while the user plays WebXR in Meta Quest Browser." />
+        </service>
+    </application>
+</manifest>
