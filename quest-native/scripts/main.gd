@@ -81,6 +81,7 @@ var dots: Array = []
 var fork: Node3D
 var bands: Array = []
 var _frames := 0
+var _rig_game_z := 1.0  # the player's spot on the court (game z)
 var hist := {"left": [], "right": [], "head": []}
 var _args := {}
 var _clock := 0.0
@@ -470,6 +471,7 @@ func place() -> void:
 		if stage.far_z == null or stage.reach_z != null:
 			back = maxf(0.0, stage.aim_z - (stage.reach_z if stage.reach_z != null else FAR_Z))
 		var p := Vector3(0, 0, 0.5 * VR_SCALE + back)
+		_rig_game_z = p.z
 		game_root.transform = Transform3D(Basis().scaled(Vector3.ONE / VR_SCALE), -p / VR_SCALE)
 	else:
 		scale_now = ar_scale
@@ -508,6 +510,9 @@ func _process(delta: float) -> void:
 	var head := head_transform()
 	RenderingServer.global_shader_parameter_set("dah_cam", w2g * head.origin)
 	if nature_on():
+		# The stone runs from behind the player to just past the target, in every mode.
+		var far: float = stage.far_z if stage.far_z != null else float(stage.aim_z)
+		park.set_pitch(far, _rig_game_z + 3.0)
 		park.update(delta, w2g * head.origin)
 		var sk := park.sky_state()
 		sun.light_color = sk.sun_color
@@ -576,7 +581,8 @@ func _game_step(delta: float) -> void:
 	# The held ball rides in front of the hand (in the pouch with the slingshot).
 	if holder != "" and xr:
 		var g := rig.grip_transform(holder)
-		var target := g.origin if F != "" else g.origin + (-g.basis.z.normalized()) * Ball.BR * 1.05 * scale_now
+		# BR * 1.05 game units in front of the grip (game units are 1/scale_now metres).
+		var target := g.origin if F != "" else g.origin + (-g.basis.z.normalized()) * Ball.BR * 1.05 / scale_now
 		ball.pos = to_game(target)
 		ball.vel = Vector3.ZERO
 		ball.grounded = false
@@ -744,13 +750,17 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 		return
 	if state != "play":
 		return
-	if name == "grip" or name == "trigger":
+	# Every mode: the trigger fires shots, the grip (either hand) holds Dahrooj.
+	if name == "trigger":
 		if down:
 			_press(hand, name)
 		else:
 			auto_fire.erase(hand)
-			if holder == hand and not _other_grab_down(hand, name):
-				_release(hand, false)
+	elif name == "grip":
+		if down:
+			_press(hand, name)
+		elif holder == hand:
+			_release(hand, false)
 	# Right A: Dahrooj back to the hand.
 	elif hand == "right" and name == "ax" and down:
 		_recall()
@@ -778,14 +788,14 @@ func _press(hand: String, how: String) -> void:
 			intro.shot_hand = hand
 			_fire_blast(hand)
 		return
-	# The left trigger is a blaster that pops the Dahroojs around the modes.
-	if how == "trigger" and hand == "left" and _fork_hand() == "" and not placing:
-		_fire_blast(hand)
-		return
 	if placing:
-		if not anchor.is_empty():
+		if how == "trigger" and not anchor.is_empty():
 			placing = false
 			ball.respawn()
+		return
+	# The trigger is a blaster in every mode (holding keeps firing).
+	if how == "trigger":
+		_fire_blast(hand)
 		return
 	if hand == _fork_hand():
 		return  # this hand holds the slingshot

@@ -214,6 +214,13 @@ func _world(main: Node) -> void:
 	Save.throw_style = "trigger"
 	main.set_menu(false)
 	main._choose_mode("goal")
+	main.ball.respawn()
+	main.holder = ""
+	main._press("left", "trigger")
+	check(main.holder == "", "the trigger fires, it does not grab")
+	main._press("left", "grip")
+	check(main.holder == "left", "either grip holds Dahrooj")
+	main._release("left", true)
 	main.ar_zoom = 1.0
 	main.anchor_from(Vector3(0, 0.7, -1), Vector3.UP)
 	check(main.ar_scale == 16.0, "MR: a table gets the smaller court (1/16)")
