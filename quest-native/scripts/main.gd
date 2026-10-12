@@ -120,6 +120,7 @@ func _ready() -> void:
 	game_root.add_child(world_balls)
 	runtime.ctx.sfx = sfx
 	_build_throw_aids()
+	park.on_explode = _on_crate_blast
 	hud = Node3D.new()
 	hud.name = "Hud"
 	hud.visible = false
@@ -487,8 +488,15 @@ func _process(delta: float) -> void:
 	RenderingServer.global_shader_parameter_set("dah_world_to_game", Projection(w2g))
 	var head := head_transform()
 	RenderingServer.global_shader_parameter_set("dah_cam", w2g * head.origin)
+	if nature_on():
+		park.update(delta, w2g * head.origin)
+		var sk := park.sky_state()
+		sun.light_color = sk.sun_color
+		sun.light_energy = sk.sun_energy
+		env.ambient_light_color = sk.ambient_color
+		env.ambient_light_energy = sk.ambient_energy
+		audio.set_environment(park.night(), clampf(float(park.weather().get("rain", 0.0)), 0.0, 1.0), clampf(float(park.weather().get("snow", 0.0)), 0.0, 1.0))
 	RenderingServer.global_shader_parameter_set("dah_time", _clock)
-	RenderingServer.global_shader_parameter_set("dah_wind_time", _clock * 0.1 * 0.5)
 	if xr:
 		_xr_states(delta)
 		for h in ["left", "right"]:
@@ -765,6 +773,28 @@ func _blast_from(hand: String) -> void:
 	var a := rig.aim_transform(hand)
 	var w2g := game_root.global_transform.affine_inverse()
 	world_balls.fire(hand, w2g * a.origin, (w2g.basis * -a.basis.z).normalized())
+
+
+## Crate blasts clear nearby characters in a 3D radius, never the ball held by the player.
+func _on_crate_blast(at: Vector3, radius: float, by_player := true) -> void:
+	sfx("boom", 1.0, at)
+	buzz("left", 0.9, 180)
+	buzz("right", 0.9, 180)
+	if by_player:
+		runtime.ch_add("crates5")
+	var reach := (radius + Ball.BR) * (radius + Ball.BR)
+	for i in range(world_balls.rests.size() - 1, -1, -1):
+		var r: Dictionary = world_balls.rests[i]
+		if (r.p as Vector3).distance_squared_to(at) <= reach:
+			world_balls.burst(r.p, r.style, false)
+			world_balls._drop_rest(i)
+	for i in range(ball.volley.size() - 1, -1, -1):
+		if (ball.volley[i].pos as Vector3).distance_squared_to(at) <= reach:
+			world_balls.burst(ball.volley[i].pos, "fur", false)
+			ball.volley.remove_at(i)
+	if ball.shot and not ball.held and ball.pos.distance_squared_to(at) <= reach:
+		world_balls.burst(ball.pos, "fur", false)
+		ball_popped()
 
 
 # --- what the world asks of the scene (WorldBalls, stages) ---------------------------

@@ -149,3 +149,19 @@ dah_perlin={
 "type": "sampler2D",
 "value": ""
 }
+dah_tracks={
+"type": "sampler2D",
+"value": ""
+}
+dah_track_area={
+"type": "vec3",
+"value": Vector3(0, -10, 64)
+}
+dah_shadow={
+"type": "sampler2D",
+"value": ""
+}
+dah_shadow_area={
+"type": "vec3",
+"value": Vector3(0, -10, 112)
+}

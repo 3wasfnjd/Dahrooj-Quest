@@ -6,12 +6,30 @@ extends Node3D
 ## fallen leaves, pebbles, pole lights, benches, lanterns and crates. Same random
 ## generator (Lehmer, seed 7) in the same order, so things stand where they do in
 ## the web game. Game units; the court centre is (0, -10).
+##
+## And everything that moves (nature.js api): the props (collide, collide_crates,
+## explode, reset, the exploded signal / on_explode), the pond's water lines, ripples
+## and splashes, tracks where balls roll (mark), the baked drop shadows, the day cycle
+## and the weather (set_settings, sky_state), rain and snow, and the night lights
+## (pole glass, fireflies, pools of light, moonlight and a lantern by the player).
+## Call update(dt, eye) every frame while the park shows (eye = the head in game units).
+
+## A crate went up: where, the blast radius, and whether the player set it off.
+signal exploded(at: Vector3, radius: float, by_player: bool)
 
 const COURT := Vector2(0, -10)
 const POND := {"x": -22.0, "z": -5.0, "rx": 7.0, "rz": 10.0}
 const TREES := [["oakTreesVisual.glb", "b4b536", "d8cf3b"], ["birchTreesVisual.glb", "ff4f2b", "ff903f"],
 	["cherryTreesVisual.glb", "ff6d6d", "ff9990"]]
 const CLUMP_TOWARD := Vector3(0, 6, 8)
+## Motri's light direction (Ligthing.js phi .63, theta .72).
+const LIGHT_PHI := 0.63
+const LIGHT_THETA := 0.72
+## The game's own lights are calibrated on the day preset (main.gd: sun 0.75 for
+## three's 2.16, ambient 0.6 for the hemisphere's 1.89).
+const SUN_K := 0.75 / 2.16
+const AMBIENT_K := 0.6 / 1.89
+const RAIN_COUNT := 2048
 
 var _seed := 7
 var perlin_image: Image
@@ -22,6 +40,25 @@ var _mesh_mats := {}
 var props := {"poles": [], "benches": [], "lanterns": [], "crates": []}
 var lantern_glow: ShaderMaterial
 var pole_glow: ShaderMaterial
+## Also called when a crate goes up: func(at: Vector3, radius: float, by_player: bool).
+var on_explode := Callable()
+var prop_set: ParkProps
+var shadows: ParkShadows
+var tracks: ParkTracks
+var water: ParkWater
+var cycle := ParkCycle.new()
+var light_dir := Vector3(sin(LIGHT_PHI) * sin(LIGHT_THETA), cos(LIGHT_PHI), sin(LIGHT_PHI) * cos(LIGHT_THETA)).normalized()
+var eye := Vector3(0, 3.2, 9.7)
+var _materials_with_slab: Array = []
+var _slab := Vector4(0, -2.5, 9, 9)
+var _rain: MeshInstance3D
+var _rain_mat: ShaderMaterial
+var _rain_time := 0.0
+var _snow: MeshInstance3D
+var _snow_mat: ShaderMaterial
+var _snow_elevation := -1.0
+var _moon: DirectionalLight3D
+var _lantern: OmniLight3D
 
 
 func rng() -> float:
@@ -36,6 +73,18 @@ func _init() -> void:
 func build() -> void:
 	_make_perlin()
 	RenderingServer.global_shader_parameter_set("dah_perlin", perlin)
+	shadows = ParkShadows.new()
+	add_child(shadows)
+	shadows.setup(COURT, light_dir)
+	tracks = ParkTracks.new(COURT)
+	water = ParkWater.new()
+	add_child(water)
+	water.setup()
+	var G := RenderingServer
+	G.global_shader_parameter_set("dah_tracks", tracks.texture)
+	G.global_shader_parameter_set("dah_track_area", Vector3(COURT.x, COURT.y, ParkTracks.SIZE))
+	G.global_shader_parameter_set("dah_shadow", shadows.texture)
+	G.global_shader_parameter_set("dah_shadow_area", Vector3(COURT.x, COURT.y, ParkShadows.SIZE))
 	_ground()
 	_grass()
 	_clump_mesh = _foliage_geometry()
@@ -47,6 +96,9 @@ func build() -> void:
 	_props()
 	for kind in TREES.size():
 		_trees(kind)
+	_weather()
+	_night_lights()
+	update(0.0)
 
 
 # --- noise ---------------------------------------------------------------------
@@ -115,6 +167,7 @@ func _ground() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/ground.gdshader")
 	mat.set_shader_parameter("slabs", load("res://assets/textures/slabs.png"))
+	_materials_with_slab.append(mat)
 	m.material_override = mat
 	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(m)
@@ -153,6 +206,7 @@ func _grass() -> void:
 	mi.mesh = mesh
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/grass.gdshader")
+	_materials_with_slab.append(mat)
 	mi.material_override = mat
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
@@ -266,13 +320,17 @@ func _bushes() -> void:
 		var y := 0.6 + rng() * 0.7
 		var size := 0.9 + rng() * 0.3
 		mats.append(_clump(Vector3(x, y, z), size))
+		shadows.add_blob(x, z, y * 0.6, size, 0.8)
 	_multimesh(_clump_mesh, mats, _foliage_material("b4b536", "d8cf3b"), "Bushes")
 
 
-func _tinted_material(mode: int) -> ShaderMaterial:
+func _tinted_material(mode: int, shadow_k := 0.0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/tinted.gdshader")
 	mat.set_shader_parameter("mode", mode)
+	mat.set_shader_parameter("shadow_k", shadow_k)
+	if mode == 1:
+		_materials_with_slab.append(mat)
 	return mat
 
 
@@ -321,7 +379,7 @@ func _flowers() -> void:
 			var scl := 0.6 + rng() * 0.4
 			mats.append(Transform3D(Basis(Vector3.UP, rot).scaled(Vector3.ONE * scl), Vector3(px, 0, pz)))
 			tints.append(tint.srgb_to_linear())
-	_multimesh(mesh, mats, _tinted_material(1), "Flowers", tints)
+	_multimesh(mesh, mats, _tinted_material(1, 0.8), "Flowers", tints)
 
 
 ## Leaves.js: fallen leaves in two reds, most of them under the trees.
@@ -363,7 +421,7 @@ func _leaves() -> void:
 		cols.append(a.lerp(b, rng()).srgb_to_linear())
 		rng()
 		rng()  # the tilt of the normal (not used for these flat leaves' shading here)
-	_multimesh(mesh, mats, _tinted_material(0), "Leaves", cols)
+	_multimesh(mesh, mats, _tinted_material(0, 0.85), "Leaves", cols)
 
 
 ## Pale faceted stones beside the stone and around the pond.
@@ -373,6 +431,7 @@ func _pebbles() -> void:
 		var rot := Vector3(rng() * 0.6, rng() * PI * 2.0, rng() * 0.6)
 		var sc := Vector3(s * (0.8 + rng() * 0.5), s * (0.45 + rng() * 0.3), s * (0.8 + rng() * 0.5))
 		mats.append(Transform3D(Basis.from_euler(rot, EULER_ORDER_XYZ).scaled(sc), Vector3(x, s * 0.25, z)))
+		shadows.add_blob(x, z, sc.y * 0.8, (sc.x + sc.z) * 0.45, 0.6)
 	for i in 18:
 		var a := rng() * PI * 2.0
 		var k := 1.06 + rng() * 0.12
@@ -393,7 +452,7 @@ func _pebbles() -> void:
 	var cols := []
 	for m in mats:
 		cols.append(white)
-	_multimesh(ico, mats, _tinted_material(0), "Pebbles", cols)
+	_multimesh(ico, mats, _tinted_material(0, 0.7), "Pebbles", cols)
 
 
 # --- models ----------------------------------------------------------------------
@@ -459,50 +518,310 @@ func _trees(kind: int) -> void:
 	for s in mine:
 		var ref := Transform3D(Basis(Vector3.UP, s.rot).scaled(Vector3.ONE * s.scale), Vector3(s.x, 0, s.z))
 		bodies.append(ref * body.xf)
+		var crown := []
 		for leaf in leaves:
 			var w: Transform3D = ref * leaf.xf
 			clumps.append(_clump(w.origin, w.basis.get_scale().x))
+			crown.append([w.origin, w.basis.get_scale().x])
+		# Its shadow: the trunk up to the lowest leaves, then a soft blob for each clump of leaves.
+		var low := 9.0
+		for c: Array in crown:
+			low = minf(low, (c[0] as Vector3).y)
+		shadows.add_stick(s.x, s.z, 0.0, low, 0.32 * float(s.scale), 0.8)
+		for c: Array in crown:
+			var o: Vector3 = c[0]
+			shadows.add_blob(o.x, o.z, o.y, float(c[1]) * 1.2, 0.85)
 	_multimesh(body.mesh, bodies, _palette_material(body.mesh), "Trees" + str(kind))
 	_multimesh(_clump_mesh, clumps, _foliage_material(TREES[kind][1], TREES[kind][2]), "Foliage" + str(kind))
 
 
-## Pole lights line the stone, benches with a lantern at each end sit beyond them,
-## crates wait at the sides (PoleLights.js, Benches.js, Lanterns.js, ExplosiveCrates.js).
+## The props and their behaviour (park_props.gd).
 func _props() -> void:
-	var cx := COURT.x
-	var cz := COURT.y
-	for s in [-1.0, 1.0]:
-		for z in [4.0, -7.0, -18.0]:
-			props.poles.append({"x": cx + s * 10.3, "z": z, "rot": 0.0})
-		for z in [-1.5, -12.5]:
-			props.benches.append({"x": cx + s * 11.9, "z": z, "rot": -s * PI / 2})
-			props.lanterns.append({"x": cx + s * 11.9, "z": z + 1.75, "rot": 0.4 * s})
-			props.lanterns.append({"x": cx + s * 11.9, "z": z - 1.75, "rot": -0.3 * s})
-	for xz in [[-7.4, -4.0], [7.4, -14.0]]:
-		var x: float = xz[0]
-		var z: float = xz[1]
-		var sd := signf(x)
-		props.crates.append({"x": cx + x, "z": cz + z + 10 - 0.45, "y": 0.0, "rot": 0.2})
-		props.crates.append({"x": cx + x + sd * 0.15, "z": cz + z + 10 + 0.45, "y": 0.0, "rot": -0.15})
-		props.crates.append({"x": cx + x + sd * 0.05, "z": cz + z + 10, "y": 1.0, "rot": 0.5})
-	lantern_glow = ShaderMaterial.new()
-	lantern_glow.shader = load("res://shaders/glow.gdshader")
-	pole_glow = ShaderMaterial.new()
-	pole_glow.shader = lantern_glow.shader
-	pole_glow.set_shader_parameter("on", 0.0)  # pole glass lights up at night
-	_build_prop("poleLight.glb", props.poles, 1.0, 1.78, pole_glow)
-	_build_prop("lantern.glb", props.lanterns, 0.6, 0.51, lantern_glow)
-	_build_prop("bench.glb", props.benches, 0.75, 0.71, null)
-	_build_prop("explosiveCrate.glb", props.crates, 0.7, 0.53, null)
+	prop_set = ParkProps.new()
+	add_child(prop_set)
+	prop_set.setup(self, COURT)
+	lantern_glow = prop_set.lantern_glow
+	pole_glow = prop_set.pole_glow
 
 
-func _build_prop(file: String, list: Array, scale: float, lift: float, glow: Material) -> void:
-	for p in _model_parts(file):
-		var src := (p.mesh as Mesh).surface_get_material(0)
-		var emissive: bool = src != null and "emissive" in src.resource_name.to_lower()
-		var xforms := []
-		for it in list:
-			var b := Basis(Vector3.UP, it.rot).scaled(Vector3.ONE * scale)
-			xforms.append(Transform3D(b, Vector3(it.x, it.get("y", 0.0) + lift * scale, it.z)) * p.xf)
-		var mat: Material = glow if emissive and glow else _palette_material(p.mesh)
-		_multimesh(p.mesh, xforms, mat, file.get_basename())
+# --- weather and night lights -------------------------------------------------------
+
+## RainLines.js (2048 quads falling from 20, wrapped around the view; short and slow
+## for snow) and Snow.js (drifts on the ground that rise while it snows).
+func _weather() -> void:
+	var verts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var uv2s := PackedVector2Array()
+	var idx := PackedInt32Array()
+	verts.resize(RAIN_COUNT * 4)
+	uvs.resize(RAIN_COUNT * 4)
+	uv2s.resize(RAIN_COUNT * 4)
+	idx.resize(RAIN_COUNT * 6)
+	for l in RAIN_COUNT:
+		var x := randf()
+		var z := randf()
+		var r := randf()
+		for v in 4:
+			verts[l * 4 + v] = Vector3(x, 0, z)
+			uvs[l * 4 + v] = Vector2(1.0 if v == 0 or v == 1 else 0.0, 1.0 if v == 0 or v == 3 else 0.0)
+			uv2s[l * 4 + v] = Vector2(r, 0)
+		var k := l * 4
+		var q := l * 6
+		idx[q] = k
+		idx[q + 1] = k + 3
+		idx[q + 2] = k + 2
+		idx[q + 3] = k + 2
+		idx[q + 4] = k + 1
+		idx[q + 5] = k
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_TEX_UV2] = uv2s
+	arr[Mesh.ARRAY_INDEX] = idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	mesh.custom_aabb = AABB(Vector3(-200, -5, -200), Vector3(400, 130, 400))
+	_rain_mat = ShaderMaterial.new()
+	_rain_mat.shader = load("res://shaders/rain.gdshader")
+	_rain_mat.render_priority = 1
+	_rain = MeshInstance3D.new()
+	_rain.name = "WeatherParticles"
+	_rain.mesh = mesh
+	_rain.material_override = _rain_mat
+	_rain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_rain.visible = false
+	add_child(_rain)
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(60, 60)
+	plane.subdivide_width = 159
+	plane.subdivide_depth = 159
+	plane.custom_aabb = AABB(Vector3(-200, -2, -200), Vector3(400, 4, 400))
+	_snow_mat = ShaderMaterial.new()
+	_snow_mat.shader = load("res://shaders/snow.gdshader")
+	_snow = MeshInstance3D.new()
+	_snow.name = "SnowGround"
+	_snow.mesh = plane
+	_snow.material_override = _snow_mat
+	_snow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_snow.visible = false
+	add_child(_snow)
+
+
+## Night lights for the game's own models: moonlight from above and a soft warm
+## lantern that follows the player (off by day).
+func _night_lights() -> void:
+	_moon = DirectionalLight3D.new()
+	_moon.name = "Moon"
+	_moon.light_color = Color("c9d4ff")
+	_moon.light_energy = 0.0
+	_moon.shadow_enabled = false
+	_moon.transform = Transform3D(Basis.looking_at(Vector3(6, -14, -6).normalized(), Vector3.UP), Vector3(-6, 14, 6))
+	_moon.visible = false
+	add_child(_moon)
+	_lantern = OmniLight3D.new()
+	_lantern.name = "Lantern"
+	_lantern.light_color = Color("ffd9a0")
+	_lantern.light_energy = 0.0
+	_lantern.omni_attenuation = 1.6
+	_lantern.shadow_enabled = false
+	_lantern.top_level = true
+	_lantern.visible = false
+	add_child(_lantern)
+
+
+# --- the frame -----------------------------------------------------------------------
+
+## Every frame while the park shows: eye = the head in game units (main.gd's
+## w2g * head.origin). Sets the park's shader globals (light, sky, fog, stars, wind).
+func update(dt: float, eye_at := Vector3(INF, 0, 0)) -> void:
+	if eye_at.x != INF:
+		eye = eye_at
+	cycle.update(dt)
+	_set_globals()
+	var nt := cycle.night
+	prop_set.update(dt, nt)
+	water.update(dt)
+	tracks.update(dt)
+	# RainLines.js
+	var w := cycle.w
+	var snow_ratio := 1.0 - pow(1.0 - maxf(w.snow, 0.0), 4.0)
+	var visible_ratio := pow(float(w.rain), 2.0)
+	var speed := lerpf(ParkCycle.remap_clamp(w.rain, 0.0, 1.0, 0.2, 0.4), 0.05, snow_ratio)
+	_rain_time += dt * speed
+	_rain.visible = visible_ratio > 0.00001
+	if _rain.visible:
+		_rain_mat.set_shader_parameter("visible_ratio", visible_ratio)
+		_rain_mat.set_shader_parameter("len", lerpf(ParkCycle.remap_clamp(w.rain, 0.0, 1.0, 1.0, 3.0), 0.03, snow_ratio))
+		_rain_mat.set_shader_parameter("incline", ParkCycle.remap_clamp(w.wind, 0.0, 1.0, 0.1, 0.4))
+		_rain_mat.set_shader_parameter("center", Vector2(eye.x, eye.z))
+		_rain_mat.set_shader_parameter("local_time", _rain_time)
+	# Snow.js: the ground layer rises while it snows and melts away otherwise.
+	var forced := dt * 0.045 if cycle.weather == "snow" else (-dt * 0.05 if cycle.weather == "clear" or cycle.weather == "rain" else 0.0)
+	_snow_elevation = clampf(_snow_elevation + float(w.snow) * cycle.progress_delta * 10.0 + forced, -1.0, 0.5)
+	_snow.visible = _snow_elevation > -0.9
+	if _snow.visible:
+		_snow_mat.set_shader_parameter("snow_elevation", _snow_elevation)
+		_snow_mat.set_shader_parameter("center", Vector2(roundf(eye.x / 0.375) * 0.375, roundf(eye.z / 0.375) * 0.375))
+	# Night lights.
+	var scale_k := global_transform.basis.get_scale().x if is_inside_tree() else 1.0
+	_moon.light_energy = nt * 0.45 * SUN_K
+	_moon.visible = nt > 0.001
+	_lantern.light_energy = nt * 1.1 * SUN_K
+	_lantern.visible = nt > 0.001
+	if _lantern.visible and is_inside_tree():
+		_lantern.global_position = global_transform * Vector3(eye.x, eye.y + 0.5, eye.z - 1.5)
+		_lantern.omni_range = 16.0 * scale_k
+
+
+func _set_globals() -> void:
+	var G := RenderingServer
+	var d := cycle.d
+	G.global_shader_parameter_set("dah_light_color", _lin(d.light))
+	G.global_shader_parameter_set("dah_light_intensity", cycle.light_intensity)
+	G.global_shader_parameter_set("dah_shadow_color", _lin(d.shadow))
+	G.global_shader_parameter_set("dah_horizon", _lin(cycle.horizon))
+	G.global_shader_parameter_set("dah_zenith", _lin(cycle.zenith))
+	G.global_shader_parameter_set("dah_fog_a", _lin(d.fog_a))
+	G.global_shader_parameter_set("dah_light_dir", light_dir)
+	G.global_shader_parameter_set("dah_sun_dir", cycle.sun_dir)
+	G.global_shader_parameter_set("dah_fog_near", cycle.fog_near)
+	G.global_shader_parameter_set("dah_fog_far", cycle.fog_far)
+	G.global_shader_parameter_set("dah_stars", cycle.stars)
+	G.global_shader_parameter_set("dah_night", cycle.night)
+	G.global_shader_parameter_set("dah_wind_strength", cycle.wind_strength)
+	G.global_shader_parameter_set("dah_wind_time", cycle.wind_time)
+
+
+## Shader globals take linear colours (the park shades in linear light, as three.js does).
+static func _lin(c: Color) -> Vector3:
+	var l := c.srgb_to_linear()
+	return Vector3(l.r, l.g, l.b)
+
+
+## The current light, sky and fog: linear Vector3 colours for shaders, sRGB Colors
+## and energies for Godot's own lights (calibrated so the day preset gives main.gd's
+## sun 0.75 and ambient 0.6). The park sets its shader globals itself in update().
+func sky_state() -> Dictionary:
+	var d := cycle.d
+	var nt := cycle.night
+	var li: float = d.intensity
+	var k := 1.0 / 3.0 if li > 2.0 else 1.0
+	var light: Color = d.light
+	var shadow: Color = d.shadow
+	var hemi := light.lerp(Color.WHITE, 0.35 + nt * 0.25)
+	var hemi_ground := shadow.lerp(Color("c1c8d6"), 0.6)
+	var hemi_i := maxf(1.65, 1.4 * li * k)
+	var sun_c := light.lerp(Color("c9d4ff"), nt * 0.6)
+	var sun_i := maxf(1.15, 1.6 * li * k)
+	return {
+		"light_color": _lin(light), "light_intensity": cycle.light_intensity, "shadow_color": _lin(shadow),
+		"horizon": _lin(cycle.horizon), "zenith": _lin(cycle.zenith), "fog_a": _lin(d.fog_a), "fog_b": _lin(d.fog_b),
+		"light_dir": light_dir, "sun_dir": cycle.sun_dir, "fog_near": cycle.fog_near, "fog_far": cycle.fog_far,
+		"stars": cycle.stars, "night": nt, "wind_strength": cycle.wind_strength, "wind_time": cycle.wind_time,
+		"fog_color": cycle.horizon, "fog_depth_begin": maxf(1.0, cycle.fog_near), "fog_depth_end": cycle.fog_far + 10.0,
+		"sun_color": sun_c, "sun_energy": sun_i * SUN_K, "sun_intensity_three": sun_i,
+		"hemi_color": hemi, "hemi_ground": hemi_ground, "hemi_intensity_three": hemi_i,
+		"ambient_color": hemi.lerp(hemi_ground, 0.35), "ambient_energy": hemi_i * AMBIENT_K,
+		"moon_energy": nt * 0.45 * SUN_K, "lantern_energy": nt * 1.1 * SUN_K,
+		"day_p": cycle.day_p, "time": cycle.time, "weather": cycle.weather,
+	}
+
+
+# --- settings ----------------------------------------------------------------------------
+
+## time: auto | day | dusk | night | dawn; weather: auto | clear | rain | snow.
+func set_settings(d: Dictionary) -> void:
+	cycle.set_settings(d)
+
+
+func settings() -> Dictionary:
+	return {"time": cycle.time, "weather": cycle.weather}
+
+
+## Weather.js state: temperature, humidity, clouds, wind, rain, snow.
+func weather() -> Dictionary:
+	return cycle.w
+
+
+## How dark it is (0 day, 1 night), for the nature sounds.
+func night() -> float:
+	return cycle.night
+
+
+## The stone reaches from behind the player to just past the target at far_z.
+func set_pitch(far_z: float, near_z := 5.0) -> void:
+	var z0 := far_z - 1.5
+	var z1 := maxf(5.0, near_z)
+	var s := Vector4(COURT.x, (z0 + z1) / 2.0, 9.0, (z1 - z0) / 2.0)
+	if s.is_equal_approx(_slab):
+		return
+	_slab = s
+	for m: ShaderMaterial in _materials_with_slab:
+		m.set_shader_parameter("slab_area", s)
+
+
+# --- tracks, the pond, the props ------------------------------------------------------
+
+## Press a track at (x, z): radius in game units, strength 0–1.
+func mark(x: float, z: float, radius: float, strength: float) -> void:
+	tracks.mark(x, z, radius, strength)
+
+
+## How pressed the ground is at (x, z), 0–1.
+func track_at(x: float, z: float) -> float:
+	return tracks.at(x, z)
+
+
+func water_at(x: float, z: float) -> float:
+	return depth(x, z)
+
+
+## A white line where a ball of radius r centred y above the surface meets the water.
+func water_line(x: float, y: float, z: float, r: float) -> void:
+	if depth(x, z) > 0.0:
+		water.line(x, y, z, r)
+
+
+## Rings from a splash, strength 0–1.
+func splash(x: float, z: float, k: float) -> void:
+	var s := clampf(k, 0.15, 1.0)
+	water.ripple(x, z, 0.2, 1.0 + 2.2 * s, 1.1 + s)
+	water.ripple(x, z, 0.1, 0.6 + 1.4 * s, 0.8 + s * 0.6)
+	if s > 0.5:
+		water.ripple(x, z, 0.05, 0.4 + s, 0.7)
+
+
+## A ring as something bobs in the water.
+func bob(x: float, z: float, r: float) -> void:
+	water.ripple(x, z, r * 0.9, r * 2.6, 1.8)
+
+
+func ripple(x: float, z: float, r0: float, r1: float, life: float) -> void:
+	water.ripple(x, z, r0, r1, life)
+
+
+## Ball (position p, velocity v, radius r) against poles, benches, lanterns and crates.
+## Returns {"hit": bool, "p": Vector3, "v": Vector3} (p and v pushed out / bounced).
+func collide(p: Vector3, v: Vector3, r: float, by_player := true) -> Dictionary:
+	return prop_set.collide(p, v, r, by_player)
+
+
+func collide_crates(p: Vector3, v: Vector3, r: float, by_player := true) -> Dictionary:
+	return prop_set.collide_crates(p, v, r, by_player)
+
+
+## Light crate i's fuse.
+func explode(i: int, by_player := true) -> void:
+	prop_set.explode(i, by_player)
+
+
+## Every crate back in place.
+func reset() -> void:
+	prop_set.reset()
+
+
+func _crate_exploded(at: Vector3, radius: float, by_player: bool) -> void:
+	exploded.emit(at, radius, by_player)
+	if on_explode.is_valid():
+		on_explode.call(at, radius, by_player)
