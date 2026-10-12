@@ -2,3 +2,6 @@
 /android/
 *.tmp
 /build/
+
+# The public TEST-ONLY signing key (sideload builds) is meant to be in git.
+!tools/ci/test-signing/dahrooj-test.keystore
