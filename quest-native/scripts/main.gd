@@ -72,6 +72,7 @@ var ar_scale := AR_SCALE
 var ar_zoom := 1.0
 var reticle: MeshInstance3D
 var surfaces: SceneSurfaces
+var room: RoomColliders
 var place_hint: Label3D
 var holder := ""
 var parked := false
@@ -227,6 +228,9 @@ func _build_placing() -> void:
 	surfaces = SceneSurfaces.new()
 	surfaces.name = "SceneSurfaces"
 	add_child(surfaces)
+	room = RoomColliders.new(surfaces)
+	room.name = "RoomColliders"
+	add_child(room)
 
 
 ## The headset's own surfaces (tables from Space Setup) first, the floor otherwise.
@@ -235,33 +239,34 @@ func _aim_at_surface():
 	if hand == "":
 		return null
 	var r := rig.ray(hand)
-	var o: Vector3 = r[0]
-	var d: Vector3 = r[1]
-	var best = null
-	var best_t := 8.0
-	for sf in surfaces.surfaces():
-		var c: Vector3 = sf.center
-		if absf(d.y) < 1e-4 or sf.label == "floor":
+	# The headset's scanned surfaces (walls, tables, furniture) first, the floor otherwise.
+	var hit := surfaces.ray_surface(r[0], r[1], 8.0, true)
+	return null if hit.is_empty() else hit
+
+
+## The far end of the current stage (game z), from its meshes.
+func _stage_min_z() -> float:
+	var inv := stage.global_transform.affine_inverse()
+	var mz := float(stage.aim_z)
+	for mi in stage.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null or not m.visible:
 			continue
-		var t := (c.y - o.y) / d.y
-		if t <= 0.0 or t >= best_t:
-			continue
-		var p := o + d * t
-		var local: Vector3 = (sf.basis as Basis).inverse() * (p - c)
-		if absf(local.x) <= sf.size.x / 2 and absf(local.z) <= sf.size.y / 2:
-			best_t = t
-			best = {"p": p, "n": Vector3.UP}
-	if best == null and d.y < -0.05:
-		var t := -o.y / d.y
-		if t < 8.0:
-			best = {"p": o + d * t, "n": Vector3.UP}
-	return best
+		var bb: AABB = (inv * m.global_transform) * m.mesh.get_aabb()
+		mz = minf(mz, bb.position.z)
+	return mz
 
 
 ## Where the court goes for a spot on a surface. A raised surface facing up (a table,
 ## a bed) gets the smaller court; the floor the usual one.
 func anchor_from(P: Vector3, n: Vector3) -> Dictionary:
 	ar_scale = (AR_TABLE if n.y > 0.5 and P.y > 0.35 else AR_SCALE) / ar_zoom
+	# On a wall the court stands on the floor below with its back against the wall:
+	# the goal's net or the hoop's board touches it.
+	if absf(n.y) < 0.5:
+		var f := Vector3(n.x, 0.0, n.z).normalized()
+		var back := maxf(0.0, float(stage.aim_z) - _stage_min_z()) / ar_scale + 0.03
+		return {"p": Vector3(P.x, 0.0, P.z) + f * back, "theta": atan2(-f.x, f.z), "wall": true}
 	var pos := head_transform().origin
 	var dx := P.x - pos.x
 	var dz := P.z - pos.z
@@ -269,6 +274,7 @@ func anchor_from(P: Vector3, n: Vector3) -> Dictionary:
 
 
 func _step_placing(dt: float) -> void:
+	room.show_planes(placing and mode == "mr")
 	if not placing:
 		reticle.visible = false
 		place_hint.visible = false
@@ -277,7 +283,8 @@ func _step_placing(dt: float) -> void:
 	if hit != null:
 		anchor = anchor_from(hit.p, hit.n)
 		place()
-		reticle.global_position = hit.p + Vector3(0, 0.002, 0)
+		var nn: Vector3 = hit.n
+		reticle.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, nn.normalized())) if nn.dot(Vector3.UP) > -0.999 else Basis(), hit.p + nn * 0.002)
 		reticle.visible = true
 	# The stick: bigger and smaller, until you pin.
 	var sy := rig.stick("right").y
@@ -644,6 +651,19 @@ func _game_step(delta: float) -> void:
 			world_balls.mark_ball(ball.pos, ball.vel)
 		for b in ball.volley:
 			world_balls.mark_ball(b.pos, b.vel)
+		# Mixed reality: the real walls and furniture.
+		if room_active():
+			if ball.shot and not ball.held:
+				var h := room_hit(ball.pos, ball.vel, ball.pos - ball.vel * gdt, Ball.BR)
+				ball.pos = h.p
+				ball.vel = h.v
+				if float(h.hit) > 1.0:
+					sfx("thump", minf(1.0, float(h.hit) / 12.0), ball.pos)
+					buzz(last_thrower, 0.3, 25)
+			for b in ball.volley:
+				var h := room_hit(b.pos, b.vel, b.pos - b.vel * gdt, Ball.BR)
+				b.pos = h.p
+				b.vel = h.v
 		# The world's props: Dahrooj bounces off poles and benches, shoves lanterns and sets off crates.
 		if nature_on() and park.has_method("collide"):
 			if ball.shot and not ball.held:
@@ -881,6 +901,20 @@ func _on_crate_blast(at: Vector3, radius: float, by_player := true) -> void:
 	if ball.shot and not ball.held and ball.pos.distance_squared_to(at) <= reach:
 		world_balls.burst(ball.pos, "fur", false)
 		ball_popped()
+
+
+## Mixed reality: the real room (walls, furniture) is solid.
+func room_active() -> bool:
+	return mode == "mr" and room != null and room.has_any()
+
+
+## A ball against the room, in game units (hit: closing speed, game units per second).
+func room_hit(pos: Vector3, vel: Vector3, prev: Vector3, r: float) -> Dictionary:
+	var gt: Transform3D = game_root.global_transform
+	var k := gt.basis.get_scale().x  # metres per game unit
+	var res := room.collide(gt * pos, gt.basis * vel, r * k, gt * prev)
+	var inv := gt.affine_inverse()
+	return {"hit": float(res.hit_speed) / k, "p": inv * (res.p as Vector3), "v": inv.basis * (res.v as Vector3)}
 
 
 # --- what the world asks of the scene (WorldBalls, stages) ---------------------------
