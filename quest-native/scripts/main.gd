@@ -51,6 +51,8 @@ var hud: Node3D  # the score board pane (rig space); the jelly score pops up on 
 var score_popup: ScorePopup
 var confetti: Confetti
 var toast: ToastCard
+var audio: GameAudio
+var _sound_state := ""
 var panel: Panel3D
 var xr := false
 var desktop_cam: Camera3D
@@ -126,6 +128,10 @@ func _ready() -> void:
 	hud.add_child(score_popup)
 	confetti = Confetti.new()
 	game_root.add_child(confetti)
+	audio = GameAudio.new()
+	audio.name = "GameAudio"
+	add_child(audio)
+	audio.set_muted(Save.muted)
 	toast = ToastCard.new()
 	add_child(toast)
 	toast.buzz.connect(func(_k): buzz("left", 0.35, 60); buzz("right", 0.35, 60))
@@ -474,6 +480,9 @@ func to_game(p: Vector3) -> Vector3:
 
 func _process(delta: float) -> void:
 	_clock += delta
+	if state + mode != _sound_state:
+		_sound_state = state + mode
+		_sound_scene()
 	var w2g := game_root.global_transform.affine_inverse()
 	RenderingServer.global_shader_parameter_set("dah_world_to_game", Projection(w2g))
 	var head := head_transform()
@@ -793,6 +802,21 @@ func sfx(name: String, k: float, pos: Vector3) -> void:
 	sounds_played.append([name, k, pos])
 	if sounds_played.size() > 64:
 		sounds_played.pop_front()
+	if audio:
+		audio.sfx(name, k, game_root.global_transform * pos)
+
+
+## Music and the park's sounds while playing (the park's only in the VR world).
+func _sound_scene() -> void:
+	audio.music(state == "play" or state == "menu")
+	audio.ambience((state == "play" or state == "menu") and nature_on())
+	var xf := game_root.global_transform
+	var trees := PackedVector3Array()
+	for t in park.spots:
+		trees.append(xf * Vector3(t.x, 0, t.z))
+	audio.tree_spots = trees
+	audio.pond_center = xf * Vector3(-22, 0, -5)
+	audio.pond_radii = Vector2(7, 10) / scale_now if nature_on() else Vector2.ZERO
 
 
 func _recall() -> void:
@@ -881,6 +905,8 @@ func _curve(hand: String) -> float:
 
 
 func _on_ball_event(kind: String, data: Dictionary) -> void:
+	if kind in ["thump", "whoosh", "splash"]:
+		sfx(kind, float(data.get("k", 0.5)), data.get("pos", ball.pos))
 	match kind:
 		"success":
 			confetti.celebrate(data.get("pos", ball.pos), eye_game())
