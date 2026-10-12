@@ -47,7 +47,10 @@ var stage: Node3D  # the current mode's stage (GoalStage, HoopStage, ...)
 var ball: Ball
 var dahrooj: DahroojView
 var volley_views: Array = []
-var hud: Label3D
+var hud: Node3D  # the score board pane (rig space); the jelly score pops up on it
+var score_popup: ScorePopup
+var confetti: Confetti
+var toast: ToastCard
 var panel: Panel3D
 var xr := false
 var desktop_cam: Camera3D
@@ -115,11 +118,20 @@ func _ready() -> void:
 	game_root.add_child(world_balls)
 	runtime.ctx.sfx = sfx
 	_build_throw_aids()
-	hud = Panel3D.label("", 72, Color(0.17, 0.18, 0.24))
-	hud.outline_size = 12
-	hud.outline_modulate = Color(1, 1, 1, 0.85)
+	hud = Node3D.new()
+	hud.name = "Hud"
 	hud.visible = false
 	add_child(hud)
+	score_popup = ScorePopup.new()
+	hud.add_child(score_popup)
+	confetti = Confetti.new()
+	game_root.add_child(confetti)
+	toast = ToastCard.new()
+	add_child(toast)
+	toast.buzz.connect(func(_k): buzz("left", 0.35, 60); buzz("right", 0.35, 60))
+	runtime.ctx.toast = toast.show_text
+	runtime.ctx.confetti = func(p: Vector3, r: float, e: float, k: float): confetti.pop(p, r, e, k)
+	runtime.on_chime = func(): sfx("chime", 1.0, eye_game())
 	panel = Panel3D.new()
 	panel.visible = false
 	add_child(panel)
@@ -447,10 +459,11 @@ func place() -> void:
 	hud.position = (game_root.transform * Vector3(0, 0, stage.aim_z)) + Vector3(0, 0.0, 0)
 	if mode == "mr":
 		hud.position.y = maxf(anchor.p.y + 0.75, 1.55)
-		hud.pixel_size = 0.0009
+		hud.scale = Vector3.ONE * 0.95
 	else:
+		# High over the play area, clear of the line of throw, and a little larger so it reads at a glance.
 		hud.position = Vector3(0, 2.02, -3.4)
-		hud.pixel_size = 0.0016
+		hud.scale = Vector3.ONE * 1.8
 
 
 func to_game(p: Vector3) -> Vector3:
@@ -628,7 +641,10 @@ func _game_step(delta: float) -> void:
 		else:
 			v.visible = false
 	hud.visible = state == "play" and not placing
-	hud.text = "%s  %d" % [Save.text("مرمى", "Goal"), runtime.counts[runtime.mode]]
+	score_popup.observe("placing" if placing else runtime.mode, 0.0 if placing else float(runtime.counts.get(runtime.mode, 0)))
+	toast.busy = state == "menu"
+	toast.world_scale = 1.0
+	toast.place(head_transform())
 	hud.look_at(head_transform().origin, Vector3.UP, true)
 
 
@@ -867,6 +883,7 @@ func _curve(hand: String) -> float:
 func _on_ball_event(kind: String, data: Dictionary) -> void:
 	match kind:
 		"success":
+			confetti.celebrate(data.get("pos", ball.pos), eye_game())
 			if xr:
 				rig.pulse("right", 0.5, 0.12)
 		"thump":
