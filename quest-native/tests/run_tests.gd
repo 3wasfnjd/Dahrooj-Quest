@@ -185,6 +185,17 @@ func _world(main: Node) -> void:
 	var hit := wb.ray_stage(main.stage, Vector3(3.0, 1.0, -6.0), Vector3(0, 0, -1), 20.0)
 	check(not hit.is_empty() and absf(hit.point.z - (-11.0)) < 0.2, "a shot meets the goal's post (%s)" % [hit.get("point", "none")])
 	wb.clear_blast()
+	main.begin_opening()
+	check(main.intro.active and not main.stage.visible, "the opening: Dahroojs rain, the court waits")
+	for i in 72 * 4:
+		main._step_intro(1.0 / 72.0)
+	check(main.intro.start_ready, "the start button comes after a few seconds")
+	main.on_start["right"] = true
+	main.intro.leaving = 0.0
+	main._press("right", "trigger")
+	for i in 40:
+		main._step_intro(1.0 / 72.0)
+	check(not main.intro.active and main.stage.visible, "pressing start brings the court")
 	main.ar_zoom = 1.0
 	main.anchor_from(Vector3(0, 0.7, -1), Vector3.UP)
 	check(main.ar_scale == 16.0, "MR: a table gets the smaller court (1/16)")

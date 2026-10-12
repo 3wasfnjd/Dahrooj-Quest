@@ -52,6 +52,8 @@ var score_popup: ScorePopup
 var confetti: Confetti
 var toast: ToastCard
 var audio: GameAudio
+var intro: IntroRain
+var on_start := {"left": false, "right": false}
 var _sound_state := ""
 var panel: Panel3D
 var xr := false
@@ -121,6 +123,14 @@ func _ready() -> void:
 	runtime.ctx.sfx = sfx
 	_build_throw_aids()
 	park.on_explode = _on_crate_blast
+	intro = IntroRain.new()
+	intro.name = "IntroRain"
+	rig.add_child(intro)
+	intro.sfx = func(n: String, k: float, p: Vector3): sfx(n, k, to_game(p))
+	intro.buzz = buzz
+	intro.ch_add = func(id: String): runtime.ch_add(id)
+	intro.sky_pop = func(p: Vector3): world_balls.sky_pop(to_game(p))
+	intro.cleared.connect(func(): stage.visible = true)
 	hud = Node3D.new()
 	hud.name = "Hud"
 	hud.visible = false
@@ -502,6 +512,7 @@ func _process(delta: float) -> void:
 		for h in ["left", "right"]:
 			_record(h, rig.grip_transform(h).origin)
 	if xr:
+		_step_intro(minf(delta, 0.05))
 		_step_placing(minf(delta, 0.05) if state == "play" else 0.0)
 	if state == "play" or state == "menu" or not xr:
 		_game_step(delta)
@@ -541,7 +552,7 @@ func _game_step(delta: float) -> void:
 		fork.global_transform = rig.grip_transform(F)
 	# Dahrooj waits by your hand (or in the slingshot) between throws; only once the
 	# headset has reported a few poses, so he doesn't appear somewhere else first.
-	if xr and state == "play" and not placing and not ball.shot and holder == "" and not parked and _frames > 3:
+	if xr and state == "play" and not placing and not intro.active and not ball.shot and holder == "" and not parked and _frames > 3:
 		parked = true
 		_pop_t = 0.0
 		ball.pos = to_game(_park_spot(F))
@@ -636,7 +647,7 @@ func _game_step(delta: float) -> void:
 	var eye := to_game(head_transform().origin)
 	# Dahrooj shows only while the trigger holds him or he flies; waiting, he's out of
 	# sight (in the slingshot he waits in the pouch).
-	var shown := not placing and ((parked and F != "") or holder != "" or ball.shot)
+	var shown := not placing and not intro.active and ((parked and F != "") or holder != "" or ball.shot)
 	dahrooj.visible = shown
 	if shown:
 		var d := ball.d
@@ -657,7 +668,7 @@ func _game_step(delta: float) -> void:
 			v.show_at(b.pos, eye, face, false, Vector2(1.0 + b.d * 0.75, 1.0 - b.d))
 		else:
 			v.visible = false
-	hud.visible = state == "play" and not placing
+	hud.visible = state == "play" and not placing and (not intro.active or intro.rain)
 	score_popup.observe("placing" if placing else runtime.mode, 0.0 if placing else float(runtime.counts.get(runtime.mode, 0)))
 	toast.busy = state == "menu"
 	toast.world_scale = 1.0
@@ -722,6 +733,18 @@ func _other_grab_down(hand: String, released: String) -> bool:
 ## Dahrooj in flight keeps going and a fresh one comes to the hand: throw them back
 ## to back. He appears straight in the hand with a little pop.
 func _press(hand: String, how: String) -> void:
+	# The opening: the start button, or a shot (holding keeps firing).
+	if intro.active and not intro.leaving:
+		if how != "trigger":
+			return
+		if on_start[hand] and intro.end_intro():
+			placing = mode == "mr"
+			ball.respawn()
+			stage.visible = true
+		else:
+			intro.shot_hand = hand
+			_fire_blast(hand)
+		return
 	# The left trigger is a blaster that pops the Dahroojs around the modes.
 	if how == "trigger" and hand == "left" and _fork_hand() == "" and not placing:
 		_fire_blast(hand)
@@ -773,6 +796,26 @@ func _blast_from(hand: String) -> void:
 	var a := rig.aim_transform(hand)
 	var w2g := game_root.global_transform.affine_inverse()
 	world_balls.fire(hand, w2g * a.origin, (w2g.basis * -a.basis.z).normalized())
+
+
+## The opening: Dahrooj balls rain all around you, then a start button.
+func begin_opening() -> void:
+	holder = ""
+	parked = false
+	placing = false
+	stage.visible = false
+	intro.begin(false, mode == "mr")
+
+
+func _step_intro(dt: float) -> void:
+	if not intro.active:
+		on_start = {"left": false, "right": false}
+		return
+	intro.step(dt, head_transform())
+	for h in ["left", "right"]:
+		if rig.tracked(h):
+			var r := rig.ray(h)
+			on_start[h] = intro.start_hit(r[0], r[1])
 
 
 ## Crate blasts clear nearby characters in a 3D radius, never the ball held by the player.
@@ -1034,6 +1077,8 @@ func _panel_action(id: String) -> void:
 			set_mode(id)
 			panel.visible = false
 			state = "play"
+			if xr:
+				begin_opening()
 		"lang":
 			Save.language = "en" if Save.arabic() else "ar"
 			Save.save()

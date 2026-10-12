@@ -560,6 +560,9 @@ func step_blast(dt: float) -> void:
 				burst(ball.volley[j].pos, "fur")
 				ball.volley.remove_at(j)
 				was_popped = true
+		var intro = host.get("intro")
+		if intro and intro.active and intro.pop_along(to_global(a), to_global(s.p), R / k):
+			was_popped = true
 		if ball.shot and not ball.held and near_seg.call(ball.pos, BR):
 			burst(ball.pos, "fur")
 			host.ball_popped()
@@ -629,9 +632,14 @@ func step_blast(dt: float) -> void:
 				else:
 					impact(s.p, -dir_n)
 					done = true
-		if not done and s.p.y < R:
+		# The floor: the room's floor during the opening and the rain, the court's ground otherwise.
+		var floor_y := 0.0
+		var intro3 = host.get("intro")
+		if intro3 and intro3.active:
+			floor_y = to_local(host.rig.global_position).y
+		if not done and s.p.y < floor_y + R:
 			if s.kind == "mini":
-				s.p.y = R
+				s.p.y = floor_y + R
 				if s.v.y < -0.8 * k:
 					s.v.y *= -0.45
 				else:
@@ -640,12 +648,15 @@ func step_blast(dt: float) -> void:
 				s.v.x *= f
 				s.v.z *= f
 			else:
-				s.p.y = 0.0
+				s.p.y = floor_y
 				impact(s.p, Vector3.UP)
 				done = true
 		if s.kind == "firework" and not s.wet and (done or s.t > P.life):
 			# The burst pops every Dahrooj near it.
 			var RR: float = P.burst * k
+			var intro2 = host.get("intro")
+			if intro2 and intro2.active:
+				intro2.pop_near(to_global(s.p), RR / k)
 			for j in range(rests.size() - 1, -1, -1):
 				if (rests[j].p as Vector3).distance_to(s.p) < RR + BR:
 					burst(rests[j].p, rests[j].style)
