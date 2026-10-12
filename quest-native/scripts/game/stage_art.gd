@@ -165,7 +165,7 @@ static func ground_arc(grp: Node3D, cx: float, cz: float, r: float, a0: float, a
 		var v01: Vector3 = p.call(q[1], t0)
 		var v10: Vector3 = p.call(q[0], t1)
 		var v11: Vector3 = p.call(q[1], t1)
-		for v in [v00, v01, v11, v00, v11, v10]:
+		for v in [v00, v11, v01, v00, v10, v11]:  # clockwise from above (Godot front faces)
 			st.set_normal(Vector3.UP)
 			st.add_vertex(v)
 	var m := MeshInstance3D.new()
@@ -220,7 +220,7 @@ static func _rbox_mesh(w: float, h: float, d: float, r: float) -> ArrayMesh:
 					var a: float = -1.0 + 2.0 * k[0] / n
 					var b: float = -1.0 + 2.0 * k[1] / n
 					c.append(pt.call(nz + u * a + v * b))
-				for idx in [0, 2, 1, 0, 3, 2]:
+				for idx in [0, 1, 2, 0, 2, 3]:  # clockwise seen from outside (Godot front faces)
 					st.set_normal(c[idx][1])
 					st.add_vertex(c[idx][0])
 	return st.commit()
