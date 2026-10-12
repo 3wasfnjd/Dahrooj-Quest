@@ -5,3 +5,5 @@
 
 # The public TEST-ONLY signing key (sideload builds) is meant to be in git.
 !tools/ci/test-signing/dahrooj-test.keystore
+# Android plugin libraries live in .bin/android/release (the root .gitignore drops release/).
+!addons/godot_meta_toolkit/.bin/android/release/
