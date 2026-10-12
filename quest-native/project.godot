@@ -1,0 +1,151 @@
+; Dahrooj — native Meta Quest project (Godot 4.6.3-stable, OpenXR Vendors 5.1.0-stable).
+; The web version (repository root) is the reference; see quest-native/README.md.
+
+config_version=5
+
+[application]
+
+config/name="دحروج — Dahrooj"
+config/description="Throw Dahrooj, the furry ball, across a little park. By Aboden Games — عبودين قيمز."
+config/version="0.1.0"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.6", "GL Compatibility")
+config/icon="res://icon.png"
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/show_image=false
+boot_splash/image="res://vr_splash.png"
+
+[autoload]
+
+Save="*res://scripts/core/save_data.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[editor_plugins]
+
+enabled=PackedStringArray()
+
+[filesystem]
+
+import/blender/enabled=false
+import/fbx2gltf/enabled=false
+
+[internationalization]
+
+locale/include_text_server_data=true
+
+[dahrooj]
+
+store/meta_app_id=""
+
+[physics]
+
+common/physics_ticks_per_second=72
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+anti_aliasing/quality/msaa_3d=2
+textures/default_filters/anisotropic_filtering_level=3
+lights_and_shadows/directional_shadow/size=4096
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+lights_and_shadows/positional_shadow/atlas_size=0
+environment/defaults/default_clear_color=Color(0, 0, 0, 1)
+
+[xr]
+
+openxr/enabled=true
+openxr/reference_space=2
+openxr/environment_blend_mode=2
+openxr/foveation_level=1
+openxr/foveation_dynamic=true
+openxr/startup_alert=false
+shaders/enabled=true
+openxr/extensions/hand_tracking=false
+openxr/extensions/meta/passthrough=true
+openxr/extensions/meta/render_model=true
+openxr/extensions/meta/scene_api=true
+
+[shader_globals]
+
+dah_world_to_game={
+"type": "mat4",
+"value": Projection(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)
+}
+dah_cam={
+"type": "vec3",
+"value": Vector3(0, 3.2, 9.7)
+}
+dah_light_color={
+"type": "vec3",
+"value": Vector3(1, 0.945, 0.867)
+}
+dah_light_intensity={
+"type": "float",
+"value": 1.35
+}
+dah_shadow_color={
+"type": "vec3",
+"value": Vector3(0.545, 0.612, 0.682)
+}
+dah_horizon={
+"type": "vec3",
+"value": Vector3(0.9, 0.95, 0.97)
+}
+dah_zenith={
+"type": "vec3",
+"value": Vector3(0.55, 0.74, 0.9)
+}
+dah_fog_a={
+"type": "vec3",
+"value": Vector3(0.863, 0.922, 0.957)
+}
+dah_light_dir={
+"type": "vec3",
+"value": Vector3(0.384, 0.808, 0.441)
+}
+dah_sun_dir={
+"type": "vec3",
+"value": Vector3(0.5, 0.6, -0.6)
+}
+dah_fog_near={
+"type": "float",
+"value": 32.5
+}
+dah_fog_far={
+"type": "float",
+"value": 70.0
+}
+dah_time={
+"type": "float",
+"value": 0.0
+}
+dah_wind_dir={
+"type": "vec2",
+"value": Vector2(0.951, -0.309)
+}
+dah_wind_strength={
+"type": "float",
+"value": 0.5
+}
+dah_wind_time={
+"type": "float",
+"value": 0.0
+}
+dah_stars={
+"type": "float",
+"value": 0.0
+}
+dah_night={
+"type": "float",
+"value": 0.0
+}
+dah_perlin={
+"type": "sampler2D",
+"value": ""
+}
