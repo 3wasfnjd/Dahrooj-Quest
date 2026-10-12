@@ -49,6 +49,8 @@ var throw_curve := false
 var shot_id := 0
 var _next_shot_id := 0
 var volley: Array = []
+## In the headset a finished throw can stay in the world: rest_hook(pos, vel).
+var rest_hook: Callable
 var _rng := RandomNumberGenerator.new()
 
 const _KEYS := ["pos", "vel", "side", "axis", "d", "dv", "shot", "shot_t", "z_max", "x_max", "scored_t",
@@ -228,6 +230,8 @@ func _ball_step(dt: float, extra: bool) -> bool:
 		stage.collide(self)
 		if not extra:
 			stage.update(self, dt)
+		elif stage.has_method("ball_contact"):
+			stage.ball_contact(self)
 	if shot:
 		shot_t += dt
 		var still := (grounded or wet) and vel.length() < 0.35
@@ -247,6 +251,8 @@ func _ball_step(dt: float, extra: bool) -> bool:
 
 
 func _end(extra: bool) -> bool:
+	if rest_hook.is_valid():
+		rest_hook.call(pos, vel)
 	if extra:
 		return true
 	respawn()

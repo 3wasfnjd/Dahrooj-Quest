@@ -20,13 +20,27 @@ const MAX_SPEED := 46.0
 const SPAN := 0.04
 const CURVE_K := 0.4
 const FAR_Z := -20.0
+const SLING_K := 23.0
+const SLING_MIN := 0.06
+const SLING_MAX := 0.65
+# Holding the trigger charges the throw; the power rises and falls so you can pick your moment.
+const CHARGE_MIN := 3.0
+const CHARGE_MAX := 15.0
+const CHARGE_TIME := 1.1
+const DOTS := 26
+# The slingshot, held in the left hand (grip space, metres).
+const TIP_L := Vector3(-0.04, 0.15, -0.045)
+const TIP_R := Vector3(0.04, 0.15, -0.045)
+const CROTCH := Vector3(0, 0.07, -0.03)
+const POUCH := Vector3(0, 0.14, 0.02)
+const FORK_CENTER := Vector3(0, 0.15, -0.045)
 
 var rig: XRRig
 var env: Environment
 var sun: DirectionalLight3D
 var game_root: Node3D
 var park: Park
-var stage: GoalStage
+var stage: Node3D  # the current mode's stage (GoalStage, HoopStage, ...)
 var ball: Ball
 var dahrooj: DahroojView
 var volley_views: Array = []
@@ -39,12 +53,22 @@ var scale_now := VR_SCALE
 var mode := "vr"
 var anchor := {}  # MR: {p: Vector3 (real floor point), theta: float}
 var holder := ""
+var parked := false
+var charge_t := {"left": 0.0, "right": 0.0}
+var last_thrower := "right"
+var dots: Array = []
+var fork: Node3D
+var bands: Array = []
+var _frames := 0
 var hist := {"left": [], "right": [], "head": []}
 var _args := {}
 var _clock := 0.0
 var _session_time := -1.0
 var _pop_t := 1.0
-var counts := {"goal": 0}
+var runtime: GameRuntime
+var world_balls: WorldBalls
+var auto_fire := {}  # hand -> next shot time while the left trigger is held
+var sounds_played: Array = []  # [name, k, pos] (tests; the audio player plays them)
 var splash: Node3D
 
 
@@ -63,11 +87,11 @@ func _ready() -> void:
 	park = Park.new()
 	game_root.add_child(park)
 	park.build()
-	stage = GoalStage.new()
-	game_root.add_child(stage)
 	ball = Ball.new()
 	ball.water = park
-	ball.set_stage(stage, "goal")
+	runtime = GameRuntime.new(ball, game_root)
+	runtime.set_mode("goal")
+	stage = runtime.stage
 	ball.event.connect(_on_ball_event)
 	dahrooj = DahroojView.new()
 	dahrooj.visible = false
@@ -77,6 +101,11 @@ func _ready() -> void:
 		v.visible = false
 		game_root.add_child(v)
 		volley_views.append(v)
+	world_balls = WorldBalls.new(self, ball)
+	world_balls.name = "WorldBalls"
+	game_root.add_child(world_balls)
+	runtime.ctx.sfx = sfx
+	_build_throw_aids()
 	hud = Panel3D.label("", 72, Color(0.17, 0.18, 0.24))
 	hud.outline_size = 12
 	hud.outline_modulate = Color(1, 1, 1, 0.85)
@@ -103,6 +132,70 @@ func _ready() -> void:
 	entitlement.name = "StoreEntitlement"
 	add_child(entitlement)
 	entitlement.run.call_deferred()
+
+
+## The dotted flight preview and the slingshot (xr-runtime.js: fork, bands, dots).
+func _build_throw_aids() -> void:
+	var dm := StandardMaterial3D.new()
+	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	dm.albedo_color = Color(Color("2c2d3d"), 0.55)
+	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	var sm := SphereMesh.new()
+	sm.radius = 1.0
+	sm.height = 2.0
+	sm.radial_segments = 8
+	sm.rings = 6
+	for i in DOTS:
+		var d := MeshInstance3D.new()
+		d.mesh = sm
+		d.material_override = dm
+		d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		d.visible = false
+		game_root.add_child(d)
+		dots.append(d)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_color = Color("8a5a34")
+	wood.roughness = 0.75
+	var rubber := StandardMaterial3D.new()
+	rubber.albedo_color = Color("c8442f")
+	rubber.roughness = 0.5
+	fork = Node3D.new()
+	fork.name = "Slingshot"
+	fork.visible = false
+	add_child(fork)
+	_stick(fork, Vector3(0, -0.06, -0.01), CROTCH, 0.012, wood)
+	_stick(fork, CROTCH, TIP_L, 0.009, wood)
+	_stick(fork, CROTCH, TIP_R, 0.009, wood)
+	for i in 2:
+		var b := _stick(self, Vector3.ZERO, Vector3.UP, 0.0045, rubber, 6)
+		b.visible = false
+		bands.append(b)
+
+
+func _stick(parent: Node3D, a: Vector3, b: Vector3, r: float, mat: Material, segs := 10) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = r
+	c.bottom_radius = r
+	c.height = 1.0
+	c.radial_segments = segs
+	c.rings = 1
+	m.mesh = c
+	m.material_override = mat
+	parent.add_child(m)
+	_stretch(m, a, b)
+	return m
+
+
+func _stretch(m: Node3D, a: Vector3, b: Vector3) -> void:
+	var d := b - a
+	var l := d.length()
+	var q := Quaternion.IDENTITY
+	if l > 1e-6:
+		var u := d / l
+		q = Quaternion(Vector3.UP, u) if u.dot(Vector3.UP) > -0.9999 else Quaternion(Vector3.RIGHT, PI)
+	m.transform = Transform3D(Basis(q).scaled(Vector3(1, maxf(l, 1e-4), 1)), (a + b) * 0.5)
+	m.visible = true
 
 
 func _setup_environment() -> void:
@@ -204,7 +297,12 @@ func time_k() -> float:
 func place() -> void:
 	if mode != "mr":
 		scale_now = VR_SCALE
-		var back := maxf(0.0, stage.aim_z - FAR_Z)
+		# Every target stands as far away as the cans: you step back from the nearer ones.
+		# Bowling keeps its own lane (farZ); the wall and the fair keep their backdrop
+		# (farZ) but stand back like the rest, a little nearer (reachZ).
+		var back := 0.0
+		if stage.far_z == null or stage.reach_z != null:
+			back = maxf(0.0, stage.aim_z - (stage.reach_z if stage.reach_z != null else FAR_Z))
 		var p := Vector3(0, 0, 0.5 * VR_SCALE + back)
 		game_root.transform = Transform3D(Basis().scaled(Vector3.ONE / VR_SCALE), -p / VR_SCALE)
 	else:
@@ -275,26 +373,121 @@ func _record(hand: String, p: Vector3) -> void:
 
 
 func _game_step(delta: float) -> void:
-	var dt := minf(delta, 0.05) * time_k()
-	if holder != "" and xr:
-		var g := rig.grip_transform(holder)
-		var fwd := -g.basis.z.normalized()
-		ball.pos = to_game(g.origin) + (game_root.global_transform.affine_inverse().basis * fwd).normalized() * Ball.BR * 1.05
+	var dt := minf(delta, 0.05)
+	_frames += 1
+	var F := _fork_hand()
+	fork.visible = F != ""
+	if F != "":
+		fork.global_transform = rig.grip_transform(F)
+	# Dahrooj waits by your hand (or in the slingshot) between throws; only once the
+	# headset has reported a few poses, so he doesn't appear somewhere else first.
+	if xr and state == "play" and not ball.shot and holder == "" and not parked and _frames > 3:
+		parked = true
+		_pop_t = 0.0
+		ball.pos = to_game(_park_spot(F))
+	if parked:
+		ball.held = true
+		ball.pos = ball.pos.lerp(to_game(_park_spot(F)), 1.0 - exp(-dt * 10.0))
 		ball.vel = Vector3.ZERO
 		ball.grounded = false
-	if state != "menu":
-		ball.step(dt)
 	_pop_t += delta
+	# The held ball rides in front of the hand (in the pouch with the slingshot).
+	if holder != "" and xr:
+		var g := rig.grip_transform(holder)
+		var target := g.origin if F != "" else g.origin + (-g.basis.z.normalized()) * Ball.BR * 1.05 * scale_now
+		ball.pos = to_game(target)
+		ball.vel = Vector3.ZERO
+		ball.grounded = false
+	# Slingshot bands follow the pouch: Dahrooj, or the rest spot.
+	if F != "":
+		var end := game_root.global_transform * ball.pos if (holder != "" or parked) else fork.global_transform * POUCH
+		var tips := [fork.global_transform * TIP_L, fork.global_transform * TIP_R]
+		for i in 2:
+			_stretch(bands[i], tips[i], end)
+	else:
+		for b in bands:
+			b.visible = false
+	# The flight preview while pulling.
+	if holder != "":
+		charge_t[holder] += dt
+	var u = _launch(holder, ball.pos) if holder != "" and xr and (F != "" or Save.throw_style == "trigger") else null
+	if u != null:
+		var v := _to_game_speed(u)
+		var p := ball.pos
+		var step := 0.05
+		var r := 0.012 * scale_now
+		# The same sideways pull the throw will get, so the dots show the bend.
+		var c := _curve(holder) * CURVE_K
+		var f := Vector3(v.x, 0, v.z).normalized()
+		var side := Vector3(-f.z, 0, f.x) * (c * 9.0)
+		for d in dots:
+			for k in 3:
+				v.y -= Ball.GRAV * step / 3.0
+				v.x += side.x * step / 3.0
+				v.z += side.z * step / 3.0
+				v *= pow(0.9, step / 3.0)
+				p += v * (step / 3.0)
+			d.position = p
+			d.scale = Vector3.ONE * r
+			d.visible = p.y > 0.0
+	else:
+		for d in dots:
+			d.visible = false
+	# Holding a shooting trigger keeps firing.
+	for h in auto_fire.keys():
+		if state != "play":
+			auto_fire.erase(h)
+		elif _clock >= auto_fire[h]:
+			auto_fire[h] = _clock + 0.13
+			_blast_from(h)
+	world_balls.step_blast(dt)
+	if state != "menu":
+		var gdt := dt * time_k()
+		runtime.step(gdt)
+		world_balls.step_rests(gdt, dt)
+		world_balls.step_contacts(gdt)
+		var hands := {}
+		if xr:
+			for h in ["left", "right"]:
+				if rig.tracked(h):
+					hands[h] = to_game(rig.grip_transform(h).origin)
+		world_balls.feel_hands(gdt, hands)
+		if not ball.held:
+			world_balls.mark_ball(ball.pos, ball.vel)
+		for b in ball.volley:
+			world_balls.mark_ball(b.pos, b.vel)
+		# The world's props: Dahrooj bounces off poles and benches, shoves lanterns and sets off crates.
+		if nature_on() and park.has_method("collide"):
+			if ball.shot and not ball.held:
+				var r: Dictionary = park.collide(ball.pos, ball.vel, Ball.BR)
+				ball.pos = r.p
+				ball.vel = r.v
+				if r.hit:
+					sfx("thump", minf(1.0, Vector2(ball.vel.x, ball.vel.z).length() / 12.0), ball.pos)
+					buzz(last_thrower, 0.3, 25)
+			for b in ball.volley:
+				var r: Dictionary = park.collide(b.pos, b.vel, Ball.BR)
+				b.pos = r.p
+				b.vel = r.v
+			for rr in world_balls.rests:
+				var r: Dictionary = park.collide(rr.p, rr.v, Ball.BR)
+				rr.p = r.p
+				rr.v = r.v
 	var eye := to_game(head_transform().origin)
-	var shown := holder != "" or ball.shot
+	# Dahrooj shows only while the trigger holds him or he flies; waiting, he's out of
+	# sight (in the slingshot he waits in the pouch).
+	var shown := (parked and F != "") or holder != "" or ball.shot
 	dahrooj.visible = shown
 	if shown:
 		var d := ball.d
-		dahrooj.show_at(ball.pos, eye, ball.face(), ball.blink > 0.0, Vector2(1.0 + d * 0.75, 1.0 - d))
+		var face := "open" if parked and not (ball.mood != "" and ball.mood_t > 0.0) else ball.face()
+		dahrooj.show_at(ball.pos, eye, face, ball.blink > 0.0, Vector2(1.0 + d * 0.75, 1.0 - d))
+		# Pop in: grow from small with a slight overshoot.
 		if _pop_t < 0.25:
 			var k := _pop_t / 0.25
 			var e := 1.0 + 2.2 * pow(k - 1.0, 3) + 1.2 * pow(k - 1.0, 2)
 			dahrooj.scale *= maxf(0.05, e)
+	world_balls.draw_rests(eye, state != "play" and state != "menu")
 	for i in volley_views.size():
 		var v: DahroojView = volley_views[i]
 		if i < ball.volley.size():
@@ -305,8 +498,28 @@ func _game_step(delta: float) -> void:
 		else:
 			v.visible = false
 	hud.visible = state == "play"
-	hud.text = "%s  %d" % [Save.text("مرمى", "Goal"), counts.goal]
+	hud.text = "%s  %d" % [Save.text("مرمى", "Goal"), runtime.counts[runtime.mode]]
 	hud.look_at(head_transform().origin, Vector3.UP, true)
+
+
+## The hand holding the slingshot (the left), when the slingshot is chosen.
+func _fork_hand() -> String:
+	return "left" if xr and Save.throw_style == "sling" and rig.tracked("left") else ""
+
+
+## Between throws Dahrooj sits in the slingshot, or floats just in front of you at
+## chest height (world space).
+func _park_spot(F: String) -> Vector3:
+	if F != "":
+		return fork.global_transform * POUCH
+	var head := head_transform()
+	var pos := head.origin
+	var dir := -head.basis.z
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length_squared() > 1e-6 else Vector3.FORWARD
+	var spot := Vector3(pos.x + dir.x * 0.38 - dir.z * 0.1, maxf(0.45, pos.y - 0.38), pos.z + dir.z * 0.38 + dir.x * 0.1)
+	spot.y = maxf(spot.y, Ball.BR / scale_now)
+	return spot
 
 
 # --- input -----------------------------------------------------------------------
@@ -322,14 +535,17 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 		return
 	if state != "play":
 		return
-	if hand == "right" and (name == "grip" or name == "trigger"):
+	if name == "grip" or name == "trigger":
 		if down:
-			_press(hand)
-		elif holder == hand and not _other_grab_down(hand, name):
-			_release(hand, false)
+			_press(hand, name)
+		else:
+			auto_fire.erase(hand)
+			if holder == hand and not _other_grab_down(hand, name):
+				_release(hand, false)
+	# Right A: Dahrooj back to the hand. Left Y: the mode cards; left X and right B: the menus.
 	elif hand == "right" and name == "ax" and down:
 		_recall()
-	elif name == "by" and down:
+	elif name == "by" and down or hand == "left" and name == "ax" and down:
 		_on_menu()
 
 
@@ -340,13 +556,22 @@ func _other_grab_down(hand: String, released: String) -> bool:
 	return c.get_float("grip") > 0.75
 
 
-## Dahrooj in flight keeps going and a fresh one comes to the hand.
-func _press(hand: String) -> void:
+## Dahrooj in flight keeps going and a fresh one comes to the hand: throw them back
+## to back. He appears straight in the hand with a little pop.
+func _press(hand: String, how: String) -> void:
+	# The left trigger is a blaster that pops the Dahroojs around the modes.
+	if how == "trigger" and hand == "left" and _fork_hand() == "":
+		_fire_blast(hand)
+		return
+	if hand == _fork_hand():
+		return  # this hand holds the slingshot
 	if ball.shot and not ball.another():
-		_recall()
+		runtime.recall()
 	if holder == "" and ball.can_hold():
 		holder = hand
 		_pop_t = 0.0
+		charge_t[hand] = 0.0
+		parked = false
 		ball.held = true
 		ball.vel = Vector3.ZERO
 		ball.shot = false
@@ -357,24 +582,77 @@ func _release(hand: String, lost: bool) -> void:
 	if hand == "" or holder != hand:
 		return
 	holder = ""
-	var u = null if lost else _launch(hand)
+	var u = null if lost else _launch(hand, ball.pos)
 	if u != null:
 		var v := _to_game_speed(u)
 		ball.throw_with(v, _curve(hand) * CURVE_K)
-		rig.pulse(hand, 0.35 + minf(0.5, v.length() / MAX_SPEED * 0.6), 0.045)
+		last_thrower = hand
+		parked = false
+		rig.pulse(hand, 0.35 + minf(0.5, (u as Vector3).length() / MAX_SPEED * 0.6), 0.045)
 	else:
-		ball.held = false
-		ball.respawn()
+		parked = true
+		_pop_t = 0.0
+		ball.pos = to_game(_park_spot(_fork_hand()))
+
+
+## The left-hand blaster; holding the trigger keeps firing.
+func _fire_blast(hand: String) -> void:
+	_blast_from(hand)
+	auto_fire[hand] = _clock + 0.13
+
+
+func _blast_from(hand: String) -> void:
+	var a := rig.aim_transform(hand)
+	var w2g := game_root.global_transform.affine_inverse()
+	world_balls.fire(hand, w2g * a.origin, (w2g.basis * -a.basis.z).normalized())
+
+
+# --- what the world asks of the scene (WorldBalls, stages) ---------------------------
+
+func resting_allowed() -> bool:
+	return state == "play" or state == "menu"
+
+
+## The park's world is on (VR); in mixed reality it is your room.
+func nature_on() -> bool:
+	return mode == "vr"
+
+
+func eye_game() -> Vector3:
+	return to_game(head_transform().origin)
+
+
+func note_style() -> void:
+	runtime.note_style("fur")
+
+
+## A shot or a hard meeting popped the ball in play: a fresh one for the hand.
+func ball_popped() -> void:
+	holder = ""
+	runtime.recall()
+
+
+func buzz(hand: String, amp: float, ms: float) -> void:
+	if xr and hand != "" and Save.haptics:
+		rig.pulse(hand, amp, ms / 1000.0)
+
+
+## A sound at a point of the game world (game units).
+func sfx(name: String, k: float, pos: Vector3) -> void:
+	sounds_played.append([name, k, pos])
+	if sounds_played.size() > 64:
+		sounds_played.pop_front()
 
 
 func _recall() -> void:
 	ball.volley.clear()
 	if ball.shot:
 		holder = ""
-		ball.respawn()
+		runtime.recall()
 
 
-## Hand velocity (real m/s): the fastest ~40 ms stretch of the last 200 ms.
+## Hand velocity (real m/s): the fastest ~40 ms stretch of the last 200 ms. Players
+## often let go just after the peak of a swing, so the latest instant alone would feel weak.
 func _velocity(hand: String) -> Vector3:
 	var h: Array = hist[hand]
 	var n := h.size()
@@ -398,9 +676,28 @@ func _velocity(hand: String) -> Vector3:
 	return best
 
 
-func _launch(hand: String):
+## Launch velocity in real metres per second (world directions), or null for too
+## gentle a release. from: the ball, game units.
+func _launch(hand: String, from: Vector3):
+	var F := _fork_hand()
+	if F != "" and F != hand:
+		var pull := (fork.global_transform * FORK_CENTER) - game_root.global_transform * from
+		if pull.length() < SLING_MIN:
+			return null
+		if pull.length() > SLING_MAX:
+			pull = pull.normalized() * SLING_MAX
+		return pull * SLING_K
+	if Save.throw_style == "trigger":
+		# Along the hand's ray, as fast as the charge: real metres per second.
+		var d := -rig.aim_transform(hand).basis.z.normalized()
+		return d * (CHARGE_MIN + (CHARGE_MAX - CHARGE_MIN) * charge_power(hand))
 	var u := _velocity(hand) * GAIN
 	return null if u.length() < MIN_THROW else u
+
+
+func charge_power(hand: String) -> float:
+	var p := fmod(charge_t[hand] / CHARGE_TIME, 2.0)
+	return maxf(0.08, p if p < 1.0 else 2.0 - p)
 
 
 ## Real m/s -> game units per game second (the world is smaller and its time faster).
@@ -409,8 +706,15 @@ func _to_game_speed(u: Vector3) -> Vector3:
 	return v.limit_length(MAX_SPEED)
 
 
-## Curve from the bend in the hand's path (-1..1, positive bends right).
+## Curve for a throw (-1..1, positive bends right). Trigger: tilt the controller
+## sideways as you let go, like spinning a frisbee. Hand: the ball follows the bend
+## in the hand's path. Slingshot: straight.
 func _curve(hand: String) -> float:
+	if _fork_hand() != "":
+		return 0.0
+	if Save.throw_style == "trigger":
+		var tilt := -rig.aim_transform(hand).basis.x.normalized().y
+		return 0.0 if absf(tilt) < 0.12 else clampf((tilt - signf(tilt) * 0.12) / 0.45, -1.0, 1.0)
 	var hs: Array = hist[hand]
 	if hs.size() < 6:
 		return 0.0
@@ -428,7 +732,6 @@ func _curve(hand: String) -> float:
 func _on_ball_event(kind: String, data: Dictionary) -> void:
 	match kind:
 		"success":
-			counts[data.mode] = int(counts.get(data.mode, 0)) + 1
 			if xr:
 				rig.pulse("right", 0.5, 0.12)
 		"thump":

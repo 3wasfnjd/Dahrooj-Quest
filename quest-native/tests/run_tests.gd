@@ -139,6 +139,55 @@ func _suites() -> void:
 			sc.call("run", check)
 
 
+## Charged throws, balls that stay in the world, the blaster.
+func _world(main: Node) -> void:
+	main.charge_t["right"] = 0.55
+	check(absf(main.charge_power("right") - 0.5) < 0.01, "the trigger charge rises (half way at 0.55 s)")
+	main.charge_t["right"] = 1.65
+	check(absf(main.charge_power("right") - 0.5) < 0.01, "and falls again (ping-pong)")
+	main.charge_t["right"] = 2.2
+	check(absf(main.charge_power("right") - 0.08) < 0.01, "never below the minimum power")
+	var wb: WorldBalls = main.world_balls
+	var b: Ball = main.ball
+	b.respawn()
+	b.pos = Vector3(3, 1, -6)
+	b.throw_with(Vector3(0, 0, -0.5))
+	for i in 72 * 4:
+		main.runtime.step(1.0 / 72.0)
+	check(wb.rests.size() == 1, "a finished throw stays in the world (%d)" % wb.rests.size())
+	var start: Vector3 = wb.rests[0].p
+	for i in 72 * 12:
+		wb.step_rests(1.0 / 72.0, 0.001)
+	check(wb.rests[0].p.distance_to(start) > 0.3, "and sets off on his own now and then")
+	check(absf(wb.rests[0].p.y - Ball.BR) < 0.05, "resting on the ground")
+	wb.rests[0].age = WorldBalls.REST_LIFE - 0.01
+	wb.step_rests(0.0, 0.02)
+	check(wb.rests.is_empty(), "leftovers go after their time")
+	# Two leftovers meeting fast pop; slowly they push apart.
+	b.rest_hook.call(Vector3(0, Ball.BR, -5), Vector3(4, 0, 0))
+	b.rest_hook.call(Vector3(0.4, Ball.BR, -5), Vector3(-4, 0, 0))
+	wb.step_contacts(0.1)
+	check(wb.rests.is_empty(), "a hard meeting pops both")
+	b.rest_hook.call(Vector3(0, Ball.BR, -5), Vector3.ZERO)
+	b.rest_hook.call(Vector3(0.3, Ball.BR, -5), Vector3.ZERO)
+	wb.step_contacts(0.01)
+	check(wb.rests.size() == 2 and wb.rests[0].p.distance_to(wb.rests[1].p) >= Ball.BR * 2.0 - 1e-3, "touching ones push apart")
+	# A bolt from in front of a leftover pops it.
+	var target: Vector3 = wb.rests[0].p
+	var before: int = wb.popped
+	wb.fire("left", target + Vector3(0, 0, 3), Vector3(0, 0, -1))
+	for i in 20:
+		wb.step_blast(1.0 / 72.0)
+	check(wb.popped > before and wb.rests.size() == 1, "a blaster bolt pops a Dahrooj")
+	check(wb.sparks.size() > 0, "with a puff of sparks")
+	wb.clear_rests()
+	# A bolt into the goal's post hits the stage.
+	var hit := wb.ray_stage(main.stage, Vector3(3.0, 1.0, -6.0), Vector3(0, 0, -1), 20.0)
+	check(not hit.is_empty() and absf(hit.point.z - (-11.0)) < 0.2, "a shot meets the goal's post (%s)" % [hit.get("point", "none")])
+	wb.clear_blast()
+	await get_tree().process_frame
+
+
 func _scene() -> void:
 	await get_tree().process_frame  # the tree must finish setting up before adding the game
 	var main: Node = load("res://scenes/main.tscn").instantiate()
@@ -159,5 +208,6 @@ func _scene() -> void:
 	check(main.panel.visible and main.panel.rows.size() == 3, "start screen offers mixed reality, VR and the language")
 	main._panel_action("vr")
 	check(main.state == "play" and main.mode == "vr", "choosing VR starts the game")
+	await _world(main)
 	main.queue_free()
 	await get_tree().process_frame

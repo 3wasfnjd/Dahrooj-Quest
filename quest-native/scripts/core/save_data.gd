@@ -9,8 +9,12 @@ var mode := "vr"  # "vr" | "mr"
 var haptics := true
 var quality := "high"
 var muted := false
+var throw_style := "trigger"  # trigger | hand | sling (xr-runtime.js throwStyle)
+var shot_style := ""  # bolt | mini | bubble | firework; empty until picked (SHOT_STYLE)
 var counts := {}  # mode id -> scores this session's best
 var best := {}
+var challenges := {}  # challenge id -> value (store.data.challenges)
+var styles_used: Array = []
 
 
 func _ready() -> void:
@@ -41,6 +45,10 @@ func load_data() -> void:
 	haptics = bool(d.get("haptics", haptics))
 	quality = String(d.get("quality", quality))
 	muted = bool(d.get("muted", muted))
+	throw_style = String(d.get("throw_style", throw_style))
+	shot_style = String(d.get("shot_style", shot_style))
+	challenges = d.get("challenges", {}) if typeof(d.get("challenges", {})) == TYPE_DICTIONARY else {}
+	styles_used = d.get("styles_used", []) if typeof(d.get("styles_used", [])) == TYPE_ARRAY else []
 	best = d.get("best", {}) if typeof(d.get("best", {})) == TYPE_DICTIONARY else {}
 
 
@@ -49,4 +57,4 @@ func save() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"version": VERSION, "language": language, "mode": mode, "haptics": haptics,
-		"quality": quality, "muted": muted, "best": best}))
+		"quality": quality, "muted": muted, "throw_style": throw_style, "shot_style": shot_style, "best": best, "challenges": challenges, "styles_used": styles_used}))
