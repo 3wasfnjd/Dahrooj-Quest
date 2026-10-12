@@ -22,15 +22,16 @@ const CHALLENGES := [
 	["fair25", "اجمع ٢٥ نقطة في جولة ملاهي", "Score 25 in one round at the fair", 25],
 	["bell3", "اضرب جرس الملاهي ٣ مرات", "Ring the fair bell 3 times", 3],
 	["pop20", "فجّر ٢٠ دحروج بالطلقات", "Pop 20 Dahroojs with your shots", 20],
+	["mole20", "اضرب ٢٠ دحروج", "Whack 20 Dahroojs", 20],
 ]
-const MODES := ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair"]
+const MODES := ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole"]
 
 var ball: Ball
 var ctx := GameCtx.new()
 var parent: Node3D  # where stages live (game units)
 var mode := ""
 var stage: Node3D
-var counts := {"goal": 0, "hoop": 0, "window": 0, "cans": 0, "bowling": 0, "bricks": 0, "fair": 0, "climb": 0}
+var counts := {"goal": 0, "hoop": 0, "window": 0, "cans": 0, "bowling": 0, "bricks": 0, "fair": 0, "mole": 0, "climb": 0}
 var hoop_streak := 0
 var cache := {}
 ## chime(): a challenge was completed (the runtime plays the chime).

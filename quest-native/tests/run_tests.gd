@@ -213,6 +213,8 @@ func _world(main: Node) -> void:
 	check(Save.throw_style == "hand", "the play page picks the throw style")
 	Save.throw_style = "trigger"
 	main.set_menu(false)
+	main._choose_mode("mole")
+	check(main.stage is MoleStage and main.runtime.mode == "mole", "the mole card starts Whack-a-Dahrooj")
 	main._choose_mode("goal")
 	main.ball.respawn()
 	main.holder = ""

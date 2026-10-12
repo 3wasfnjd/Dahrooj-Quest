@@ -461,6 +461,8 @@ func set_mode(m: String) -> void:
 		get_viewport().transparent_bg = false
 		placing = false
 	place()
+	if stage != null:
+		_setup_mole()
 
 
 func time_k() -> float:
@@ -637,6 +639,8 @@ func _game_step(delta: float) -> void:
 			auto_fire[h] = _clock + 0.13
 			_blast_from(h)
 	world_balls.step_blast(dt)
+	if stage is MoleStage:
+		(stage as MoleStage).viewer = eye_game()
 	if true:
 		var gdt := dt * time_k()
 		runtime.step(gdt)
@@ -1272,6 +1276,37 @@ func _menu_action(i: int) -> void:
 				_apply_look()
 
 
+## Whack-a-Dahrooj: in VR from the court's ground; in mixed reality from the scanned
+## walls, floor and furniture (the court's ground when the room has no scan).
+func _setup_mole() -> void:
+	var mole := stage as MoleStage
+	if mole == null:
+		return
+	mole.sink = mode != "mr"
+	mole.size = 2.8 if mode == "mr" else 1.0
+	mole.spots_provider = func() -> Array:
+		var out := []
+		if mode != "mr":
+			return out
+		var to_game := game_root.global_transform.affine_inverse()
+		var head := head_transform().origin
+		for pl in surfaces.planes():
+			if pl.label == "ceiling":
+				continue
+			var x: Transform3D = pl.xform
+			var sz: Vector2 = pl.size
+			if sz.x < 0.35 or sz.y < 0.35:
+				continue
+			for k in 3:
+				var u := (randf() - 0.5) * sz.x * 0.8
+				var v := (randf() - 0.5) * sz.y * 0.8
+				var wp := x.origin + x.basis.x.normalized() * u + x.basis.y.normalized() * v
+				if wp.distance_to(head) < 1.0:
+					continue
+				out.append({"pos": to_game * wp, "normal": (to_game.basis * (pl.normal as Vector3)).normalized()})
+		return out
+
+
 ## A mode card (xr-runtime.js choosePlaza).
 func _choose_mode(id: String) -> void:
 	var sound_pos := to_game(menu.global_position)
@@ -1293,6 +1328,7 @@ func _choose_mode(id: String) -> void:
 		stage = runtime.stage
 		stage.visible = true
 		place()
+		_setup_mole()
 	sfx("whoosh", 0.5, sound_pos)
 	buzz("left", 0.45, 70)
 	buzz("right", 0.45, 70)
