@@ -215,7 +215,11 @@ func _world(main: Node) -> void:
 	main.set_menu(false)
 	main._choose_mode("mole")
 	check(main.stage is MoleStage and main.runtime.mode == "mole", "the mole card starts Whack-a-Dahrooj")
+	main._choose_mode("maze")
+	main._step_table(1.0 / 72.0)
+	check(main.table is TabletopStage and main.table.visible and not main.stage.visible, "the maze card brings the tabletop board")
 	main._choose_mode("goal")
+	check(main.table == null and main.stage.visible, "and a throwing mode puts it away")
 	main.ball.respawn()
 	main.holder = ""
 	main._press("left", "trigger")

@@ -53,6 +53,9 @@ var confetti: Confetti
 var toast: ToastCard
 var audio: GameAudio
 var intro: IntroRain
+var tabletops := {}  # mode -> TabletopStage (built once, kept)
+var table: TabletopStage = null  # the tabletop in play, or null
+var table_spot = null  # VR: Transform3D in front of you
 var menu: MenuPanel
 var menu_hover := -1
 var menu_hand := "right"
@@ -526,6 +529,7 @@ func _process(delta: float) -> void:
 		_step_placing(minf(delta, 0.05) if state == "play" else 0.0)
 	if state == "play" or state == "menu" or not xr:
 		_game_step(delta)
+		_step_table(minf(delta, 0.05))
 	if menu.visible:
 		_step_menu(delta)
 	elif panel.visible and xr:
@@ -564,7 +568,7 @@ func _game_step(delta: float) -> void:
 		fork.global_transform = rig.grip_transform(F)
 	# Dahrooj waits by your hand (or in the slingshot) between throws; only once the
 	# headset has reported a few poses, so he doesn't appear somewhere else first.
-	if xr and state == "play" and not placing and not intro.active and not ball.shot and holder == "" and not parked and _frames > 3:
+	if xr and state == "play" and not placing and not intro.active and table == null and not ball.shot and holder == "" and not parked and _frames > 3:
 		parked = true
 		_pop_t = 0.0
 		ball.pos = to_game(_park_spot(F))
@@ -672,7 +676,7 @@ func _game_step(delta: float) -> void:
 	var eye := to_game(head_transform().origin)
 	# Dahrooj shows only while the trigger holds him or he flies; waiting, he's out of
 	# sight (in the slingshot he waits in the pouch).
-	var shown := not placing and not intro.active and ((parked and F != "") or holder != "" or ball.shot)
+	var shown := not placing and not intro.active and table == null and ((parked and F != "") or holder != "" or ball.shot)
 	dahrooj.visible = shown
 	if shown:
 		var d := ball.d
@@ -699,7 +703,8 @@ func _game_step(delta: float) -> void:
 	elif intro.active and intro.rain:
 		score_popup.observe("rain", float(intro.popped))
 	else:
-		score_popup.observe(runtime.mode, float(runtime.counts.get(runtime.mode, 0)))
+		var m: String = String(table.name).trim_prefix("Table_") if table else runtime.mode
+		score_popup.observe(m, float(runtime.counts.get(m, 0)))
 	toast.busy = state == "menu"
 	toast.world_scale = 1.0
 	toast.place(head_transform())
@@ -758,6 +763,21 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 		return
 	if state != "play":
 		return
+	# Tabletop: the grip holds the board / turns a paddle; a trigger the board doesn't
+	# take fires shots; A retries.
+	if table != null and not placing:
+		if name == "trigger" or name == "grip":
+			if down:
+				if not table.xr_press(_table_input(hand), name) and name == "trigger":
+					_fire_blast(hand)
+					auto_fire[hand] = _clock + 0.13
+			else:
+				auto_fire.erase(hand)
+				table.xr_release(hand, false, name)
+			return
+		if hand == "right" and name == "ax" and down:
+			table.retry()
+			return
 	# Every mode: the trigger fires shots, the grip (either hand) holds Dahrooj.
 	if name == "trigger":
 		if down:
@@ -1135,6 +1155,8 @@ func set_menu(on: bool, page := "modes") -> void:
 	if on:
 		_release(holder, true)
 		auto_fire.clear()
+		if table:
+			table.xr_cancel()
 		menu.set_page(page)
 		if not was:
 			menu.place(head_transform())
@@ -1163,7 +1185,7 @@ func _menu_model() -> Dictionary:
 		if c.value >= c.goal:
 			done += 1
 	var sky := park.settings() if park.has_method("settings") else {"time": "auto", "weather": "auto"}
-	return {"english": not Save.arabic(), "kind": mode, "mode": "rain" if intro.active and intro.rain else runtime.mode,
+	return {"english": not Save.arabic(), "kind": mode, "mode": "rain" if intro.active and intro.rain else (String(table.name).trim_prefix("Table_") if table else runtime.mode),
 		"style": Save.style, "jelly_color": Save.jelly_color, "throw_style": Save.throw_style, "shot_style": Save.shot_style,
 		"time": sky.time, "weather": sky.weather, "accessory": worn(), "done": done, "reset_armed": reset_arm > 0.0,
 		"rewards": Save.challenges, "challenges": list}
@@ -1234,6 +1256,7 @@ func _menu_action(i: int) -> void:
 				Save.challenges.clear()
 				Save.styles_used.clear()
 				Save.accessory = ""
+				TabletopProgress.clear(Save.best)
 				Save.save()
 				_apply_look()
 				toast.notify("info", Save.text("صفّرت التحديات", "Challenges reset"), Save.text("ابدأ من جديد!", "Start again!"))
@@ -1290,17 +1313,93 @@ func _setup_mole() -> void:
 		return out
 
 
+## The tabletop modes (balance, ricochet, maze): a small board in front of you (VR) or
+## on the pinned surface (MR), played with the grip; "" leaves tabletop play.
+func _set_table(m: String) -> void:
+	if table:
+		table.xr_cancel()
+		table.deactivate()
+		table.visible = false
+		table = null
+	if m == "":
+		return
+	if not tabletops.has(m):
+		var st := TabletopStage.new(m)
+		st.name = "Table_" + m
+		add_child(st)
+		st.sfx = func(n: String, k: float, pos: Vector3): audio.sfx(n, k, pos)
+		st.won.connect(_on_table_won)
+		tabletops[m] = st
+	table = tabletops[m]
+	table.visible = true
+	table_spot = null
+	ball.respawn()
+
+
+func _on_table_won(_points: int, result: Dictionary, at: Vector3) -> void:
+	TabletopProgress.record_win(Save.best, runtime.ch_progress, result)
+	Save.save()
+	runtime.add_count(String(result.mode), false)
+	confetti.celebrate(to_game(at), eye_game())
+
+
+## xr-runtime.js placeTable.
+func _place_table() -> void:
+	var spot: Transform3D
+	var unit := 0.32
+	if mode == "mr" and not anchor.is_empty():
+		spot = Transform3D(Basis(Vector3.UP, -float(anchor.theta)), (anchor.p as Vector3) + Vector3(0, 0.07, 0))
+		unit = clampf(3.2 / ar_scale, 0.1, 0.44)
+	else:
+		if table_spot == null:
+			var h := head_transform()
+			var dir := -h.basis.z
+			dir.y = 0.0
+			dir = dir.normalized() if dir.length_squared() > 1e-4 else Vector3.FORWARD
+			var p := h.origin + dir * 0.82
+			p.y = maxf(0.55, h.origin.y - 0.62)
+			table_spot = Transform3D(Basis.looking_at(dir, Vector3.UP), p)
+		spot = table_spot
+	table.place_table(spot, unit)
+
+
+func _table_input(hand: String) -> Dictionary:
+	var r := rig.ray(hand)
+	var g := rig.grip_transform(hand)
+	return {"id": hand, "ray": {"origin": r[0], "dir": r[1]}, "position": g.origin, "rotation": g.basis.get_rotation_quaternion()}
+
+
+func _step_table(dt: float) -> void:
+	if table == null:
+		return
+	_place_table()
+	var ins := []
+	if xr:
+		for h in ["left", "right"]:
+			if rig.tracked(h):
+				ins.append(_table_input(h))
+	table.xr_frame(dt, {"inputs": ins, "active": state == "play" and not placing, "style": Save.style,
+		"color": Save.jelly_color, "accessory": worn(), "eye": head_transform().origin, "english": not Save.arabic()})
+
+
 ## A mode card (xr-runtime.js choosePlaza).
 func _choose_mode(id: String) -> void:
 	var sound_pos := to_game(menu.global_position)
-	if not (id in GameRuntime.MODES or id == "rain"):
+	if not (id in GameRuntime.MODES or id in ["rain", "balance", "ricochet", "maze"]):
 		toast.show_text(Save.text("قريبًا في النسخة القادمة", "Coming in the next version"))
 		return
 	holder = ""
 	parked = false
 	ball.held = false
 	set_menu(false)
-	if id == "rain":
+	_set_table("")
+	if id in ["balance", "ricochet", "maze"]:
+		if intro.active:
+			intro.set_rain(false)
+			intro.clear()
+		stage.visible = false
+		_set_table(id)
+	elif id == "rain":
 		stage.visible = false
 		intro.set_rain(true)
 	else:

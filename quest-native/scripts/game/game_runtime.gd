@@ -23,6 +23,16 @@ const CHALLENGES := [
 	["bell3", "اضرب جرس الملاهي ٣ مرات", "Ring the fair bell 3 times", 3],
 	["pop20", "فجّر ٢٠ دحروج بالطلقات", "Pop 20 Dahroojs with your shots", 20],
 	["mole20", "اضرب ٢٠ دحروج", "Whack 20 Dahroojs", 20],
+	# Tabletops (challenges.ts; tabletop_progress.gd records them).
+	["balance1", "أكمل مرحلة توازن", "Complete a balance round", 1],
+	["balance5", "مراحل التوازن الخمس", "All five balance rounds", 5],
+	["balanceClean", "توازن دون سقوط أو إعادة", "Balance without falling or retrying", 1],
+	["ricochet1", "أكمل مرحلة ارتداد", "Complete a ricochet round", 1],
+	["ricochet5", "مراحل الارتداد الخمس", "All five ricochet rounds", 5],
+	["ricochetAce", "ارتداد من أول رمية", "Ricochet on the first throw", 1],
+	["maze1", "أكمل متاهة", "Complete a maze", 1],
+	["maze5", "المتاهات الخمس", "All five mazes", 5],
+	["mazeClean", "اجمع النجوم وأكمل المتاهة دون إعادة", "Collect the stars and finish without retrying", 1],
 ]
 const MODES := ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole"]
 
