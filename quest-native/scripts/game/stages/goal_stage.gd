@@ -14,6 +14,9 @@ const KR := 0.42
 const HR := 0.135
 
 var aim_z := AIM_Z
+var far_z = null
+var reach_z = null
+var ctx: GameCtx
 var friction = null
 var shot_time = null
 var solids: Array = []
@@ -218,7 +221,8 @@ func collide(b: Ball) -> void:
 			b.pos.z = GOAL_Z - GD + Ball.BR
 			if b.vel.z < 0.0:
 				StageArt.net_poke(back, P.x, P.y, -b.vel.z * 1.6)
-				b.event.emit("swish", {"pos": b.pos})
+				if ctx:
+					ctx.sfx.call("swish", 1.0, b.pos)
 				b.vel.z = -b.vel.z * 0.12
 				b.vel.x *= 0.5
 				b.vel.y *= 0.6

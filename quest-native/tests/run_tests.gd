@@ -19,6 +19,8 @@ func _ready() -> void:
 	_physics()
 	_goal()
 	_volley()
+	_art()
+	_suites()
 	await _scene()
 	check(lines.size() >= 15, "every check ran (%d)" % lines.size())
 	var report := "\n".join(lines)
@@ -110,6 +112,31 @@ func _volley() -> void:
 	for i in 72 * 9:
 		b.step(1.0 / 72.0)
 	check(b.volley.is_empty(), "earlier throws finish on their own")
+
+
+func _art() -> void:
+	var box := StageArt.rbox(1.0, 0.5, 0.3, 0.05, StandardMaterial3D.new())
+	var bb := box.mesh.get_aabb()
+	check(bb.size.distance_to(Vector3(1, 0.5, 0.3)) < 0.01, "a rounded box has the asked size")
+	box.free()
+	var g := Node3D.new()
+	StageArt.ground_arc(g, 0, 0, 2, 0, PI)
+	var ab: AABB = g.get_child(0).mesh.get_aabb()
+	check(absf(ab.size.x - 4.07) < 0.02 and ab.end.z < 0.01, "a ground arc from +x through -z")
+	g.free()
+	var body := {"mesh": null, "x": Vector3.ZERO, "v": Vector3.ZERO, "w": Vector3.ZERO, "sleep": true}
+	StageArt.shove(body, Vector3(0, 0, -1), Vector3(0.1, 0, 0), 2.0)
+	check(body.v == Vector3(0, 0, -2) and not body.sleep and body.w.y > 0.0, "a shove pushes, spins and wakes a body")
+
+
+## Each stage's own checks: tests/stage_<id>_test.gd with static run(check).
+func _suites() -> void:
+	var files := DirAccess.get_files_at("res://tests")
+	files.sort()
+	for f in files:
+		if f.begins_with("stage_") and f.ends_with("_test.gd"):
+			var sc: GDScript = load("res://tests/" + f)
+			sc.call("run", check)
 
 
 func _scene() -> void:

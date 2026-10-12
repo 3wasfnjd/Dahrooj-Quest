@@ -148,3 +148,98 @@ static func net_update(net: Dictionary, dt: float) -> void:
 	if moving or net.get("dirty", false):
 		_draw_net(net)
 		net.dirty = moving
+
+
+## A chalk arc on the ground (stage-art.js groundArc; three.js RingGeometry angles
+## measured from +x toward -z once laid flat).
+static func ground_arc(grp: Node3D, cx: float, cz: float, r: float, a0: float, a1: float, w := 0.07) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 64
+	for i in n:
+		var t0 := a0 + (a1 - a0) * i / n
+		var t1 := a0 + (a1 - a0) * (i + 1) / n
+		var q := [r - w / 2, r + w / 2]
+		var p := func(rr: float, t: float) -> Vector3: return Vector3(rr * cos(t), 0.0, -rr * sin(t))
+		var v00: Vector3 = p.call(q[0], t0)
+		var v01: Vector3 = p.call(q[1], t0)
+		var v10: Vector3 = p.call(q[0], t1)
+		var v11: Vector3 = p.call(q[1], t1)
+		for v in [v00, v01, v11, v00, v11, v10]:
+			st.set_normal(Vector3.UP)
+			st.add_vertex(v)
+	var m := MeshInstance3D.new()
+	m.mesh = st.commit()
+	m.material_override = line_mat()
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.position = Vector3(cx, 0.003, cz)
+	grp.add_child(m)
+
+
+static var _rbox_cache := {}
+
+
+## A rounded box w×h×d with edge radius r (stage-art.js rbox), centred on the origin.
+static func rbox(w: float, h: float, d: float, r: float, mat: Material) -> MeshInstance3D:
+	var key := "%f_%f_%f_%f" % [w, h, d, r]
+	if not _rbox_cache.has(key):
+		_rbox_cache[key] = _rbox_mesh(w, h, d, r)
+	var m := MeshInstance3D.new()
+	m.mesh = _rbox_cache[key]
+	m.material_override = mat
+	return m
+
+
+## Rounded box: each vertex of a subdivided cube is pushed onto the inner box plus
+## radius r along its direction from the inner box (smooth rounded edges/corners).
+static func _rbox_mesh(w: float, h: float, d: float, r: float) -> ArrayMesh:
+	var half := Vector3(w, h, d) / 2.0
+	var inner := (half - Vector3.ONE * r).max(Vector3.ZERO)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 6
+	var faces := [
+		[Vector3.RIGHT, Vector3.UP, Vector3.BACK], [Vector3.LEFT, Vector3.UP, Vector3.FORWARD],
+		[Vector3.UP, Vector3.BACK, Vector3.RIGHT], [Vector3.DOWN, Vector3.FORWARD, Vector3.RIGHT],
+		[Vector3.BACK, Vector3.UP, Vector3.LEFT], [Vector3.FORWARD, Vector3.UP, Vector3.RIGHT],
+	]
+	var pt := func(c: Vector3) -> Array:
+		var cp := c * half
+		var q := cp.clamp(-inner, inner)
+		var dir := cp - q
+		var nrm := dir.normalized() if dir.length_squared() > 1e-12 else c.normalized()
+		return [q + nrm * r, nrm]
+	for f in faces:
+		var nz: Vector3 = f[0]
+		var u: Vector3 = f[2]
+		var v: Vector3 = f[1]
+		for j in n:
+			for i in n:
+				var c := []
+				for k in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j + 1]]:
+					var a: float = -1.0 + 2.0 * k[0] / n
+					var b: float = -1.0 + 2.0 * k[1] / n
+					c.append(pt.call(nz + u * a + v * b))
+				for idx in [0, 2, 1, 0, 3, 2]:
+					st.set_normal(c[idx][1])
+					st.add_vertex(c[idx][0])
+	return st.commit()
+
+
+## The body (a Dictionary with "mesh") that owns a hit node, walking up the parents
+## (stage-art.js bodyOf).
+static func body_of(list: Array, obj: Node):
+	var o := obj
+	while o:
+		for b in list:
+			if b.mesh == o:
+				return b
+		o = o.get_parent()
+	return null
+
+
+## A blaster push on a body {x, v, w: Vector3, sleep} (stage-art.js shove).
+static func shove(b: Dictionary, dir: Vector3, point: Vector3, k: float) -> void:
+	b.v += dir * k
+	b.w += (point - b.x).cross(dir) * (k * 3.0)
+	b.sleep = false
