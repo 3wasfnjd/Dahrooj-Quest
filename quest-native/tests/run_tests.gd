@@ -196,6 +196,24 @@ func _world(main: Node) -> void:
 	for i in 40:
 		main._step_intro(1.0 / 72.0)
 	check(not main.intro.active and main.stage.visible, "pressing start brings the court")
+	main.set_menu(true, "modes")
+	check(main.menu.visible and main.state == "menu", "the menu opens on the mode cards")
+	var hoop_i := -1
+	for i in main.menu.buttons.size():
+		if main.menu.buttons[i].kind == "mode" and main.menu.buttons[i].id == "hoop":
+			hoop_i = i
+	main._menu_action(hoop_i)
+	check(main.runtime.mode == "hoop" and main.stage is HoopStage and not main.menu.visible, "a mode card switches to that mode")
+	var back: Vector3 = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
+	check(back.z < -9.0, "and the hoop stands as far as the cans (%.1f)" % back.z)
+	main.set_menu(true, "play")
+	for i in main.menu.buttons.size():
+		if main.menu.buttons[i].kind == "throw" and main.menu.buttons[i].id == "hand":
+			main._menu_action(i)
+	check(Save.throw_style == "hand", "the play page picks the throw style")
+	Save.throw_style = "trigger"
+	main.set_menu(false)
+	main._choose_mode("goal")
 	main.ar_zoom = 1.0
 	main.anchor_from(Vector3(0, 0.7, -1), Vector3.UP)
 	check(main.ar_scale == 16.0, "MR: a table gets the smaller court (1/16)")

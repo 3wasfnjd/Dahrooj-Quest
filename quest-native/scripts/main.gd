@@ -53,6 +53,11 @@ var confetti: Confetti
 var toast: ToastCard
 var audio: GameAudio
 var intro: IntroRain
+var menu: MenuPanel
+var menu_hover := -1
+var menu_hand := "right"
+var scroll_drag := {}  # {v, track} while the trigger drags the challenge list
+var reset_arm := 0.0
 var on_start := {"left": false, "right": false}
 var _sound_state := ""
 var panel: Panel3D
@@ -153,6 +158,10 @@ func _ready() -> void:
 	panel.visible = false
 	add_child(panel)
 	_build_placing()
+	menu = MenuPanel.new()
+	menu.name = "Menu"
+	menu.visible = false
+	add_child(menu)
 	xr = not _args.has("screenshot") and _args.get("xr", "1") != "0" and rig.start()
 	if xr:
 		surfaces.attach(rig)
@@ -516,7 +525,9 @@ func _process(delta: float) -> void:
 		_step_placing(minf(delta, 0.05) if state == "play" else 0.0)
 	if state == "play" or state == "menu" or not xr:
 		_game_step(delta)
-	if panel.visible and xr:
+	if menu.visible:
+		_step_menu(delta)
+	elif panel.visible and xr:
 		for h in ["right", "left"]:
 			if rig.tracked(h):
 				var r := rig.ray(h)
@@ -612,7 +623,7 @@ func _game_step(delta: float) -> void:
 			auto_fire[h] = _clock + 0.13
 			_blast_from(h)
 	world_balls.step_blast(dt)
-	if state != "menu":
+	if true:
 		var gdt := dt * time_k()
 		runtime.step(gdt)
 		world_balls.step_rests(gdt, dt)
@@ -669,7 +680,12 @@ func _game_step(delta: float) -> void:
 		else:
 			v.visible = false
 	hud.visible = state == "play" and not placing and (not intro.active or intro.rain)
-	score_popup.observe("placing" if placing else runtime.mode, 0.0 if placing else float(runtime.counts.get(runtime.mode, 0)))
+	if placing:
+		score_popup.observe("placing", 0.0)
+	elif intro.active and intro.rain:
+		score_popup.observe("rain", float(intro.popped))
+	else:
+		score_popup.observe(runtime.mode, float(runtime.counts.get(runtime.mode, 0)))
 	toast.busy = state == "menu"
 	toast.world_scale = 1.0
 	toast.place(head_transform())
@@ -699,7 +715,26 @@ func _park_spot(F: String) -> Vector3:
 # --- input -----------------------------------------------------------------------
 
 func _on_button(hand: String, name: String, down: bool) -> void:
-	if state == "start" or state == "menu":
+	# Left Y: the mode cards; left X: challenges; right B: the play page (xr-runtime menuButtons).
+	if down and (state == "play" or state == "menu") and name == "by":
+		toggle_menu("modes" if hand == "left" else "play")
+		return
+	if down and (state == "play" or state == "menu") and name == "ax" and hand == "left":
+		toggle_menu("challenges")
+		return
+	if state == "menu":
+		if name == "trigger" and down and hand == menu_hand:
+			var hit := menu.hit(rig.ray(hand)[0], rig.ray(hand)[1], menu_hover)
+			var b := menu.action(int(hit.index))
+			if b.get("kind", "") == "scroll":
+				scroll_drag = {"v": (hit.uv as Vector2).y, "track": b.id == "track"}
+			elif not b.is_empty():
+				rig.pulse(hand, 0.2, 0.03)
+				_menu_action(int(hit.index))
+		elif name == "trigger" and not down:
+			scroll_drag = {}
+		return
+	if state == "start":
 		if down and name == "trigger":
 			var r := rig.ray(hand)
 			var id := panel.hit(r[0], r[1])
@@ -716,11 +751,9 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 			auto_fire.erase(hand)
 			if holder == hand and not _other_grab_down(hand, name):
 				_release(hand, false)
-	# Right A: Dahrooj back to the hand. Left Y: the mode cards; left X and right B: the menus.
+	# Right A: Dahrooj back to the hand.
 	elif hand == "right" and name == "ax" and down:
 		_recall()
-	elif name == "by" and down or hand == "left" and name == "ax" and down:
-		_on_menu()
 
 
 func _other_grab_down(hand: String, released: String) -> bool:
@@ -1037,26 +1070,155 @@ func _show_start() -> void:
 
 
 func _on_menu() -> void:
-	if state == "play":
-		state = "menu"
-		_release(holder, true)
-		panel.build(Save.text("القائمة", "Menu"), "",
-			[["resume", Save.text("متابعة", "Resume")],
-			["recall", Save.text("استدعاء دحروج", "Call Dahrooj back")],
-			["switch", Save.text("التبديل إلى الواقع الافتراضي", "Switch to virtual reality") if mode == "mr" else Save.text("التبديل إلى الواقع المختلط", "Switch to mixed reality")],
-			["recenter", Save.text("وضع الملعب أمامي", "Place the court in front of me")],
-			["lang", Save.text("English", "العربية")]])
-		panel.place(head_transform())
-		panel.visible = true
-	elif state == "menu":
-		_close_menu()
+	if state == "play" or state == "menu":
+		toggle_menu("modes")
 	elif state == "start":
 		panel.place(head_transform(), 0.75, 0.05)
 
 
 func _close_menu() -> void:
-	panel.visible = false
-	state = "play"
+	set_menu(false)
+
+
+## The headset menu (xr-runtime.js setMenu / toggleMenu).
+func set_menu(on: bool, page := "modes") -> void:
+	var was := menu.visible
+	if on:
+		_release(holder, true)
+		auto_fire.clear()
+		menu.set_page(page)
+		if not was:
+			menu.place(head_transform())
+		state = "menu"
+	else:
+		reset_arm = 0.0
+		menu_hover = -1
+		scroll_drag = {}
+		if state == "menu":
+			state = "play"
+	menu.visible = on
+	if on:
+		menu.draw(_menu_model(), menu_hover)
+
+
+func toggle_menu(page: String) -> void:
+	set_menu(not (menu.visible and menu.page == page), page)
+
+
+func _menu_model() -> Dictionary:
+	var list := []
+	for c in GameRuntime.CHALLENGES:
+		list.append({"id": c[0], "title": c[1], "en": c[2], "value": mini(int(Save.challenges.get(c[0], 0)), c[3]), "goal": c[3]})
+	var done := 0
+	for c in list:
+		if c.value >= c.goal:
+			done += 1
+	var sky := park.settings() if park.has_method("settings") else {"time": "auto", "weather": "auto"}
+	return {"english": not Save.arabic(), "kind": mode, "mode": "rain" if intro.active and intro.rain else runtime.mode,
+		"style": "fur", "jelly_color": "pink", "throw_style": Save.throw_style, "shot_style": Save.shot_style,
+		"time": sky.time, "weather": sky.weather, "accessory": "", "done": done, "reset_armed": reset_arm > 0.0,
+		"rewards": Save.challenges, "challenges": list}
+
+
+func _step_menu(dt: float) -> void:
+	reset_arm = maxf(0.0, reset_arm - dt)
+	if xr:
+		if not rig.tracked(menu_hand):
+			menu_hand = "left" if menu_hand == "right" else "right"
+		var r := rig.ray(menu_hand)
+		var hit := menu.hit(r[0], r[1], menu_hover)
+		menu_hover = int(hit.index)
+		var d: float = hit.distance
+		rig.set_pointer(menu_hand, {"point": r[0] + r[1] * d, "interactive": menu_hover >= 0} if d > 0.0 else null, true)
+		var other := "left" if menu_hand == "right" else "right"
+		rig.set_pointer(other, null, false)
+		if not scroll_drag.is_empty() and d > 0.0:
+			var v: float = (hit.uv as Vector2).y
+			menu.scroll_drag(scroll_drag.v, v, scroll_drag.track)
+			scroll_drag.v = v
+		var sy := rig.stick("right").y
+		if absf(sy) > 0.05:
+			menu.scroll_axis(sy, dt)
+	menu.draw(_menu_model(), menu_hover)
+
+
+## What each menu button does (xr-runtime.js menuAction).
+func _menu_action(i: int) -> void:
+	var b := menu.action(i)
+	if b.is_empty():
+		return
+	if menu.navigate(b):
+		menu_hover = -1
+		return
+	match String(b.kind):
+		"mode":
+			_choose_mode(String(b.id))
+			return
+		"close":
+			set_menu(false)
+			return
+		"throw":
+			holder = ""
+			Save.throw_style = String(b.id)
+			Save.save()
+		"shot":
+			Save.shot_style = String(b.id)
+			Save.save()
+		"lang":
+			Save.language = "en" if Save.arabic() else "ar"
+			Save.save()
+			menu_hover = -1
+		"time", "weather":
+			if nature_on():
+				park.set_settings({String(b.kind): String(b.id)})
+		"place":
+			set_menu(false)
+			if mode == "mr" and xr:
+				holder = ""
+				placing = true
+			else:
+				anchor = {}
+				place()
+		"reset":
+			if reset_arm > 0.0:
+				reset_arm = 0.0
+				Save.challenges.clear()
+				Save.styles_used.clear()
+				Save.save()
+				toast.notify("info", Save.text("صفّرت التحديات", "Challenges reset"), Save.text("ابدأ من جديد!", "Start again!"))
+			else:
+				reset_arm = 3.0
+		"exit":
+			set_menu(false)
+			get_tree().quit()
+		"style", "jellyColor", "acc":
+			pass  # one look in this version: pink fur
+
+
+## A mode card (xr-runtime.js choosePlaza).
+func _choose_mode(id: String) -> void:
+	var sound_pos := to_game(menu.global_position)
+	if not (id in GameRuntime.MODES or id == "rain"):
+		toast.show_text(Save.text("قريبًا في النسخة القادمة", "Coming in the next version"))
+		return
+	holder = ""
+	parked = false
+	ball.held = false
+	set_menu(false)
+	if id == "rain":
+		stage.visible = false
+		intro.set_rain(true)
+	else:
+		if intro.active:
+			intro.set_rain(false)
+			intro.clear()
+		runtime.set_mode(id)
+		stage = runtime.stage
+		stage.visible = true
+		place()
+	sfx("whoosh", 0.5, sound_pos)
+	buzz("left", 0.45, 70)
+	buzz("right", 0.45, 70)
 
 
 func _on_recenter() -> void:
