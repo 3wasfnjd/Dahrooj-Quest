@@ -185,6 +185,11 @@ func _world(main: Node) -> void:
 	var hit := wb.ray_stage(main.stage, Vector3(3.0, 1.0, -6.0), Vector3(0, 0, -1), 20.0)
 	check(not hit.is_empty() and absf(hit.point.z - (-11.0)) < 0.2, "a shot meets the goal's post (%s)" % [hit.get("point", "none")])
 	wb.clear_blast()
+	main.ar_zoom = 1.0
+	main.anchor_from(Vector3(0, 0.7, -1), Vector3.UP)
+	check(main.ar_scale == 16.0, "MR: a table gets the smaller court (1/16)")
+	main.anchor_from(Vector3(0, 0, -1.5), Vector3.UP)
+	check(main.ar_scale == 8.0, "MR: the floor the usual one (1/8)")
 	await get_tree().process_frame
 
 

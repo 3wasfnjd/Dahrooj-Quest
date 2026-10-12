@@ -13,6 +13,9 @@ extends Node3D
 
 const VR_SCALE := 2.0
 const AR_SCALE := 8.0
+const AR_TABLE := 16.0
+const AR_ZOOM_MIN := 0.35
+const AR_ZOOM_MAX := 2.6
 const REAL_G := 9.8
 const GAIN := 2.0
 const MIN_THROW := 1.0
@@ -51,7 +54,13 @@ var desktop_cam: Camera3D
 var state := "boot"  # boot, splash, start, play, menu
 var scale_now := VR_SCALE
 var mode := "vr"
-var anchor := {}  # MR: {p: Vector3 (real floor point), theta: float}
+var anchor := {}  # MR: {p: Vector3 (real surface point), theta: float}
+var placing := false  # MR: aim at a surface and the court follows; the trigger pins it
+var ar_scale := AR_SCALE
+var ar_zoom := 1.0
+var reticle: MeshInstance3D
+var surfaces: SceneSurfaces
+var place_hint: Label3D
 var holder := ""
 var parked := false
 var charge_t := {"left": 0.0, "right": 0.0}
@@ -114,8 +123,10 @@ func _ready() -> void:
 	panel = Panel3D.new()
 	panel.visible = false
 	add_child(panel)
+	_build_placing()
 	xr = not _args.has("screenshot") and _args.get("xr", "1") != "0" and rig.start()
 	if xr:
+		surfaces.attach(rig)
 		rig.button.connect(_on_button)
 		rig.menu_pressed.connect(_on_menu)
 		rig.grip_tapped.connect(func(h): if h == "recenter": _on_recenter())
@@ -132,6 +143,119 @@ func _ready() -> void:
 	entitlement.name = "StoreEntitlement"
 	add_child(entitlement)
 	entitlement.run.call_deferred()
+
+
+## MR placement: a ring where you aim and a hint (xr-runtime.js reticle, drawHud placing).
+func _build_placing() -> void:
+	reticle = MeshInstance3D.new()
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in 40:
+		var a0 := TAU * i / 40.0
+		var a1 := TAU * (i + 1) / 40.0
+		var q := [Vector3(cos(a0) * 0.07, 0, sin(a0) * 0.07), Vector3(cos(a0) * 0.09, 0, sin(a0) * 0.09),
+			Vector3(cos(a1) * 0.07, 0, sin(a1) * 0.07), Vector3(cos(a1) * 0.09, 0, sin(a1) * 0.09)]
+		for v in [q[0], q[2], q[1], q[1], q[2], q[3]]:
+			st.add_vertex(v)
+	reticle.mesh = st.commit()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(Color("fffaf2"), 0.9)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.no_depth_test = true
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.render_priority = 4
+	reticle.material_override = m
+	reticle.visible = false
+	add_child(reticle)
+	place_hint = Panel3D.label("", 46, Panel3D.TEXT)
+	place_hint.outline_size = 0
+	place_hint.visible = false
+	add_child(place_hint)
+	var bg := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.86, 0.2)
+	bg.mesh = qm
+	var bm := StandardMaterial3D.new()
+	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	bm.albedo_color = Panel3D.BG
+	bm.albedo_texture = Panel3D.round_tex()
+	bm.render_priority = 2
+	bg.material_override = bm
+	bg.position.z = -0.002
+	place_hint.add_child(bg)
+	surfaces = SceneSurfaces.new()
+	surfaces.name = "SceneSurfaces"
+	add_child(surfaces)
+
+
+## The headset's own surfaces (tables from Space Setup) first, the floor otherwise.
+func _aim_at_surface():
+	var hand := "right" if rig.tracked("right") else ("left" if rig.tracked("left") else "")
+	if hand == "":
+		return null
+	var r := rig.ray(hand)
+	var o: Vector3 = r[0]
+	var d: Vector3 = r[1]
+	var best = null
+	var best_t := 8.0
+	for sf in surfaces.surfaces():
+		var c: Vector3 = sf.center
+		if absf(d.y) < 1e-4 or sf.label == "floor":
+			continue
+		var t := (c.y - o.y) / d.y
+		if t <= 0.0 or t >= best_t:
+			continue
+		var p := o + d * t
+		var local: Vector3 = (sf.basis as Basis).inverse() * (p - c)
+		if absf(local.x) <= sf.size.x / 2 and absf(local.z) <= sf.size.y / 2:
+			best_t = t
+			best = {"p": p, "n": Vector3.UP}
+	if best == null and d.y < -0.05:
+		var t := -o.y / d.y
+		if t < 8.0:
+			best = {"p": o + d * t, "n": Vector3.UP}
+	return best
+
+
+## Where the court goes for a spot on a surface. A raised surface facing up (a table,
+## a bed) gets the smaller court; the floor the usual one.
+func anchor_from(P: Vector3, n: Vector3) -> Dictionary:
+	ar_scale = (AR_TABLE if n.y > 0.5 and P.y > 0.35 else AR_SCALE) / ar_zoom
+	var pos := head_transform().origin
+	var dx := P.x - pos.x
+	var dz := P.z - pos.z
+	return {"p": P, "theta": atan2(dx, -dz) if Vector2(dx, dz).length() > 0.05 else float(anchor.get("theta", 0.0))}
+
+
+func _step_placing(dt: float) -> void:
+	if not placing:
+		reticle.visible = false
+		place_hint.visible = false
+		return
+	var hit = _aim_at_surface()
+	if hit != null:
+		anchor = anchor_from(hit.p, hit.n)
+		place()
+		reticle.global_position = hit.p + Vector3(0, 0.002, 0)
+		reticle.visible = true
+	# The stick: bigger and smaller, until you pin.
+	var sy := rig.stick("right").y
+	if absf(sy) > 0.4:
+		var z := clampf(ar_zoom * exp(sy * dt * 0.9), AR_ZOOM_MIN, AR_ZOOM_MAX)
+		ar_scale *= ar_zoom / z
+		ar_zoom = z
+		place()
+	place_hint.text = Save.text("وجّه على سطح واضغط الزناد للتثبيت\nالعصا للأعلى والأسفل تكبّر وتصغّر قبل التثبيت",
+		"Aim at a surface and pull the trigger to pin\nStick up and down: bigger and smaller, until you pin")
+	var head := head_transform()
+	var fwd := -head.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
+	place_hint.global_position = head.origin + fwd * 1.0 + Vector3(0, 0.25, 0)
+	place_hint.look_at(head.origin, Vector3.UP, true)
+	place_hint.visible = true
 
 
 ## The dotted flight preview and the slingshot (xr-runtime.js: fork, bands, dots).
@@ -282,9 +406,13 @@ func set_mode(m: String) -> void:
 		env.background_color = Color(0, 0, 0, 0)
 		get_viewport().transparent_bg = true
 		anchor = {}
+		ar_scale = AR_SCALE
+		ar_zoom = 1.0
+		placing = xr
 	else:
 		env.background_mode = Environment.BG_SKY
 		get_viewport().transparent_bg = false
+		placing = false
 	place()
 
 
@@ -306,7 +434,7 @@ func place() -> void:
 		var p := Vector3(0, 0, 0.5 * VR_SCALE + back)
 		game_root.transform = Transform3D(Basis().scaled(Vector3.ONE / VR_SCALE), -p / VR_SCALE)
 	else:
-		scale_now = AR_SCALE
+		scale_now = ar_scale
 		if anchor.is_empty():
 			var head := head_transform()
 			var dir := -head.basis.z
@@ -314,7 +442,7 @@ func place() -> void:
 			dir = dir.normalized() if dir.length_squared() > 0.01 else Vector3.FORWARD
 			anchor = {"p": Vector3(head.origin.x, 0, head.origin.z) + dir * 1.6, "theta": atan2(dir.x, -dir.z)}
 		var a := Vector3(0, 0, stage.aim_z)
-		var b := Basis(Vector3.UP, -anchor.theta).scaled(Vector3.ONE / AR_SCALE)
+		var b := Basis(Vector3.UP, -anchor.theta).scaled(Vector3.ONE / ar_scale)
 		game_root.transform = Transform3D(b, anchor.p - b * a)
 	hud.position = (game_root.transform * Vector3(0, 0, stage.aim_z)) + Vector3(0, 0.0, 0)
 	if mode == "mr":
@@ -343,6 +471,8 @@ func _process(delta: float) -> void:
 		_xr_states(delta)
 		for h in ["left", "right"]:
 			_record(h, rig.grip_transform(h).origin)
+	if xr:
+		_step_placing(minf(delta, 0.05) if state == "play" else 0.0)
 	if state == "play" or state == "menu" or not xr:
 		_game_step(delta)
 	if panel.visible and xr:
@@ -381,7 +511,7 @@ func _game_step(delta: float) -> void:
 		fork.global_transform = rig.grip_transform(F)
 	# Dahrooj waits by your hand (or in the slingshot) between throws; only once the
 	# headset has reported a few poses, so he doesn't appear somewhere else first.
-	if xr and state == "play" and not ball.shot and holder == "" and not parked and _frames > 3:
+	if xr and state == "play" and not placing and not ball.shot and holder == "" and not parked and _frames > 3:
 		parked = true
 		_pop_t = 0.0
 		ball.pos = to_game(_park_spot(F))
@@ -476,7 +606,7 @@ func _game_step(delta: float) -> void:
 	var eye := to_game(head_transform().origin)
 	# Dahrooj shows only while the trigger holds him or he flies; waiting, he's out of
 	# sight (in the slingshot he waits in the pouch).
-	var shown := (parked and F != "") or holder != "" or ball.shot
+	var shown := not placing and ((parked and F != "") or holder != "" or ball.shot)
 	dahrooj.visible = shown
 	if shown:
 		var d := ball.d
@@ -497,7 +627,7 @@ func _game_step(delta: float) -> void:
 			v.show_at(b.pos, eye, face, false, Vector2(1.0 + b.d * 0.75, 1.0 - b.d))
 		else:
 			v.visible = false
-	hud.visible = state == "play"
+	hud.visible = state == "play" and not placing
 	hud.text = "%s  %d" % [Save.text("مرمى", "Goal"), runtime.counts[runtime.mode]]
 	hud.look_at(head_transform().origin, Vector3.UP, true)
 
@@ -560,8 +690,13 @@ func _other_grab_down(hand: String, released: String) -> bool:
 ## to back. He appears straight in the hand with a little pop.
 func _press(hand: String, how: String) -> void:
 	# The left trigger is a blaster that pops the Dahroojs around the modes.
-	if how == "trigger" and hand == "left" and _fork_hand() == "":
+	if how == "trigger" and hand == "left" and _fork_hand() == "" and not placing:
 		_fire_blast(hand)
+		return
+	if placing:
+		if not anchor.is_empty():
+			placing = false
+			ball.respawn()
 		return
 	if hand == _fork_hand():
 		return  # this hand holds the slingshot
