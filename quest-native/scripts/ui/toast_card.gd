@@ -4,8 +4,10 @@ extends Node3D
 ## a slim card (0.46 m wide, 1024 x 220 layout) that drops in near the top of your
 ## view, about 0.8 m ahead and tilted with your head, follows your gaze, then slides
 ## back up and fades. A challenge done ("✓ " prefix) shows a check badge for 3.4 s,
-## anything else a "!" badge for 2.4 s; up to four wait in line. Dark style of
-## Panel3D (rounded BG, coloured band on the reading side, Baloo 800 text).
+## anything else a "!" badge for 2.4 s; up to four wait in line. The frosted-glass
+## style of Glass (a translucent tint with a vertical gradient, a sheen and a rim
+## light bright at the top, a slim accent bar on the reading side, Baloo text
+## fitted to the card).
 ## Call place(head) every frame with the head's global transform; step(dt) runs
 ## from _process unless auto_step is false.
 
@@ -24,6 +26,7 @@ const CARD_SHADER := """
 shader_type spatial;
 render_mode unshaded, cull_back, depth_test_disabled, depth_draw_never, fog_disabled;
 uniform vec4 bg;
+uniform vec4 bg2;
 uniform vec4 accent;
 uniform vec4 edge;
 uniform vec4 badge_in;
@@ -49,10 +52,18 @@ void fragment() {
 	vec4 o = vec4(0.0);
 	float d = rrect(p, vec2(512.0, 106.0), vec2(492.0, 90.0), 56.0);
 	float inside = clamp(0.5 - d / aa, 0.0, 1.0);
-	o = over(o, bg.rgb, bg.a * inside);
-	float band = rtl > 0.5 ? step(1004.0 - 14.0, p.x) : step(p.x, 20.0 + 14.0);
-	o = over(o, accent.rgb, inside * band);
-	o = over(o, edge.rgb, edge.a * clamp((1.5 - abs(d)) / aa + 0.5, 0.0, 1.0) * clamp(1.0 - band * inside, 0.0, 1.0));
+	float k = clamp((p.y - 16.0) / 180.0, 0.0, 1.0);
+	vec4 tint = mix(bg, bg2, k);
+	o = over(o, tint.rgb, tint.a * inside);
+	// Sheen over the top half, a warm glow from the badge's side.
+	o = over(o, vec3(1.0), 0.07 * (1.0 - smoothstep(0.0, 0.55, k)) * inside);
+	float side = rtl > 0.5 ? (1024.0 - p.x) : p.x;
+	o = over(o, accent.rgb, 0.10 * (1.0 - smoothstep(0.0, 420.0, side)) * inside);
+	// A slim accent bar inside the reading edge.
+	float bar = rrect(p, vec2(rtl > 0.5 ? 1024.0 - 38.0 : 38.0, 106.0), vec2(3.5, 52.0), 3.5);
+	o = over(o, accent.rgb, clamp(0.5 - bar / aa, 0.0, 1.0));
+	// Rim light: bright at the top, faint below.
+	o = over(o, edge.rgb, edge.a * mix(1.0, 0.3, k) * clamp((1.5 - abs(d + 1.0)) / aa + 0.5, 0.0, 1.0));
 	vec2 b = vec2(rtl > 0.5 ? 1024.0 - 118.0 : 118.0, 106.0);
 	float bd = length(p - b);
 	o = over(o, accent.rgb, clamp((56.0 - bd) / aa + 0.5, 0.0, 1.0));
@@ -88,25 +99,10 @@ var _mat: ShaderMaterial
 var _labels: Array[Label3D] = []
 
 static var _shader: Shader
-static var _fonts := {}
 
 
 static func weight_font(w: int) -> Font:
-	if not _fonts.has(w):
-		# Panel3D.font() at weight w: the Arabic face, then the Latin one. Each face gets its
-		# own variation (a variation of the shared font leaves its fallback at 400).
-		var tag := TextServerManager.get_primary_interface().name_to_tag("wght")
-		var latin := FontVariation.new()
-		latin.base_font = load("res://assets/fonts/baloo-latin.woff2")
-		latin.variation_opentype = {tag: w}
-		var arabic_face := (load("res://assets/fonts/baloo-arabic.woff2") as FontFile).duplicate() as FontFile
-		arabic_face.fallbacks = []
-		var f := FontVariation.new()
-		f.base_font = arabic_face
-		f.variation_opentype = {tag: w}
-		f.fallbacks = [latin]
-		_fonts[w] = f
-	return _fonts[w]
+	return Glass.font(w)
 
 
 func _init() -> void:
@@ -118,8 +114,9 @@ func _init() -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = _shader
 	_mat.render_priority = 6
-	_mat.set_shader_parameter("bg", Panel3D.BG)
-	_mat.set_shader_parameter("edge", Color(1, 1, 1, 0.1))
+	_mat.set_shader_parameter("bg", Glass.TINT_TOP)
+	_mat.set_shader_parameter("bg2", Glass.TINT_BOTTOM)
+	_mat.set_shader_parameter("edge", Color(1, 1, 1, 0.34))
 	_mat.set_shader_parameter("badge_in", Color(184 / 255.0, 184 / 255.0, 184 / 255.0, 0.95))
 	_mat.set_shader_parameter("paper", PAPER)
 	_quad = MeshInstance3D.new()
@@ -225,15 +222,17 @@ func _draw_card(n: Dictionary) -> void:
 		head = "مكافأة جديدة" if rtl else "New reward"
 	else:
 		head = "دحروج" if rtl else "Dahrooj"
-	_text(head, 800, 28, accent, tx, 66.0 if sub != "" else 78.0, rtl)
+	var max_w := text_width()
+	_text(head, 800, Glass.fit_size(head, 28, max_w, 800), accent, tx, 66.0 if sub != "" else 78.0, rtl)
 	var title := String(n.title)
-	var size := 46
-	var f := weight_font(800)
-	while size > 24 and f.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x > CW - 260:
-		size -= 2
-	_text(title, 800, size, Panel3D.TEXT, tx, 118.0 if sub != "" else 136.0, rtl)
+	_text(title, 800, Glass.fit_size(title, 46, max_w, 800, -1, 22), Glass.TEXT, tx, 118.0 if sub != "" else 136.0, rtl)
 	if sub != "":
-		_text(sub, 700, 26, Panel3D.SUB, tx, 160.0, rtl)
+		_text(sub, 700, Glass.fit_size(sub, 26, max_w, 700, -1, 16), Glass.SUB, tx, 160.0, rtl)
+
+
+## The room for text: from past the badge to the card's far inner edge.
+static func text_width() -> float:
+	return CW - 206.0 - 52.0
 
 
 func _process(delta: float) -> void:

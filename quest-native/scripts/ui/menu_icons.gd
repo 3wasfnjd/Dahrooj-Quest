@@ -21,13 +21,65 @@ const IDS := [
 	"jelly", "fur", "bubble", "mini", "original", "check", "none", "party", "glasses", "cap",
 	"flower", "crown", "headphones", "scarf", "aviator", "woodhat", "starGlasses", "beanie", "lock", "trigger",
 	"hand", "sling", "bolt", "firework", "auto", "reset", "day", "dusk", "night", "dawn",
-	"weather-rain", "snow", "place", "exit", "up", "down", "star",
+	"weather-rain", "snow", "place", "exit", "up", "down", "star", "mole", "mr", "vr",
+	"lang",
 ]
+## The start screen's large icons, baked again at HI_CELL pixels.
+const HI_IDS := ["mr", "vr", "lang", "world"]
+const HI_CELL := 256
+const HI_ATLAS := "res://assets/ui/start_icons.png"
 const ALIAS := {"appearance": "character", "accessories": "party", "palette": "modes", "trophy": "challenges", "clear": "day"}
 
 static var _cache := {}  # id -> [line: Texture2D, tint: Texture2D]
 static var _atlas: Image
 static var _atlas_tried := false
+static var _hi_cache := {}
+static var _hi_atlas: Image
+static var _hi_tried := false
+
+
+## The start screen's large textures of an icon (rasterised now if not baked).
+static func textures_hi(id: String) -> Array:
+	if not HI_IDS.has(id):
+		return textures(id)
+	if _hi_cache.has(id):
+		return _hi_cache[id]
+	if not _hi_tried:
+		_hi_tried = true
+		if ResourceLoader.exists(HI_ATLAS):
+			var t: Texture2D = load(HI_ATLAS)
+			if t != null:
+				_hi_atlas = t.get_image()
+				if _hi_atlas.is_compressed():
+					_hi_atlas.decompress()
+				if _hi_atlas.get_size() != Vector2i(HI_IDS.size() * HI_CELL, HI_CELL * 2):
+					_hi_atlas = null
+	var imgs: Array[Image] = []
+	if _hi_atlas != null:
+		var i := HI_IDS.find(id)
+		imgs = [_hi_atlas.get_region(Rect2i(i * HI_CELL, 0, HI_CELL, HI_CELL)), _hi_atlas.get_region(Rect2i(i * HI_CELL, HI_CELL, HI_CELL, HI_CELL))]
+	else:
+		imgs = raster(shapes(id), HI_CELL)
+	var pair: Array = []
+	for img: Image in imgs:
+		if img.get_format() != Image.FORMAT_LA8:
+			img.convert(Image.FORMAT_LA8)
+		img.generate_mipmaps()
+		pair.append(ImageTexture.create_from_image(img))
+	_hi_cache[id] = pair
+	return pair
+
+
+## draw() with the large textures.
+static func draw_hi(ci: CanvasItem, id: String, c: Vector2, size: float, line_col: Color, tint_col: Color) -> void:
+	var pair := textures_hi(id)
+	if pair.size() < 2 or ci == null:
+		return
+	var s := size * SPAN / 100.0
+	var r := Rect2(c - Vector2(s, s) / 2.0, Vector2(s, s))
+	if tint_col.a > 0.0:
+		ci.draw_texture_rect(pair[1], r, false, tint_col)
+	ci.draw_texture_rect(pair[0], r, false, line_col)
 
 
 ## The line and tint textures of an icon (id after the aliases), or [] if none can be made.
@@ -82,7 +134,7 @@ static func _load_atlas() -> Image:
 ## (the original's size argument), lines in `line_col` over tints in `tint_col`.
 static func draw(ci: CanvasItem, id: String, c: Vector2, size: float, line_col: Color, tint_col: Color) -> void:
 	var pair := textures(id)
-	if pair.size() < 2:
+	if pair.size() < 2 or ci == null:
 		return
 	var s := size * SPAN / 100.0
 	var r := Rect2(c - Vector2(s, s) / 2.0, Vector2(s, s))
@@ -102,7 +154,16 @@ static func bake(path := ATLAS) -> Error:
 		var at := Vector2i((i % COLS) * CELL, (i / COLS) * CELL)
 		atlas.blit_rect(imgs[0], Rect2i(0, 0, CELL, CELL), at)
 		atlas.blit_rect(imgs[1], Rect2i(0, 0, CELL, CELL), at + Vector2i(0, h))
-	return atlas.save_png(ProjectSettings.globalize_path(path) if path.begins_with("res://") else path)
+	var err := atlas.save_png(ProjectSettings.globalize_path(path) if path.begins_with("res://") else path)
+	if err != OK or path != ATLAS:
+		return err
+	var hi := Image.create(HI_IDS.size() * HI_CELL, HI_CELL * 2, false, Image.FORMAT_LA8)
+	hi.fill(Color(1, 1, 1, 0))
+	for i in HI_IDS.size():
+		var imgs := raster(shapes(HI_IDS[i]), HI_CELL)
+		hi.blit_rect(imgs[0], Rect2i(0, 0, HI_CELL, HI_CELL), Vector2i(i * HI_CELL, 0))
+		hi.blit_rect(imgs[1], Rect2i(0, 0, HI_CELL, HI_CELL), Vector2i(i * HI_CELL, HI_CELL))
+	return hi.save_png(ProjectSettings.globalize_path(HI_ATLAS))
 
 
 # ---------------------------------------------------------------- rasteriser
@@ -678,6 +739,79 @@ static func shapes(id: String) -> Array:
 			d.sf(ell(0, 0, 37, 37))
 			d.ink(ell(0, -18, 4.5, 4.5, 16))
 			d.s(P([[0, -4], [0, 21]]), false, 7.0)
+		"mole":
+			# A Dahrooj peeking out of a hole, a mallet coming down, an impact mark.
+			var hole := ell(0, 30, 44, 11)
+			var back := PackedVector2Array()
+			var front := PackedVector2Array()
+			for v in hole:
+				if v.y <= 30.0:
+					back.append(v)
+				else:
+					front.append(v)
+			back.sort()
+			d.f(hole)
+			d.s(back, false, 4.5)
+			d.face(-6, 8, 24)
+			d.cut(P([[-56, 30], [56, 30], [56, 56], [-56, 56]]))
+			var lip := P([[-44, 30]])
+			for i in range(1, 32):
+				var t := PI - PI * i / 32.0
+				lip.append(Vector2(cos(t) * 44, 30 + sin(t) * 11))
+			lip.append(Vector2(44, 30))
+			d.f(lip)
+			d.s(lip, false, 4.5)
+			d.xf = Transform2D(0.62, Vector2(30, -28))
+			d.sf(rr(-17, -10, 34, 20, 5))
+			d.s(P([[0, 10], [0, 34]]), false, 6.0)
+			d.xf = Transform2D.IDENTITY
+			d.s(P([[-40, -22], [-48, -30]]), false, 4.0)
+			d.s(P([[-30, -32], [-32, -44]]), false, 4.0)
+			d.s(P([[-44, -8], [-54, -8]]), false, 4.0)
+		"mr":
+			# Mixed reality: your room's back corner through a viewfinder, a cube on the floor.
+			d.s(P([[-46, 34], [-20, 16], [20, 16], [46, 34]]), false, 4.0)
+			d.s(P([[-20, 16], [-20, -30]]), false, 4.0)
+			d.s(P([[20, 16], [20, -30]]), false, 4.0)
+			var top := P([[0, -6], [17, 2], [0, 10], [-17, 2]])
+			var left := P([[-17, 2], [0, 10], [0, 31], [-17, 23]])
+			var right := P([[0, 10], [17, 2], [17, 23], [0, 31]])
+			d.cut(P([[0, -6], [17, 2], [17, 23], [0, 31], [-17, 23], [-17, 2]]), 4.0)
+			d.sf(top, 4.0)
+			d.sf(left, 4.0)
+			d.sf(right, 4.0)
+			for c: Array in [[-1, -1], [1, -1], [1, 1], [-1, 1]]:
+				var x: float = c[0] * 48.0
+				var y: float = c[1] * 44.0
+				d.s(P([[x, y - c[1] * 16.0], [x, y], [x - c[0] * 16.0, y]]), false, 5.0)
+		"vr":
+			# Virtual reality: a headset whose visor shows the park (hills, a tree, the sun).
+			var body := rr(-46, -30, 92, 60, 20)
+			d.f(body)
+			d.s(body, true, 5.0)
+			d.s(P([[-46, -4], [-54, -4]]), false, 6.0)
+			d.s(P([[46, -4], [54, -4]]), false, 6.0)
+			var view := rr(-34, -19, 68, 38, 11)
+			d.cut(view, 0.0)
+			d.s(view, true, 3.5)
+			d.ink(ell(18, -7, 5.5, 5.5, 20))
+			var hill := P([[-33, 14], [-20, 3], [-8, 9], [6, 0], [33, 14]])
+			d.s(hill, false, 3.5)
+			d.ink(ell(-15, -6, 7, 7, 20))
+			d.s(P([[-15, -2], [-15, 7]]), false, 3.0)
+			d.cut(P([[-9, 31], [-6, 22], [6, 22], [9, 31]]), 0.0)
+			d.s(P([[-12, 30], [-6, 20], [6, 20], [12, 30]]), false, 4.5)
+		"lang":
+			# A speech bubble with two glyph strokes (the language card on the start screen).
+			var b := rr(-42, -34, 84, 58, 16)
+			d.cut(b, 0.0)
+			d.f(b)
+			d.s(b, true)
+			d.s(P([[-14, 24], [-22, 40], [2, 24]]), false, 5.0)
+			d.s(P([[-26, 8], [-16, -18], [-6, 8]]), false, 5.0)
+			d.s(P([[-22, -1], [-10, -1]]), false, 4.5)
+			d.s(arc(17, -6, 10, PI * 0.5, PI * 1.6), false, 4.5)
+			d.s(P([[13, 3], [27, 6], [17, 12]]), false, 4.5)
 		_:
 			d.sf(star(0, 0, 36, 0.46))
 	return d.ops

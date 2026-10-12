@@ -99,4 +99,10 @@ static func _toast(check: Callable) -> void:
 	for i in int(3.4 / 0.02) + 5:
 		t.step(0.02)
 	check.call(not t.visible and t.now.is_empty(), "toast: it fades out and the card hides")
+	var fits := true
+	for title: String in ["اجمع النجوم وأكمل المتاهة دون إعادة", "Collect the stars and finish without retrying", "Pop 5 Dahroojs above your head"]:
+		var size := Glass.fit_size(title, 46, ToastCard.text_width(), 800, -1, 22)
+		if Glass.width(title, size, 800) > ToastCard.text_width() + 0.5:
+			fits = false
+	check.call(fits, "toast: long titles shrink to the card")
 	t.free()

@@ -27,10 +27,76 @@ static func _find(p: MenuPanel, kind: String, id: String) -> int:
 	return -1
 
 
+## Every label of every page (both languages, every card hovered so the footer
+## shows each name and unlock) is no wider than its box and readable.
+static func _fit(p: MenuPanel, check: Callable) -> void:
+	var pages := [["modes", "character", "vr"], ["appearance", "character", "vr"], ["appearance", "accessories", "vr"], ["play", "character", "vr"],
+		["play", "character", "mr"], ["world", "character", "vr"], ["world", "character", "mr"], ["challenges", "character", "vr"],
+		["system", "character", "vr"], ["about", "character", "vr"]]
+	var bad: Array = []
+	var n := 0
+	for en in [false, true]:
+		for pg: Array in pages:
+			for mode: String in ["hoop", "maze", "climb", "ricochet"]:
+				for th: String in ["trigger", "hand", "sling"]:
+					if pg[0] != "play" and (mode != "hoop" or th != "trigger"):
+						continue
+					var m := _model(en, pg[2])
+					m.mode = mode
+					m.throw_style = th
+					m.done = 0
+					p.appearance = pg[1]
+					p.set_page(pg[0])
+					for armed in [false, true]:
+						m.reset_armed = armed
+						p.draw(m, -1)
+						for hv in range(-1, p.buttons.size()):
+							p.draw(m, hv)
+							for r: Dictionary in p.measure():
+								n += 1
+								if float(r.w) > float(r.max_w) + 0.5 or int(r.size) < Glass.MIN_SIZE:
+									bad.append("%s:%s" % [pg[0], r.s])
+	check.call(bad.is_empty() and n > 1000, "menu: every label fits its box in Arabic and English (%d checked) %s" % [n, bad.slice(0, 6)])
+
+
+static func _start_screen(check: Callable) -> void:
+	var sp := Panel3D.new()
+	sp.build("دحروج", "اختر طريقة اللعب", [["mr", "الواقع المختلط — في غرفتك"], ["vr", "الواقع الافتراضي — في الحديقة"], ["lang", "English"]])
+	var ids: Array = []
+	for r: Dictionary in sp.rows:
+		ids.append(r.id)
+	check.call(ids == ["mr", "vr", "lang"] and sp.rows[0].caption == "في غرفتك" and sp.rows[0].icon == "mr" and sp.rows[2].pill and sp.height > 0.3,
+		"start: three buttons (mr, vr cards; the language pill)")
+	var head := Transform3D(Basis.IDENTITY, Vector3(0, 1.6, 0))
+	sp.place(head, 0.75, 0.05)
+	var hits := true
+	for r: Dictionary in sp.rows:
+		var c: Rect2 = r.rect
+		var target := sp.transform * Vector3(c.get_center().x, c.get_center().y, 0)
+		if sp.hit(head.origin, (target - head.origin).normalized()) != r.id or sp.hot != r.id:
+			hits = false
+	var edge := sp.transform * Vector3(0, sp.height / 2.0 - 0.01, 0)
+	check.call(hits and sp.hit(head.origin, (edge - head.origin).normalized()) == "" and sp.hit(head.origin, Vector3(0, 0, 1)) == "", "start: rays pick each card; the title and away miss")
+	var dist := sp.ray_distance(head.origin, Vector3(0, -0.05, -0.75).normalized())
+	check.call(absf(dist - Vector3(0, -0.05, -0.75).length()) < 1e-3 and sp.ray_distance(head.origin, Vector3(0, 1, 0)) < 0.0, "start: ray distance to the panel")
+	var bad: Array = []
+	for lang: Array in [["دحروج", "اختر طريقة اللعب", "الواقع المختلط — في غرفتك", "الواقع الافتراضي — في الحديقة", "English"],
+			["Dahrooj", "Choose how to play", "Mixed reality — in your room", "Virtual reality — in the park", "العربية"]]:
+		sp.build(lang[0], lang[1], [["mr", lang[2], "mr"], ["vr", lang[3], "vr"], ["lang", lang[4], "lang"]])
+		for r: Dictionary in sp.measure():
+			if float(r.w) > float(r.max_w) + 0.5:
+				bad.append(r.s)
+	check.call(bad.is_empty() and sp.texts.size() == 7, "start: every label fits (%s)" % [bad])
+	sp.build("T", "", [["a", "One"], ["b", "Two"]])
+	check.call(sp.rows.size() == 2 and sp.rows[1].id == "b", "start: old [id, text] buttons still build")
+	sp.free()
+
+
 static func run(check: Callable) -> void:
+	_start_screen(check)
 	var p := MenuPanel.new()
 	# Button counts per page (7 tabs + Close on every page).
-	var want := {"modes": 20, "appearance": 21, "accessories": 22, "play": 15, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
+	var want := {"modes": 21, "appearance": 21, "accessories": 22, "play": 15, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
 	for en in [false, true]:
 		var bad: Array = []
 		for k: String in want:
@@ -44,7 +110,26 @@ static func run(check: Callable) -> void:
 	p.set_page("modes")
 	var m_ar := _model(false)
 	p.draw(m_ar, -1)
-	check.call(_count(p, "mode") == 12 and p.buttons[_find(p, "mode", "hoop")].selected and p.buttons[_find(p, "tab", "modes")].selected, "menu: 12 mode cards, the current mode and page selected")
+	check.call(_count(p, "mode") == 13 and p.buttons[_find(p, "mode", "hoop")].selected and p.buttons[_find(p, "tab", "modes")].selected, "menu: 13 mode cards, the current mode and page selected")
+	var order: Array = []
+	for b: Dictionary in p.buttons:
+		if b.kind == "mode":
+			order.append(b.id)
+	check.call(order == ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "rain", "climb", "balance", "ricochet", "maze"]
+		and p.buttons[_find(p, "mode", "mole")].en == "Whack-a-Dahrooj", "menu: Whack-a-Dahrooj after the fair")
+	# The grid: five across, the short last row centred, nothing overlapping.
+	var cells_ok := true
+	for i in 13:
+		var a: Dictionary = MenuPanel.mode_cell(i, true)
+		if float(a.x) < 219.9 or float(a.x) + float(a.w) > 1108.1 or float(a.y) + float(a.h) > MenuPanel.FOOTER_Y - 8.0:
+			cells_ok = false
+		for j in range(i + 1, 13):
+			var b: Dictionary = MenuPanel.mode_cell(j, true)
+			if Rect2(a.x, a.y, a.w, a.h).intersects(Rect2(b.x, b.y, b.w, b.h)):
+				cells_ok = false
+	var last: Dictionary = MenuPanel.mode_cell(12, true)
+	var mid: Dictionary = MenuPanel.mode_cell(11, true)
+	check.call(cells_ok and absf(float(mid.x) + float(mid.w) / 2.0 - 664.0) < 0.01 and float(last.x) > float(mid.x), "menu: the mode grid fits, last row centred")
 	var r0 := p.renders
 	p.draw(m_ar, -1)
 	check.call(p.renders == r0, "menu: an unchanged draw does not re-render")
@@ -69,7 +154,8 @@ static func run(check: Callable) -> void:
 	p.draw(_model(true), -1)
 	var en_goal: float = p.buttons[_find(p, "mode", "goal")].x
 	var en_hoop: float = p.buttons[_find(p, "mode", "hoop")].x
-	check.call(ar_goal > ar_hoop and en_goal < en_hoop and absf(en_goal - 220.0) < 0.01 and absf(ar_goal + 207.0 - 980.0) < 0.01, "menu: the card grid mirrors by language (en %.0f / ar %.0f)" % [en_goal, ar_goal])
+	var cw: float = MenuPanel.mode_cell(0, true).w
+	check.call(ar_goal > ar_hoop and en_goal < en_hoop and absf(en_goal - 220.0) < 0.01 and absf(ar_goal + cw - 980.0) < 0.01, "menu: the card grid mirrors by language (en %.0f / ar %.0f)" % [en_goal, ar_goal])
 	check.call(ar_tab == 1030.0 and p.buttons[0].x == 58.0, "menu: the tab column swaps sides")
 	# Ray picking after placing in front of the head.
 	var head := Transform3D(Basis.IDENTITY, Vector3(0, 1.6, 0))
@@ -115,7 +201,17 @@ static func run(check: Callable) -> void:
 	check.call(cap.disabled and cap.sub == "Needs 5 challenges" and not glasses.disabled and aviator.sub == "All five balance rounds", "menu: locked accessories are disabled with their unlock")
 	check.call(MenuCatalog.accessory_available("beanie", 0, {"mazeClean": 1}) and MenuCatalog.accessory_available("crown", 0, {"reward:crown": 1}) and not MenuCatalog.accessory_available("crown", 9, {}), "menu: accessory unlock rules")
 	var qc := MenuCatalog.quest_controls("climb", "sling")
-	check.call(qc.a[1] == "Jump" and qc.left_trigger[1] == "Jump" and MenuCatalog.quest_controls("maze", "hand").grip[1].begins_with("Grip: hold and tilt"), "menu: the controls help follows mode and throw style")
+	check.call(qc.a[1] == "Jump" and qc.left_trigger[1] == "Fire shots" and qc.right_grip[1] == "Pull, then release" and qc.left_grip[1] == "Hold slingshot"
+		and MenuCatalog.quest_controls("maze", "hand").grip[1].begins_with("Grip: hold and tilt"), "menu: the controls help follows mode and throw style")
+	var all_fire := true
+	for mode: Array in MenuCatalog.MODES:
+		for th: Array in MenuCatalog.THROWS:
+			var hc := MenuCatalog.quest_controls(str(mode[0]), str(th[0]))
+			if hc.left_trigger[1] != "Fire shots" or hc.right_trigger[1] != "Fire shots":
+				all_fire = false
+	check.call(all_fire and MenuCatalog.THROWS[0][0] == "trigger" and MenuCatalog.THROWS[0][2] == "Charge" and MenuCatalog.THROWS[0][1] == "شحن",
+		"menu: the triggers fire in every mode; the charge throw keeps its id")
+	_fit(p, check)
 	# Icons: every id draws something; the rasteriser anti-aliases.
 	var empty: Array = []
 	for id: String in MenuIcons.IDS:

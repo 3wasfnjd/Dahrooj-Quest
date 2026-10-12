@@ -1,27 +1,47 @@
 class_name Panel3D
 extends Node3D
-## A dark floating panel with a title and a column of buttons, picked with the
-## controller ray (plane intersection; no physics). Metres.
+## The start screen: a floating frosted-glass panel (Glass) with a title, a subtitle
+## and large icon cards, picked with the controller ray (plane intersection; no
+## physics). Drawn into a transparent SubViewport once per change (build, hover)
+## and shown on a quad. Metres.
+##
+## build(title, subtitle, buttons): buttons are [id, text] or [id, text, icon].
+## The icon defaults to the id ("mr", "vr", "lang" have their own art). A text
+## "Name — caption" shows the caption on a second line. Language buttons ("lang")
+## are a slim pill under the cards; every other button is a card in the row.
 
 signal pressed(id: String)
 
-const BG := Color(0.07, 0.075, 0.1, 0.94)
+const BG := Color(0.07, 0.08, 0.11, 0.86)
 const ROW_BG := Color(1, 1, 1, 0.06)
 const ROW_HOT := Color(1.0, 0.62, 0.36, 0.28)
-const TEXT := Color(0.96, 0.95, 0.93)
-const SUB := Color(0.72, 0.72, 0.78)
-const ACCENT := Color(1.0, 0.62, 0.36)
-const WIDTH := 0.46
-const ROW_H := 0.07
-const GAP := 0.012
-const PAD := 0.03
+const TEXT := Glass.TEXT
+const SUB := Glass.SUB
+const ACCENT := Glass.ACCENT
+const PW := 1000  # canvas width in pixels
+const WIDTH := 0.6
+const CORNER := 56.0
+const PAD := 48.0
+const CARD_TOP := 214.0
+const CARD_H := 340.0
+const GAP := 28.0
+const PILL_H := 86.0
 
 static var _font: FontFile
 static var _round_tex: Texture2D
 
-var rows: Array = []  # {id, rect: Rect2 (panel-local x, y), bg: MeshInstance3D}
-var _hot := ""
+var rows: Array = []  # {id, rect: Rect2 (panel-local x, y; metres), box: Rect2 (canvas px), text, caption, icon, pill}
 var height := 0.0
+var title := ""
+var subtitle := ""
+var hot := ""
+var renders := 0
+## Every label of the last paint: {s, size, w, max_w, x} (see measure()).
+var texts: Array = []
+var _px_h := 600
+var _viewport: SubViewport
+var _sheet: MenuPanel.Sheet
+var _mesh: MeshInstance3D
 
 
 static func font() -> FontFile:
@@ -65,58 +85,133 @@ static func label(text: String, size: int, color: Color) -> Label3D:
 	return l
 
 
-func _quad(size: Vector2, color: Color, pos: Vector3, priority: int) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = size
-	mi.mesh = q
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = color
-	m.albedo_texture = round_tex()
-	m.render_priority = priority
-	m.no_depth_test = false
-	mi.material_override = m
-	mi.position = pos
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-	return mi
+func _ensure() -> void:
+	if _viewport != null:
+		return
+	_viewport = Glass.viewport(Vector2i(PW, _px_h))
+	add_child(_viewport)
+	_sheet = MenuPanel.Sheet.new()
+	_sheet.paint = _paint
+	_viewport.add_child(_sheet)
+	_mesh = MeshInstance3D.new()
+	_mesh.name = "Glass"
+	_mesh.mesh = QuadMesh.new()
+	_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_mesh)
 
 
-## title, subtitle (optional), buttons: [[id, text], ...]
-func build(title: String, subtitle: String, buttons: Array) -> void:
-	for c in get_children():
-		c.queue_free()
+## title, subtitle (optional), buttons: [[id, text], ...] or [[id, text, icon], ...]
+func build(title_text: String, subtitle_text: String, buttons: Array) -> void:
+	_ensure()
+	title = title_text
+	subtitle = subtitle_text
+	hot = ""
 	rows.clear()
-	var head := 0.09 + (0.04 if subtitle != "" else 0.0)
-	height = PAD * 2 + head + buttons.size() * (ROW_H + GAP)
-	_quad(Vector2(WIDTH, height), BG, Vector3.ZERO, 1)
-	var y := height / 2 - PAD - 0.045
-	var t := label(title, 64, TEXT)
-	t.position = Vector3(0, y, 0.002)
-	add_child(t)
+	var cards: Array = []
+	var pills: Array = []
+	for b: Array in buttons:
+		var icon := str(b[2]) if b.size() > 2 else str(b[0])
+		var parts := str(b[1]).split(" — ", false, 1)
+		var row := {"id": str(b[0]), "text": parts[0] if parts.size() > 0 else "", "caption": parts[1] if parts.size() > 1 else "",
+			"icon": icon, "pill": icon == "lang"}
+		if row.pill:
+			pills.append(row)
+		else:
+			cards.append(row)
+	var top := CARD_TOP if subtitle != "" else CARD_TOP - 44.0
+	var y := top
+	if not cards.is_empty():
+		var n := cards.size()
+		var w := (PW - PAD * 2.0 - GAP * (n - 1)) / n
+		for i in n:
+			cards[i].box = Rect2(PAD + i * (w + GAP), y, w, CARD_H)
+		y += CARD_H + GAP
+	if not pills.is_empty():
+		var n := pills.size()
+		var w := minf(340.0, (PW - PAD * 2.0 - GAP * (n - 1)) / n)
+		var x0 := PW / 2.0 - (w * n + GAP * (n - 1)) / 2.0
+		for i in n:
+			pills[i].box = Rect2(x0 + i * (w + GAP), y, w, PILL_H)
+		y += PILL_H + GAP
+	_px_h = int(y - GAP + PAD - 4.0)
+	var k := WIDTH / PW
+	height = _px_h * k
+	for r: Dictionary in cards + pills:
+		var bx: Rect2 = r.box
+		r.rect = Rect2((bx.position.x - PW / 2.0) * k, (_px_h / 2.0 - bx.end.y) * k, bx.size.x * k, bx.size.y * k)
+		rows.append(r)
+	_viewport.size = Vector2i(PW, _px_h)
+	(_mesh.mesh as QuadMesh).size = Vector2(WIDTH, height)
+	_mesh.material_override = Glass.material(_viewport.get_texture(), Vector2(PW, _px_h), CORNER, 2, true)
+	_render()
+
+
+func _render() -> void:
+	if _viewport == null:
+		return
+	_sheet.queue_redraw()
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	renders += 1
+
+
+## Every label the panel draws, without drawing.
+func measure() -> Array:
+	_paint(null)
+	return texts
+
+
+func _paint(ci: CanvasItem) -> void:
+	texts = []
+	Glass.panel(ci, Rect2(0, 0, PW, _px_h), CORNER)
+	var cx := PW / 2.0
+	_say(Glass.text(ci, title, cx, 112, Glass.T_DISPLAY, TEXT, PW - PAD * 2.0, "center", Glass.W_TITLE))
 	if subtitle != "":
-		y -= 0.05
-		var s := label(subtitle, 30, SUB)
-		s.position = Vector3(0, y, 0.002)
-		add_child(s)
-	y -= 0.065
-	for b in buttons:
-		var cy := y - ROW_H / 2
-		var bg := _quad(Vector2(WIDTH - PAD * 2, ROW_H), ROW_BG, Vector3(0, cy, 0.001), 2)
-		var l := label(b[1], 40, TEXT)
-		l.position = Vector3(0, cy, 0.003)
-		add_child(l)
-		rows.append({"id": b[0], "rect": Rect2(-WIDTH / 2 + PAD, cy - ROW_H / 2, WIDTH - PAD * 2, ROW_H), "bg": bg})
-		y -= ROW_H + GAP
+		_say(Glass.text(ci, subtitle, cx, 164, 28, SUB, PW - PAD * 2.0, "center", Glass.W_BODY))
+	for r: Dictionary in rows:
+		var box: Rect2 = r.box
+		var on := str(r.id) == hot
+		Glass.card(ci, box, 30.0 if not r.pill else PILL_H / 2.0, "selected-hot" if on else "rest")
+		var line := TEXT
+		var tint := Color(ACCENT, 1.0) if on else Color(ACCENT, 0.55)
+		if r.pill:
+			var name := str(r.text)
+			var isz := 44.0
+			var fs := Glass.fit_size(name, 30, box.size.x - 80.0 - isz, Glass.W_LABEL)
+			var tw := Glass.width(name, fs, Glass.W_LABEL)
+			var gw := isz + 14.0 + tw
+			var x0 := box.get_center().x - gw / 2.0
+			MenuIcons.draw_hi(ci, "world" if r.icon == "lang" else str(r.icon), Vector2(x0 + isz / 2.0, box.get_center().y), isz + 6.0, line, Color(0.66, 0.83, 0.87, 0.9))
+			_say(Glass.text(ci, name, x0 + isz + 14.0, box.get_center().y + fs * 0.36, fs, TEXT, box.size.x - 80.0 - isz, "left", Glass.W_LABEL))
+		else:
+			var c := box.get_center()
+			# The icon sits on a soft disc, like an app tile.
+			if ci != null:
+				ci.draw_texture_rect(Glass.glow(), Rect2(Vector2(c.x - 120, box.position.y + 18), Vector2(240, 240)), false, Color(ACCENT if on else Color(0.6, 0.75, 1.0), 0.14 if on else 0.08))
+			MenuIcons.draw_hi(ci, str(r.icon), Vector2(c.x, box.position.y + 140), 176, line, tint)
+			var cap := str(r.caption)
+			var label_y := box.end.y - (66.0 if cap != "" else 40.0)
+			_say(Glass.text(ci, str(r.text), c.x, label_y, 36, TEXT, box.size.x - 40.0, "center", Glass.W_TITLE))
+			if cap != "":
+				_say(Glass.text(ci, cap, c.x, label_y + 40.0, Glass.T_BODY, SUB, box.size.x - 40.0, "center", Glass.W_BODY))
+
+
+func _say(rec: Dictionary) -> void:
+	if not rec.is_empty():
+		texts.append(rec)
+
+
+## The panel-local point (metres) of a canvas pixel.
+func px_to_local(px: Vector2) -> Vector3:
+	var k := WIDTH / PW
+	return Vector3((px.x - PW / 2.0) * k, (_px_h / 2.0 - px.y) * k, 0.0)
 
 
 ## Ray in world space -> button id under it ("" for none); highlights it.
 func hit(origin: Vector3, dir: Vector3) -> String:
 	if not visible:
 		return ""
-	var inv := global_transform.affine_inverse()
+	var gt := global_transform if is_inside_tree() else transform
+	var inv := gt.affine_inverse()
 	var o := inv * origin
 	var d := inv.basis * dir
 	var id := ""
@@ -124,19 +219,19 @@ func hit(origin: Vector3, dir: Vector3) -> String:
 		var t := -o.z / d.z
 		if t > 0.0:
 			var p := o + d * t
-			for r in rows:
+			for r: Dictionary in rows:
 				if (r.rect as Rect2).has_point(Vector2(p.x, p.y)):
 					id = r.id
-	if id != _hot:
-		_hot = id
-		for r in rows:
-			(r.bg.material_override as StandardMaterial3D).albedo_color = ROW_HOT if r.id == id else ROW_BG
+	if id != hot:
+		hot = id
+		_render()
 	return id
 
 
 ## Distance along the ray to the panel plane (for the pointer dot), or -1.
 func ray_distance(origin: Vector3, dir: Vector3) -> float:
-	var inv := global_transform.affine_inverse()
+	var gt := global_transform if is_inside_tree() else transform
+	var inv := gt.affine_inverse()
 	var o := inv * origin
 	var d := inv.basis * dir
 	if absf(d.z) < 1e-5:
@@ -145,7 +240,7 @@ func ray_distance(origin: Vector3, dir: Vector3) -> float:
 	var p := o + d * t
 	if t <= 0.0 or absf(p.x) > WIDTH / 2 or absf(p.y) > height / 2:
 		return -1.0
-	return (global_transform * p - origin).length()
+	return (gt * p - origin).length()
 
 
 ## Stand in front of the head, facing it.
@@ -153,5 +248,10 @@ func place(head: Transform3D, distance := 0.7, drop := 0.08) -> void:
 	var fwd := -head.basis.z
 	fwd.y = 0.0
 	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
-	global_position = head.origin + fwd * distance + Vector3(0, -drop, 0)
-	look_at(head.origin, Vector3.UP, true)
+	var pos := head.origin + fwd * distance + Vector3(0, -drop, 0)
+	if is_inside_tree():
+		global_position = pos
+		look_at(head.origin, Vector3.UP, true)
+	else:
+		position = pos
+		transform = transform.looking_at(head.origin, Vector3.UP, true)

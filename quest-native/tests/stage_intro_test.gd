@@ -123,14 +123,19 @@ static func _start(check: Callable) -> void:
 	check.call(absf(sp.basis.get_scale().x - 0.85) < 1e-3 and sp.basis.z.normalized().dot((Vector3(0, 1.6, 0) - sp.position).normalized()) > 0.999,
 		"start: scale .85, tilted to face you")
 	var at := sp.position
-	check.call(ir.start_hit(Vector3(at.x, 1.6, 0), (at - Vector3(at.x, 1.6, 0)).normalized()) and ir._ring.visible, "start: the ray on the panel lights the button")
+	check.call(ir.start_hit(Vector3(at.x, 1.6, 0), (at - Vector3(at.x, 1.6, 0)).normalized()) and ir._start_hot, "start: the ray on the panel lights the button")
 	check.call(not ir.start_hit(Vector3(at.x, 1.6, 0), Vector3(0, 1, 0)), "start: a ray away misses")
 	ir.step(DT, _head())
 	ir.step(DT, _head())
-	check.call(not ir._ring.visible, "start: and dims when the ray leaves")
+	check.call(not ir._start_hot, "start: and dims when the ray leaves")
 	ir.pop_ball(ir.balls[0])
 	ir.step(DT, _head())
-	check.call(ir._line.text.ends_with("1"), "start: counts the pops (%s)" % ir._line.text)
+	check.call(ir.start_line.ends_with("1"), "start: counts the pops (%s)" % ir.start_line)
+	var spill: Array = []
+	for r: Dictionary in ir.measure_start():
+		if float(r.w) > float(r.max_w) + 0.5:
+			spill.append(r.s)
+	check.call(spill.is_empty() and ir.start_texts.size() == 3, "start: the glass panel's labels fit (%s)" % [spill])
 	var got := {"c": false}
 	ir.cleared.connect(func() -> void: got.c = true)
 	check.call(ir.end_intro() and not sp.visible and ir.sparks.is_empty(), "start: pressing it begins leaving")

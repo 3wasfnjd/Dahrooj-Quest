@@ -5,11 +5,13 @@ extends RefCounted
 ## (quest-controls.ts). Every entry is [id, ar, en, ...].
 
 ## mode-catalog.ts XR_MODE_CATALOG: the live headset menu's mode cards, in order.
+## Plus the native port's Whack-a-Dahrooj ("mole"), after the fair.
 const MODES := [
 	["goal", "مرمى", "Goal"], ["hoop", "سلة", "Hoop"], ["window", "شباك", "Window"],
 	["cans", "علب", "Cans"], ["bowling", "بولينغ", "Bowling"], ["bricks", "الطوب", "Bricks"],
-	["fair", "ملاهي", "Fair"], ["climb", "الجبل", "Summit"], ["rain", "مطر دحاريج", "Dahrooj Rain"],
-	["balance", "التوازن", "Balance"], ["ricochet", "الارتداد", "Ricochet"], ["maze", "المتاهة", "Maze"],
+	["fair", "ملاهي", "Fair"], ["mole", "اضرب الدحروج", "Whack-a-Dahrooj"], ["rain", "مطر دحاريج", "Dahrooj Rain"],
+	["climb", "الجبل", "Summit"], ["balance", "التوازن", "Balance"], ["ricochet", "الارتداد", "Ricochet"],
+	["maze", "المتاهة", "Maze"],
 ]
 const PAGES := [
 	["modes", "الأنماط", "Modes"], ["appearance", "المظهر", "Appearance"], ["play", "اللعب", "Play"],
@@ -18,7 +20,7 @@ const PAGES := [
 ]
 const APPEARANCE := [["character", "دحروج", "Dahrooj"], ["accessories", "الإكسسوارات", "Accessories"]]
 const STYLES := [["jelly", "جلي", "Jelly"], ["fur", "فرو", "Fur"], ["bubble", "فقاعة", "Bubble"]]
-const THROWS := [["trigger", "زناد", "Trigger"], ["hand", "يد", "Hand"], ["sling", "نبيطة", "Slingshot"]]
+const THROWS := [["trigger", "شحن", "Charge"], ["hand", "يد", "Hand"], ["sling", "نبيطة", "Slingshot"]]
 const SHOTS := [["bolt", "برق", "Bolt"], ["mini", "دحروج", "Dahrooj"], ["bubble", "فقاعة", "Bubble"], ["firework", "ألعاب نارية", "Firework"]]
 const TIMES := [["auto", "تلقائي", "Auto"], ["day", "نهار", "Day"], ["dusk", "غروب", "Dusk"], ["night", "ليل", "Night"], ["dawn", "فجر", "Dawn"]]
 const WEATHERS := [["auto", "تلقائي", "Auto"], ["clear", "صافي", "Clear"], ["rain", "مطر", "Rain"], ["snow", "ثلج", "Snow"]]
@@ -105,34 +107,35 @@ static func accessory_available(id: String, completed: int, progress: Dictionary
 	return not c.is_empty() and int(progress.get(c[0], 0)) >= int(c[1])
 
 
-## quest-controls.ts: the Touch-controller bindings for a mode and throw style,
-## as {a, left_trigger, right_trigger, grip}, each [ar, en].
+## The Touch-controller bindings for a mode and throw style (after quest-controls.ts,
+## with the native control scheme: in every mode the triggers fire shots and a
+## grip holds Dahrooj): {a, left_trigger, right_trigger, left_grip, right_grip,
+## grip}, each [ar, en] (grip: one line on how to throw).
 static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 	var tilting := mode == "balance" or mode == "maze"
 	var tabletop := tilting or mode == "ricochet"
-	var left_trigger := ["إطلاق المقذوف", "Fire projectile"]
-	var right_trigger := ["شحن ثم إفلات للرمي", "Hold, then release"]
-	var grip := ["القبضة: إمساك بديل · اضغط للشحن وأفلت للرمي", "Grip also holds Dahrooj · hold to charge, release to throw"]
+	var fire := ["إطلاق المقذوفات", "Fire shots"]
+	var grab := ["إمساك دحروج", "Grab Dahrooj"]
+	var left_grip := grab
+	var right_grip := grab
+	var grip := ["القبضة: امسك دحروج · اضغط للشحن وأفلت للرمي", "Grip: hold Dahrooj · hold to charge, release to throw"]
 	var a := ["استرجاع دحروج", "Recall Dahrooj"]
 	if throw_style == "hand":
-		right_trigger = ["إمساك ورمي باليد", "Hold, swing, release"]
-		grip = ["القبضة: امسك دحروج، حرّك يدك وارمِ ثم أفلت", "Grip: hold Dahrooj, swing your hand, then release"]
+		grip = ["القبضة: امسك دحروج، حرّك يدك ثم أفلت", "Grip: grab Dahrooj, swing your hand, then release"]
 	elif throw_style == "sling":
-		left_trigger = ["غير مستخدم بالنبيطة", "Unused with slingshot"]
-		right_trigger = ["سحب ثم إفلات", "Pull, then release"]
-		grip = ["النبيطة باليسرى · اسحب دحروج باليمنى ثم أفلت", "Slingshot in the left hand · pull with the right, then release"]
+		left_grip = ["مسك النبيطة", "Hold slingshot"]
+		right_grip = ["سحب ثم إفلات", "Pull, then release"]
+		grip = ["النبيطة باليسرى · اسحب بقبضة اليمنى ثم أفلت", "Slingshot in the left hand · pull with the right grip, release"]
 	if tabletop:
 		a = ["إعادة المحاولة", "Retry round"]
-		left_trigger = ["إمساك وإمالة اللوح", "Hold and tilt board"] if tilting else ["تصويب ثم إفلات", "Aim, then release"]
-		right_trigger = left_trigger
-		grip = ["القبضة: امسك اللوح وأمله · الإفلات يوقفه", "Grip: hold and tilt the board · release to pause"] if tilting else ["القبضة: وجّه للوح الخشبي وأدره بخطوات ٥°", "Grip: point at a wooden paddle and turn it in 5° steps"]
+		if tilting:
+			left_grip = ["إمساك اللوح وإمالته", "Hold and tilt board"]
+			grip = ["القبضة: امسك اللوح وأمله · الإفلات يوقفه", "Grip: hold and tilt the board · release to pause"]
+		else:
+			left_grip = ["تدوير لوح خشبي", "Turn a paddle"]
+			grip = ["القبضة: وجّه للوح الخشبي وأدره بخطوات ٥°", "Grip: point at a wooden paddle and turn it in 5° steps"]
+		right_grip = left_grip
 	elif mode == "climb":
 		a = ["قفز", "Jump"]
-		left_trigger = ["قفز", "Jump"]
-		right_trigger = ["رمي دحروج", "Throw Dahrooj"]
 		grip = ["القير الأيسر: حركة · القير الأيمن: تكبير وتصغير الجبل", "Left stick: move · right stick: resize the mountain"]
-	elif mode == "rain":
-		left_trigger = ["إطلاق المقذوف", "Fire projectile"]
-		right_trigger = left_trigger
-		grip = ["الزناد: اضغط باستمرار لإطلاق المقذوفات", "Trigger: hold for repeated shots"]
-	return {"a": a, "left_trigger": left_trigger, "right_trigger": right_trigger, "grip": grip}
+	return {"a": a, "left_trigger": fire, "right_trigger": fire, "left_grip": left_grip, "right_grip": right_grip, "grip": grip}

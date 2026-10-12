@@ -96,11 +96,12 @@ var _spark_mm: MultiMesh
 var _start_hot := false
 var _hit_seen := false
 var _start_key := ""
-var _btn: MeshInstance3D
-var _ring: MeshInstance3D
-var _title: Label3D
-var _play: Label3D
-var _line: Label3D
+var _start_vp: SubViewport
+var _start_sheet: MenuPanel.Sheet
+## The line under the button ("Popped 3" / the hint), as last drawn.
+var start_line := ""
+## The start panel's labels of the last paint (see Glass.text) for the tests.
+var start_texts: Array = []
 
 
 func _init() -> void:
@@ -565,81 +566,29 @@ func _head_local(head: Transform3D) -> Array:
 	return [l.origin, d]
 
 
-static func _rounded(w: int, h: int, r: float) -> Texture2D:
-	var img := Image.create(w, h, false, Image.FORMAT_LA8)
-	for y in h:
-		for x in w:
-			var dx := maxf(0.0, maxf(r - x - 0.5, x + 0.5 - (w - r)))
-			var dy := maxf(0.0, maxf(r - y - 0.5, y + 0.5 - (h - r)))
-			img.set_pixel(x, y, Color(1, 1, 1, clampf(r + 0.5 - sqrt(dx * dx + dy * dy), 0.0, 1.0)))
-	return ImageTexture.create_from_image(img)
+const START_PX := Vector2i(1024, 512)
 
 
-func _quad(size: Vector2, color: Color, at: Vector3, priority: int, tex: Texture2D) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = size
-	mi.mesh = q
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = color
-	m.albedo_texture = tex
-	m.render_priority = priority
-	mi.material_override = m
-	mi.position = at
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	start_panel.add_child(mi)
-	return mi
-
-
-## Canvas pixels of the original 1024 x 512 drawing to panel metres.
-static func _px(x: float, y: float, z := 0.0) -> Vector3:
-	var s := START_W / 1024.0
-	return Vector3((x - 512.0) * s, (256.0 - y) * s, z)
-
-
-func _label(size: int, color: Color, x: float, baseline: float) -> Label3D:
-	var l := Panel3D.label("", size, color)
-	l.pixel_size = START_W / 1024.0
-	l.render_priority = 4
-	l.position = _px(x, baseline - size * 0.36, 0.003)
-	start_panel.add_child(l)
-	return l
-
-
-## The start panel in the dark menu style: the name, a solid button and a line under it.
+## The start panel in the frosted-glass style (Glass): the name, an accent "Play"
+## button and a line under it, drawn into a small transparent SubViewport once per
+## change and shown on a quad.
 func _build_start() -> void:
 	start_panel = Node3D.new()
 	start_panel.name = "Start"
 	start_panel.visible = false
 	add_child(start_panel)
-	var s := START_W / 1024.0
-	_quad(Vector2(START_W, START_H), Panel3D.BG, Vector3.ZERO, 1, _rounded(256, 128, 17.5))
-	_title = _label(96, Panel3D.TEXT, 512, 140)
-	_quad(Vector2(624, 2) * s, Color(1, 1, 1, 0.12), _px(512, 173, 0.001), 2, null)
-	var pill := _rounded(280, 75, 37.5)
-	_ring = _quad(Vector2(572, 162) * s, Color(242 / 255.0, 193 / 255.0, 78 / 255.0, 0.9), _px(512, 287, 0.001), 2, _rounded(286, 81, 40.5))
-	_ring.visible = false
-	_btn = _quad(Vector2(560, 150) * s, Color("3a3c52"), _px(512, 287, 0.002), 3, pill)
-	_play = _label(62, Color.WHITE, 540, 306)
-	var tri := MeshInstance3D.new()
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for p in [_px(316, 252, 0.003), _px(368, 287, 0.003), _px(316, 322, 0.003)]:
-		st.set_normal(Vector3.BACK)
-		st.add_vertex(p)
-	tri.mesh = st.commit()
-	var tm := StandardMaterial3D.new()
-	tm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	tm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	tm.albedo_color = Color.WHITE
-	tm.render_priority = 4
-	tm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	tri.material_override = tm
-	tri.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	start_panel.add_child(tri)
-	_line = _label(32, Panel3D.SUB, 512, 430)
+	_start_vp = Glass.viewport(START_PX)
+	start_panel.add_child(_start_vp)
+	_start_sheet = MenuPanel.Sheet.new()
+	_start_sheet.paint = _paint_start
+	_start_vp.add_child(_start_sheet)
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(START_W, START_H)
+	mi.mesh = q
+	mi.material_override = Glass.material(_start_vp.get_texture(), Vector2(START_PX), 64.0, 2, true)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	start_panel.add_child(mi)
 	_refresh_start()
 
 
@@ -649,12 +598,42 @@ func _refresh_start() -> void:
 	if key == _start_key:
 		return
 	_start_key = key
-	_title.text = Save.text("دحروج", "Dahrooj")
-	_play.text = Save.text("بدء اللعبة", "Play")
-	_line.text = (Save.text("فجّرت %d" % popped, "Popped %d" % popped) if popped > 0
+	start_line = (Save.text("فجّرت %d" % popped, "Popped %d" % popped) if popped > 0
 		else Save.text("وجّه يدك واضغط الزناد لتفجير الكور", "Aim and pull the trigger to pop the balls"))
-	(_btn.material_override as StandardMaterial3D).albedo_color = Color("4a4d68") if _start_hot else Color("3a3c52")
-	_ring.visible = _start_hot
+	_start_sheet.queue_redraw()
+	_start_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+
+
+## Paints the start panel (ci null: lays the labels out only).
+func _paint_start(ci: CanvasItem) -> void:
+	start_texts = []
+	Glass.panel(ci, Rect2(Vector2.ZERO, Vector2(START_PX)), 64.0)
+	start_texts.append(Glass.text(ci, Save.text("دحروج", "Dahrooj"), 512, 138, 88, Glass.TEXT, 900, "center", Glass.W_TITLE))
+	var btn := Rect2(232, 210, 560, 150)
+	Glass.card(ci, btn, 75, "selected-hot" if _start_hot else "selected")
+	if _start_hot and ci != null:
+		# The ring of the original's lit button.
+		var ring := Glass.rounded(btn.grow(9), 84, 10)
+		ring.append(ring[0])
+		ci.draw_polyline(ring, Color(0.95, 0.76, 0.31, 0.9), 4.0, true)
+	var label := Save.text("بدء اللعبة", "Play")
+	var fs := Glass.fit_size(label, 60, 380, Glass.W_TITLE)
+	var tw := Glass.width(label, fs, Glass.W_TITLE)
+	var gw := 52.0 + 22.0 + tw
+	var x0 := 512.0 - gw / 2.0
+	var tri_x := x0 if not Save.arabic() else x0 + gw - 52.0
+	if ci != null:
+		var c := Vector2(tri_x + 26.0, 285)
+		ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-18, -28), c + Vector2(26, 0), c + Vector2(-18, 28)]), Glass.TEXT)
+	var tx := x0 + 74.0 if not Save.arabic() else x0 + tw
+	start_texts.append(Glass.text(ci, label, tx, 285 + fs * 0.36, fs, Glass.TEXT, 380, "left" if not Save.arabic() else "right", Glass.W_TITLE))
+	start_texts.append(Glass.text(ci, start_line, 512, 440, 32, Glass.SUB, 900, "center", Glass.W_BODY))
+
+
+## Every label the start panel draws (measured, not drawn).
+func measure_start() -> Array:
+	_paint_start(null)
+	return start_texts
 
 
 func _set_hot(on: bool) -> void:
