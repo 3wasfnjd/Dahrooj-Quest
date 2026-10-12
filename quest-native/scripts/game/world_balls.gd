@@ -22,7 +22,12 @@ const SHOT_STYLE := {
 	"firework": {"speed": 20.0, "grav": 0.35, "life": 0.85, "r": 0.025, "cool": 0.2, "burst": 0.55},
 }
 const FIRE_COLS := ["e2603f", "f2c14e", "6fa8d6", "7bbf8a", "c9a2e6", "fffaf2"]
-const INTRO_STYLES := ["jelly", "fur", "bubble"]
+## Mini shots are little eyeless Dahroojs: every style character.js draws, each shot in the next style
+## and a colour from the player's colour choices (appearance.ts) or the style's own (palette.js).
+const MINI_STYLES := ["jelly", "fur", "bubble", "clay", "fabric"]
+const MINI_COLORS := ["", "ff69b4", "ff505c", "ff9b3d", "ffdf45", "58db83", "58b9ff", "b878ff"]
+## Bubble shots: soap bubbles (the bubble Dahrooj's swirling film) in soft tints.
+const BUBBLE_TINTS := ["cfe8ff", "ffd6f0", "d6ffe4", "fff2c2", "e2d4ff", "c8fff6", "ffe0cc"]
 ## palette.js DAHROOJ_COLORS
 const STYLE_COLORS := {"jelly": "ff69b4", "fabric": "b36bff", "clay": "ff9b3d", "fur": "f1ebe1", "bubble": "cfe8ff"}
 
@@ -41,6 +46,9 @@ var _views: Array = []  # spare DahroojViews for the rests
 var _spark_mm: MultiMesh
 var _tri_cache := {}  # Mesh -> TriangleMesh
 var _shot_mats := {}
+## Mini and bubble shots: one crowd (a few MultiMesh draws for every shot in flight).
+var shot_crowd: Crowd
+var _crowd_drawn := 0
 
 
 func _init(main, b: Ball) -> void:
@@ -70,6 +78,11 @@ func _init(main, b: Ball) -> void:
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.custom_aabb = AABB(Vector3(-500, -500, -500), Vector3(1000, 1000, 1000))
 	add_child(mmi)
+	shot_crowd = Crowd.new(SHOTS_MAX)
+	shot_crowd.name = "ShotCrowd"
+	for id in shot_crowd.parts:
+		(shot_crowd.parts[id].mi as MultiMeshInstance3D).custom_aabb = AABB(Vector3(-500, -500, -500), Vector3(1000, 1000, 1000))
+	add_child(shot_crowd)
 
 
 func rnd() -> float:
@@ -82,11 +95,12 @@ func _on_rest(pos: Vector3, vel: Vector3) -> void:
 	if not host.resting_allowed():
 		return
 	# It keeps the look it was thrown with.
-	var view: DahroojView = _views.pop_back() if not _views.is_empty() else DahroojView.new()
+	var view: DahroojView = _views.pop_back() if not _views.is_empty() else DahroojView.new(Ball.BR, true)
 	if view.get_parent() == null:
 		add_child(view)
+	view.set_look(Save.style, Save.jelly_color, String(host.worn()) if host.has_method("worn") else Save.accessory)
 	view.visible = true
-	rests.append({"age": 0.0, "view": view, "style": "fur", "p": pos, "v": vel, "d": 0.0, "dv": 0.0,
+	rests.append({"age": 0.0, "view": view, "style": Save.style, "p": pos, "v": vel, "d": 0.0, "dv": 0.0,
 		"wander": 1.5 + rnd() * 4.0, "blink": 0.0, "next": 1.0 + rnd() * 3.0, "mood": "", "mood_t": 0.0,
 		"pet_t": 0.0, "wet": false})
 	if rests.size() > RESTS_MAX:
@@ -163,6 +177,11 @@ func step_rests(dt: float, real_dt: float) -> void:
 				else:
 					v.y = 0.0
 					grounded = true
+		# Mixed reality: the real walls and furniture (main.gd room_hit, game units).
+		if host.has_method("room_hit") and host.room_active():
+			var rh: Dictionary = host.room_hit(p, v, prev, BR)
+			p = rh.p
+			v = rh.v
 		if grounded:
 			var f := pow(0.75, dt)
 			v.x *= f
@@ -271,10 +290,10 @@ func step_contacts(dt: float) -> void:
 				burst(rests[b[1]].p, rests[b[1]].style, false)
 				_drop_rest(b[1])
 			"v":
-				burst(ball.volley[b[1]].pos, "fur", false)
+				burst(ball.volley[b[1]].pos, Save.style, false)
 				ball.volley.remove_at(b[1])
 			"s":
-				burst(ball.pos, "fur", false)
+				burst(ball.pos, Save.style, false)
 				host.ball_popped()
 
 
@@ -363,6 +382,16 @@ func draw_rests(eye: Vector3, hidden: bool) -> void:
 
 # --- the blaster ---------------------------------------------------------------------
 
+## The size of the blaster's world (game units per metre, for the shots, their sparks and bursts):
+## the court's scale as placed, so in mixed reality the shots grow and shrink with the court when you
+## zoom it (ar_zoom), like the goal and Dahrooj. Hand-relative things (the muzzle) use scale_now.
+func blast_k() -> float:
+	var k: float = host.scale_now
+	if host.get("mode") == "mr" and host.get("ar_zoom") != null:
+		k *= float(host.get("ar_zoom"))
+	return k
+
+
 func style_for() -> String:
 	return Save.shot_style if Save.shot_style != "" else "bolt"
 
@@ -381,18 +410,31 @@ func fire(hand: String, origin: Vector3, dir: Vector3) -> void:
 	last_shot[hand] = clock
 	fired += 1
 	host.note_style()
-	var k: float = host.scale_now
-	var p := origin + dir * 0.08 * k
-	var node := _shot_node(kind, k, INTRO_STYLES[fired % INTRO_STYLES.size()])
-	node.position = p
-	if kind == "bolt" and dir.length_squared() > 0.0:
-		node.basis = Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.999 else Vector3.RIGHT)
-	add_child(node)
+	var hk: float = host.scale_now
+	var k := blast_k()
+	var p := origin + dir * 0.08 * hk
+	var node: Node3D = null
+	var style := ""
+	var color := Color.WHITE
+	if kind == "mini":
+		style = MINI_STYLES[fired % MINI_STYLES.size()]
+		var hex: String = MINI_COLORS[_rng.randi() % MINI_COLORS.size()]
+		color = Color(hex if hex != "" else String(STYLE_COLORS[style]))
+	elif kind == "bubble":
+		style = "bubble"
+		color = Color(BUBBLE_TINTS[_rng.randi() % BUBBLE_TINTS.size()])
+	else:
+		node = _shot_node(kind, k)
+		node.position = p
+		if kind == "bolt" and dir.length_squared() > 0.0:
+			node.basis = Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.999 else Vector3.RIGHT)
+		add_child(node)
 	shots.append({"kind": kind, "node": node, "p": p, "v": dir * P.speed * k, "dir": dir, "t": 0.0, "r": P.r * k,
+		"k": k, "style": style, "color": color, "spin": rnd() * TAU,
 		"wob": rnd() * 6.0, "skips": 0, "float": -1.0, "tap": 0.0, "wet": false})
-	# Muzzle flash (not for a bubble).
+	# Muzzle flash (not for a bubble), at the hand.
 	if kind != "bubble":
-		_spark(p, Vector3.ZERO, 0.07, Color("ffe9b0"), 0.05 * k, true)
+		_spark(p, Vector3.ZERO, 0.07, Color("ffe9b0"), 0.05 * hk, true)
 	host.sfx("pew" if kind == "bolt" else ("firework_launch" if kind == "firework" else "whoosh"), 0.18, p)
 	host.buzz(hand, 0.12 if kind == "bubble" else 0.3, 22)
 
@@ -412,25 +454,12 @@ func _mat(key: String) -> Material:
 		"rocket":
 			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			m.albedo_color = Color("ffb347")
-		"jelly":
-			m.albedo_color = Color("ff69b4")
-			m.roughness = 0.15
-			m.clearcoat_enabled = true
-		"fur":
-			m.albedo_texture = load("res://assets/character/fur.png")
-			m.albedo_color = Color("ff69b4")
-			m.roughness = 0.95
-		"bubble":
-			m.albedo_color = Color(Color("cfe8ff"), 0.45)
-			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			m.roughness = 0.05
-			m.rim_enabled = true
-			m.rim = 1.0
 	_shot_mats[key] = m
 	return m
 
 
-func _shot_node(kind: String, k: float, look: String) -> Node3D:
+## A bolt or a firework rocket (mini and bubble shots are drawn by shot_crowd).
+func _shot_node(kind: String, k: float) -> Node3D:
 	var root := Node3D.new()
 	var sphere := func(r: float, mat: Material) -> MeshInstance3D:
 		var mi := MeshInstance3D.new()
@@ -462,22 +491,42 @@ func _shot_node(kind: String, k: float, look: String) -> Node3D:
 			root.add_child(sphere.call(0.012 * k, _mat("head")))
 		"firework":
 			root.add_child(sphere.call(0.012 * 1.4 * k, _mat("rocket")))
-		"mini":
-			root.add_child(sphere.call(SHOT_STYLE.mini.r * k, _mat(look)))
-		"bubble":
-			root.add_child(sphere.call(SHOT_STYLE.bubble.r * k, _mat("bubble")))
 	return root
+
+
+## The mini and bubble shots in flight: tumbling little Dahroojs (no eyes) and wobbling bubbles.
+func _draw_shots() -> void:
+	var n := 0
+	for s in shots:
+		if s.style != "":
+			n += 1
+	if n == 0 and _crowd_drawn == 0:
+		return
+	shot_crowd.begin()
+	for s in shots:
+		if s.style == "":
+			continue
+		var p: Vector3 = s.p
+		var spin: float = s.spin
+		if s.kind == "mini":
+			var toward := p + Vector3(sin(spin), 0.4 * cos(spin * 0.7), cos(spin))
+			shot_crowd.add(s.style, p, s.r, toward, Vector2.ONE, "", "", s.color)
+		else:
+			var w := sin(float(s.wob) * 2.3) * 0.07
+			shot_crowd.add("bubble", p, s.r, p + Vector3(sin(spin), 0.0, cos(spin)), Vector2(1.0 + w, 1.0 - w), "", "", s.color)
+	shot_crowd.end()
+	_crowd_drawn = n
 
 
 func _spark(p: Vector3, v: Vector3, life: float, color: Color, size: float, flash := false) -> void:
 	if sparks.size() >= SPARKS_MAX:
 		return
-	sparks.append({"p": p, "v": v, "t": 0.0, "max": life, "flash": flash, "color": color, "size": size})
+	sparks.append({"p": p, "v": v, "t": 0.0, "max": life, "flash": flash, "color": color, "size": size, "k": blast_k()})
 
 
 ## A little spray of sparks where a shot lands.
 func impact(p: Vector3, n: Vector3, color := Color("ffd27a")) -> void:
-	var k: float = host.scale_now
+	var k := blast_k()
 	for i in 8:
 		var d := Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized()
 		d = (d + n * 1.2).normalized() * ((1.0 + rnd() * 1.5) * k)
@@ -486,7 +535,7 @@ func impact(p: Vector3, n: Vector3, color := Color("ffd27a")) -> void:
 
 ## A firework's bloom: coloured sparks every way.
 func bloom(p: Vector3) -> void:
-	var k: float = host.scale_now
+	var k := blast_k()
 	for i in 26:
 		var d := Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() * ((1.6 + rnd() * 1.6) * k)
 		_spark(p, d, 0.5 + rnd() * 0.35, Color(FIRE_COLS[i % FIRE_COLS.size()]), (0.01 + rnd() * 0.01) * k)
@@ -502,7 +551,7 @@ func sky_pop(p: Vector3) -> void:
 func burst(p: Vector3, style: String, by_player := true) -> void:
 	if by_player:
 		sky_pop(p)
-	var k: float = host.scale_now
+	var k := blast_k()
 	var col := Color(STYLE_COLORS.get(style, "fffaf2"))
 	for i in (14 if by_player else 6):
 		var a := rnd() * TAU
@@ -523,8 +572,10 @@ func step_blast(dt: float) -> void:
 	clock += dt
 	if shots.is_empty() and sparks.is_empty():
 		_spark_mm.visible_instance_count = 0
+		_draw_shots()
 		return
-	var k: float = host.scale_now
+	var k := blast_k()
+	var hk: float = host.scale_now
 	var G := REAL_G * k
 	var BR := Ball.BR
 	var park = host.park
@@ -532,8 +583,17 @@ func step_blast(dt: float) -> void:
 	for i in range(shots.size() - 1, -1, -1):
 		var s: Dictionary = shots[i]
 		var P: Dictionary = SHOT_STYLE[s.kind]
+		# The court was zoomed since the last step: the shot keeps its size and speed on the court.
+		if absf(float(s.k) - k) > 1e-6:
+			var ratio: float = k / float(s.k)
+			s.v *= ratio
+			s.r *= ratio
+			s.k = k
+			if s.node:
+				(s.node as Node3D).scale *= ratio
 		var R: float = s.r
 		s.t += dt
+		s.spin += dt * (9.0 if s.kind == "mini" else 1.2)
 		var a: Vector3 = s.p
 		s.v.y -= G * P.grav * dt
 		if s.kind == "bubble":
@@ -557,14 +617,14 @@ func step_blast(dt: float) -> void:
 				was_popped = true
 		for j in range(ball.volley.size() - 1, -1, -1):
 			if near_seg.call(ball.volley[j].pos, BR):
-				burst(ball.volley[j].pos, "fur")
+				burst(ball.volley[j].pos, Save.style)
 				ball.volley.remove_at(j)
 				was_popped = true
 		var intro = host.get("intro")
-		if intro and intro.active and intro.pop_along(to_global(a), to_global(s.p), R / k):
+		if intro and intro.active and intro.pop_along(to_global(a), to_global(s.p), R / hk):
 			was_popped = true
 		if ball.shot and not ball.held and near_seg.call(ball.pos, BR):
-			burst(ball.pos, "fur")
+			burst(ball.pos, Save.style)
 			host.ball_popped()
 			was_popped = true
 		# A mini Dahrooj carries on, slowed; anything else stops (a firework bursts).
@@ -632,6 +692,19 @@ func step_blast(dt: float) -> void:
 				else:
 					impact(s.p, -dir_n)
 					done = true
+		# Mixed reality: the real walls and furniture (main.gd room_hit, game units; xr-runtime.js).
+		if not done and host.has_method("room_hit") and host.room_active():
+			var rh: Dictionary = host.room_hit(s.p, s.v, a, R)
+			if float(rh.hit) > 0.0:
+				if s.kind == "mini":
+					s.p = rh.p
+					s.v = rh.v
+					if float(rh.hit) > 1.5 * hk and s.t - s.tap > 0.15:
+						s.tap = s.t
+						host.sfx("thump", 0.15, s.p)
+				else:
+					impact(s.p, -dir_n)
+					done = true
 		# The floor: the room's floor during the opening and the rain, the court's ground otherwise.
 		var floor_y := 0.0
 		var intro3 = host.get("intro")
@@ -656,7 +729,7 @@ func step_blast(dt: float) -> void:
 			var RR: float = P.burst * k
 			var intro2 = host.get("intro")
 			if intro2 and intro2.active:
-				intro2.pop_near(to_global(s.p), RR / k)
+				intro2.pop_near(to_global(s.p), RR / hk)
 			for j in range(rests.size() - 1, -1, -1):
 				if (rests[j].p as Vector3).distance_to(s.p) < RR + BR:
 					burst(rests[j].p, rests[j].style)
@@ -673,9 +746,15 @@ func step_blast(dt: float) -> void:
 			if s.kind == "bubble" and not done:
 				host.sfx("start_pop", 1.0, s.p)
 			shots.remove_at(i)
+	_draw_shots()
 	var n := 0
 	for i in range(sparks.size() - 1, -1, -1):
 		var s: Dictionary = sparks[i]
+		if absf(float(s.k) - k) > 1e-6:
+			var ratio: float = k / float(s.k)
+			s.v *= ratio
+			s.size *= ratio
+			s.k = k
 		s.t += dt
 		if not s.flash:
 			s.v.y -= G * 0.5 * dt
@@ -701,6 +780,7 @@ func clear_blast() -> void:
 	shots.clear()
 	sparks.clear()
 	_spark_mm.visible_instance_count = 0
+	_draw_shots()
 
 
 ## The first solid stage mesh along a ray (game units): {node, point, normal} or {}.

@@ -37,7 +37,9 @@ for (const p of [.2, .4, .6, .8, 1]) add(`whoosh_${kTag(p)}`, {kind: 'sounds', f
 for (const i of R3) add(`swish_${i}`, {kind: 'sounds', fn: 'swish', dur: .4});
 add('chime', {kind: 'sounds', fn: 'chime', dur: .52});
 add('start_pop', {kind: 'sounds', fn: 'startPopSound', dur: .14});
-for (const i of [0, 1, 2]) {
+// The firework cues are no longer the web's: tools/audio/render_fireworks.py writes richer ones (same names).
+// FIREWORK_WEB=1 renders firework-audio.ts's originals again (overwriting those).
+if (process.env.FIREWORK_WEB) for (const i of [0, 1, 2]) {
   add(`firework_launch_${i + 1}`, {kind: 'firework', cue: 'launch', index: i, dur: .28});
   add(`firework_burst_${i + 1}`, {kind: 'firework', cue: 'burst', index: i, dur: .76});
 }

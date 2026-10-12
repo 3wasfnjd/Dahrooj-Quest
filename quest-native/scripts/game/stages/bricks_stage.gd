@@ -13,7 +13,12 @@ const FACE := BZ + 0.1
 const BW := 0.98
 const BH := 0.48
 const BD := 0.34
-const GAP := 0.07
+# Mortar-tight joints (the web wall's 0.07 joints plus its 0.07 rounded edges read as wide gaps in the
+# headset): thin joints and a narrow chamfer, so the wall reads as laid bricks.
+const GAP := 0.025
+const VGAP := 0.02
+const BEVEL := 0.022
+const PITCH := BW + GAP
 # Stone bricks in the colours of the headset's slab floor (between its low and high tones), each a
 # slightly different shade like the slabs, matte with a soft sheen.
 # Each level takes another stone, always a natural one: the slab floor's sandstone, grey granite, red brick,
@@ -29,6 +34,9 @@ const LEVELS := [
 	["11111111", "11000011", "10111101", "10111101", "11000011", "11111111"],
 ]
 const TX := 4 * (BW + GAP) + (2 * BW + GAP) / 2 + 0.25
+# Running bond: every other row half a brick over; the short end of a row gets a half brick against the
+# tower, so both ends of the wall are flush.
+const ROW_SHIFT := PITCH / 4
 const ZC := FACE + BD / 2 + 0.01 - 0.75 + BD / 2
 ## stand-in for confetti.celebrate's camera distance (the player's head near the throw spot)
 const CAMERA := Vector3(0, 1.6, 0)
@@ -66,9 +74,7 @@ func _init() -> void:
 	name = "Bricks"
 	StageArt.ground_line(self, -14, BZ, 14, BZ)
 	brick_mats = mats_for(0)
-	var proto := StageArt.rbox(BW, BH, BD, 0.07, brick_mats[0])
-	brick_mesh = proto.mesh
-	proto.free()
+	brick_mesh = brick_geometry(BW, BH, BD, BEVEL)
 	star_mat = StandardMaterial3D.new()
 	star_mat.albedo_color = Color("f2c14e")
 	star_mat.emission_enabled = true
@@ -156,9 +162,9 @@ func layout() -> void:
 		for c in 8:
 			if row[c] != "1":
 				continue
-			# Every other row sits a little over, like laid bricks.
-			var x := (c - 3.5) * (BW + GAP) + (0.25 if r % 2 else -0.12)
-			var y := 0.01 + r * (BH + GAP * 0.6) + BH / 2
+			# Every other row sits half a brick over, like laid bricks.
+			var x := (c - 3.5) * PITCH + (ROW_SHIFT if r % 2 else -ROW_SHIFT)
+			var y := row_y(r)
 			var mi: int = (r * 5 + c * 3 + B.level) % brick_mats.size()
 			var m := MeshInstance3D.new()
 			m.mesh = brick_mesh
@@ -169,6 +175,103 @@ func layout() -> void:
 			B.bricks.append({"mesh": m, "mi": mi, "alive": true, "grow": -(r * 8 + c) * 0.025, "half": Vector3(BW / 2, BH / 2, BD / 2)})
 	B.cleared = false
 	build_towers(B.level)
+	_end_bricks(rows)
+
+
+## A chamfered box (flat faces, 45-degree bevels on the edges, a facet on each corner): crisp edges
+## that butt up against the next brick with only a thin joint between. 44 triangles.
+static func brick_geometry(w: float, h: float, d: float, b: float) -> ArrayMesh:
+	var hx := w / 2
+	var hy := h / 2
+	var hz := d / 2
+	var pts: Array = []
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				pts.append(Vector3(sx * hx, sy * (hy - b), sz * (hz - b)))
+				pts.append(Vector3(sx * (hx - b), sy * hy, sz * (hz - b)))
+				pts.append(Vector3(sx * (hx - b), sy * (hy - b), sz * hz))
+	var dirs: Array = []
+	for i in 3:
+		for s in [-1.0, 1.0]:
+			var v := Vector3.ZERO
+			v[i] = s
+			dirs.append(v)
+	for i in 3:
+		for s1 in [-1.0, 1.0]:
+			for s2 in [-1.0, 1.0]:
+				var v := Vector3.ZERO
+				v[i] = s1
+				v[(i + 1) % 3] = s2
+				dirs.append(v.normalized())
+	for sx in [-1.0, 1.0]:
+		for sy in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				dirs.append(Vector3(sx, sy, sz).normalized())
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for n: Vector3 in dirs:
+		var top := -INF
+		for p: Vector3 in pts:
+			top = maxf(top, p.dot(n))
+		var face: Array = pts.filter(func(p: Vector3) -> bool: return p.dot(n) > top - 1e-5)
+		var c := Vector3.ZERO
+		for p: Vector3 in face:
+			c += p
+		c /= face.size()
+		var f0: Vector3 = face[0]
+		var u := (f0 - c).normalized()
+		var v2 := n.cross(u)
+		# Order the face's corners round its centre (insertion sort on the angle).
+		var ang: Array = face.map(func(p: Vector3) -> float: return atan2((p - c).dot(v2), (p - c).dot(u)))
+		for i in range(1, face.size()):
+			var j := i
+			while j > 0 and float(ang[j - 1]) > float(ang[j]):
+				var ta: float = ang[j]
+				ang[j] = ang[j - 1]
+				ang[j - 1] = ta
+				var tp: Vector3 = face[j]
+				face[j] = face[j - 1]
+				face[j - 1] = tp
+				j -= 1
+		f0 = face[0]
+		for k in range(1, face.size() - 1):
+			var p1: Vector3 = face[k]
+			var p2: Vector3 = face[k + 1]
+			var tri: Array = [f0, p1, p2]
+			if (p1 - f0).cross(p2 - f0).dot(n) > 0.0:  # Godot's front faces wind clockwise
+				tri = [f0, p2, p1]
+			for p: Vector3 in tri:
+				st.set_normal(n)
+				st.add_vertex(p)
+	return st.commit()
+
+
+## Half bricks that close the short end of each row against the towers (part of the towers: they rise
+## with them, don't break, and Dahrooj bounces off them).
+func _end_bricks(rows: Array) -> void:
+	var half_w := PITCH / 2 - GAP
+	var edge := 3.5 * PITCH + ROW_SHIFT + BW / 2  # where the long end of a row stops
+	for t in towers.size():
+		var side := -1.0 if t == 0 else 1.0
+		var parts: Array = []
+		for s in SHADES:
+			parts.append([])
+		for r in rows.size():
+			var odd := r % 2 == 1
+			# Odd rows sit to the right (short on the left), even rows to the left (short on the right).
+			if odd != (side < 0):
+				continue
+			var row: String = rows[r]
+			if row[0 if side < 0 else 7] != "1":
+				continue
+			var x := side * (edge - half_w / 2)
+			var y := row_y(r)
+			var z := FACE + BD / 2 + 0.01
+			parts[posmod(r * 5 + (1 if side > 0 else 4) + B.level, SHADES.size())].append(
+				Transform3D(Basis.from_scale(Vector3(half_w / BW, 1, 1)), Vector3(x, y, z)))
+			tower_boxes.append({"c": Vector3(x, y, z), "h": Vector3(half_w / 2, BH / 2, BD / 2)})
+		merge_parts(parts, _mats_now(), towers[t].grp)
 
 
 # The castle front: a tower each side of the wall, of the same bricks, in a new design every level (a square
@@ -176,7 +279,7 @@ func layout() -> void:
 # battlements). They rise out of the ground like the bricks grow in. They don't break; Dahrooj bounces off
 # them. Each tower's bricks are merged into one mesh per shade, so a tower costs a handful of draws.
 static func row_y(r: float) -> float:
-	return 0.01 + r * (BH + GAP * 0.6) + BH / 2
+	return 0.01 + r * (BH + VGAP) + BH / 2
 
 
 func roof_for(pi: int) -> StandardMaterial3D:

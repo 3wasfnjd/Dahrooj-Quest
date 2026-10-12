@@ -19,9 +19,16 @@ void fragment() {
 	float s = sin(turn), k = cos(turn);
 	vec2 ruv = vec2(c.x * k - c.y * s, c.x * s + c.y * k) + 0.5;
 	float edge = texture(foliage_sdf, ruv).r - threshold - 0.1;
-	if (edge < 0.0) discard;
+	// Smooth leaf edges under MSAA (the web's alphaToCoverage), instead of a hard cut-out.
+	float width = max(fwidth(edge), 0.01);
+	if (edge < -width) discard;
+	ALPHA = smoothstep(-width, width, edge);
+	ALPHA_SCISSOR_THRESHOLD = 0.5;
+	ALPHA_ANTIALIASING_EDGE = 0.5;
 	vec3 n = normalize(gn);
-	if (!FRONT_FACING) n = -n;
+	// The leaf planes are wound as three.js builds them (counter-clockwise seen from the side their normal
+	// faces), which is the back face in Godot: flip on the front face to match three.js's DoubleSide.
+	if (FRONT_FACING) n = -n;
 	vec3 base = mix(color_a, color_b, smoothstep(0.0, 1.0, dot(n, dah_light_dir)));
 	ALBEDO = motri_shade(base, n, 0.0, length(g - dah_cam));
 }

@@ -173,27 +173,47 @@ func _ground() -> void:
 	add_child(m)
 
 
-## Grass.js: 250 x 250 blades over 60 x 60 around the court, three vertices each.
+## Grass.js blades (three vertices each), finer and denser than the web's 250 x 250 over 60 x 60 for
+## the headset, at about the same cost: the blades sit densest round where the player stands (the
+## throw spot, x 0, z 0..11) and thin out toward the fade ring, and none are made where they can never
+## show (on the stone, in the pond, past the fade). The shader widens the far blades to make up.
 func _grass() -> void:
-	var sub := 250
 	var size := 60.0
-	var frag := size / sub
+	var cell := 0.14  # about 51 blades per square unit near the player (the web: 17)
+	var sub := int(size / cell)
+	var r := RandomNumberGenerator.new()
+	r.seed = 4027
 	var verts := PackedVector3Array()
 	var uvs := PackedVector2Array()
-	verts.resize(sub * sub * 3)
-	uvs.resize(sub * sub * 3)
-	var k := 0
 	for ix in sub:
 		for iz in sub:
-			var fx := (float(ix) / sub - 0.5) * size + frag * 0.5 + COURT.x
-			var fz := (float(iz) / sub - 0.5) * size + frag * 0.5 + COURT.y
-			var x := fx + (rng() - 0.5) * frag
-			var z := fz + (rng() - 0.5) * frag
-			var r := rng()
+			var x := (float(ix) + r.randf()) * cell - size / 2 + COURT.x
+			var z := (float(iz) + r.randf()) * cell - size / 2 + COURT.y
+			var h := r.randf()
+			var keep := r.randf()
+			var d := Vector2(x, z - clampf(z, 0.0, 11.0)).length()
+			var want := 1.0
+			if d > 11.0:
+				want = lerpf(1.0, 0.35, minf(1.0, (d - 11.0) / 10.0)) if d < 21.0 else lerpf(0.35, 0.2, (d - 21.0) / 4.5)
+			if d > 25.5 or keep > want:
+				continue
+			# Surely on the stone (slab_at > 0.7 whatever the noise) or in the pond: the shader would drop it.
+			var q := Vector2(absf(x) - 9.0, absf(z + 2.5) - 9.0)
+			if maxf(q.x, q.y) < -1.6 or pond_at(x, z) > 0.1:
+				continue
 			for v in 3:
-				verts[k] = Vector3(x, 0, z)
-				uvs[k] = Vector2(v, r)
-				k += 1
+				verts.append(Vector3(x, 0, z))
+				uvs.append(Vector2(v, h))
+	# The park's other pieces draw from the shared stream as before (the web grass used 3 draws a blade).
+	var mul := 1
+	var base := 16807
+	var e := 250 * 250 * 3
+	while e > 0:
+		if e & 1:
+			mul = (mul * base) % 2147483647
+		base = (base * base) % 2147483647
+		e >>= 1
+	_seed = (_seed * mul) % 2147483647
 	var arr := []
 	arr.resize(Mesh.ARRAY_MAX)
 	arr[Mesh.ARRAY_VERTEX] = verts
@@ -204,6 +224,7 @@ func _grass() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Grass"
 	mi.mesh = mesh
+	mi.set_meta("blades", verts.size() / 3.0)
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/grass.gdshader")
 	_materials_with_slab.append(mat)

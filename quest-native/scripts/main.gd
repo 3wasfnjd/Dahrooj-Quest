@@ -79,8 +79,7 @@ var parked := false
 var charge_t := {"left": 0.0, "right": 0.0}
 var last_thrower := "right"
 var dots: Array = []
-var fork: Node3D
-var bands: Array = []
+var fork: Slingshot
 var _frames := 0
 var _rig_game_z := 1.0  # the player's spot on the court (game z)
 var hist := {"left": [], "right": [], "head": []}
@@ -324,23 +323,10 @@ func _build_throw_aids() -> void:
 		d.visible = false
 		game_root.add_child(d)
 		dots.append(d)
-	var wood := StandardMaterial3D.new()
-	wood.albedo_color = Color("8a5a34")
-	wood.roughness = 0.75
-	var rubber := StandardMaterial3D.new()
-	rubber.albedo_color = Color("c8442f")
-	rubber.roughness = 0.5
-	fork = Node3D.new()
+	fork = Slingshot.new()
 	fork.name = "Slingshot"
 	fork.visible = false
 	add_child(fork)
-	_stick(fork, Vector3(0, -0.06, -0.01), CROTCH, 0.012, wood)
-	_stick(fork, CROTCH, TIP_L, 0.009, wood)
-	_stick(fork, CROTCH, TIP_R, 0.009, wood)
-	for i in 2:
-		var b := _stick(self, Vector3.ZERO, Vector3.UP, 0.0045, rubber, 6)
-		b.visible = false
-		bands.append(b)
 
 
 func _stick(parent: Node3D, a: Vector3, b: Vector3, r: float, mat: Material, segs := 10) -> MeshInstance3D:
@@ -598,13 +584,10 @@ func _game_step(delta: float) -> void:
 		ball.grounded = false
 	# Slingshot bands follow the pouch: Dahrooj, or the rest spot.
 	if F != "":
-		var end := game_root.global_transform * ball.pos if (holder != "" or parked) else fork.global_transform * POUCH
-		var tips := [fork.global_transform * TIP_L, fork.global_transform * TIP_R]
-		for i in 2:
-			_stretch(bands[i], tips[i], end)
-	else:
-		for b in bands:
-			b.visible = false
+		if holder != "" or parked:
+			fork.set_pouch(game_root.global_transform * ball.pos, Ball.BR / scale_now)
+		else:
+			fork.rest()
 	# The flight preview while pulling.
 	if holder != "":
 		charge_t[holder] += dt

@@ -132,12 +132,18 @@ func start() -> bool:
 	return true
 
 
-## Render quality: "high" renders above the headset's recommended resolution with
-## light foveation; "balanced" uses the recommended size and stronger foveation.
+## Render quality: "high" renders 1.3x the headset's recommended eye size with 4x MSAA, 8x anisotropic
+## filtering and light (dynamic) foveation; "balanced" uses the recommended size, 2x MSAA, 4x anisotropy
+## and stronger foveation. The compositor sharpens the main layer either way (project.godot,
+## xr/openxr/extensions/meta/composition_layer_settings).
 func apply_quality(q: String) -> void:
+	var high := q == "high"
+	var vp := get_viewport()
+	if vp:
+		vp.msaa_3d = Viewport.MSAA_4X if high else Viewport.MSAA_2X
+		vp.anisotropic_filtering_level = Viewport.ANISOTROPY_8X if high else Viewport.ANISOTROPY_4X
 	if xr_interface == null:
 		return
-	var high := q == "high"
 	xr_interface.render_target_size_multiplier = 1.3 if high else 1.0
 	xr_interface.foveation_level = 1 if high else 2
 	xr_interface.foveation_dynamic = true
