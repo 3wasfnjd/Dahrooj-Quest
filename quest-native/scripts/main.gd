@@ -128,6 +128,7 @@ func _ready() -> void:
 	world_balls.name = "WorldBalls"
 	game_root.add_child(world_balls)
 	runtime.ctx.sfx = sfx
+	_apply_look.call_deferred()
 	_build_throw_aids()
 	park.on_explode = _on_crate_blast
 	intro = IntroRain.new()
@@ -933,7 +934,24 @@ func eye_game() -> Vector3:
 
 
 func note_style() -> void:
-	runtime.note_style("fur")
+	runtime.note_style(Save.style)
+
+
+## xr-runtime.js wornNow(): the saved accessory, if still unlocked.
+func worn() -> String:
+	var done := DahroojLooks.done_count(Save.challenges)
+	return Save.accessory if DahroojLooks.accessory_available(Save.accessory, done, Save.challenges) else ""
+
+
+func _apply_look() -> void:
+	var acc := worn()
+	dahrooj.set_look(Save.style, Save.jelly_color, acc)
+	for v: DahroojView in volley_views:
+		v.set_look(Save.style, Save.jelly_color, acc)
+	# The colour is global; resting balls keep their own style and accessory.
+	for r in world_balls.rests:
+		var rv: DahroojView = r.view
+		rv.set_look(rv.style, Save.jelly_color, rv.accessory)
 
 
 ## A shot or a hard meeting popped the ball in play: a fresh one for the hand.
@@ -1159,8 +1177,8 @@ func _menu_model() -> Dictionary:
 			done += 1
 	var sky := park.settings() if park.has_method("settings") else {"time": "auto", "weather": "auto"}
 	return {"english": not Save.arabic(), "kind": mode, "mode": "rain" if intro.active and intro.rain else runtime.mode,
-		"style": "fur", "jelly_color": "pink", "throw_style": Save.throw_style, "shot_style": Save.shot_style,
-		"time": sky.time, "weather": sky.weather, "accessory": "", "done": done, "reset_armed": reset_arm > 0.0,
+		"style": Save.style, "jelly_color": Save.jelly_color, "throw_style": Save.throw_style, "shot_style": Save.shot_style,
+		"time": sky.time, "weather": sky.weather, "accessory": worn(), "done": done, "reset_armed": reset_arm > 0.0,
 		"rewards": Save.challenges, "challenges": list}
 
 
@@ -1228,15 +1246,30 @@ func _menu_action(i: int) -> void:
 				reset_arm = 0.0
 				Save.challenges.clear()
 				Save.styles_used.clear()
+				Save.accessory = ""
 				Save.save()
+				_apply_look()
 				toast.notify("info", Save.text("صفّرت التحديات", "Challenges reset"), Save.text("ابدأ من جديد!", "Start again!"))
 			else:
 				reset_arm = 3.0
 		"exit":
 			set_menu(false)
 			get_tree().quit()
-		"style", "jellyColor", "acc":
-			pass  # one look in this version: pink fur
+		"style":
+			if String(b.id) in DahroojLooks.PLAYABLE_STYLES:
+				Save.style = String(b.id)
+				Save.save()
+				_apply_look()
+		"jellyColor":
+			Save.jelly_color = DahroojLooks.color_id(b.id)
+			Save.save()
+			_apply_look()
+		"acc":
+			var id := String(b.id)
+			if DahroojLooks.accessory_available(id, DahroojLooks.done_count(Save.challenges), Save.challenges):
+				Save.accessory = id
+				Save.save()
+				_apply_look()
 
 
 ## A mode card (xr-runtime.js choosePlaza).

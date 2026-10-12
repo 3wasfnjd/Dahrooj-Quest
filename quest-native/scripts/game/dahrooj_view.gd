@@ -1,93 +1,53 @@
 class_name DahroojView
 extends Node3D
-## Dahrooj as drawn in the web game (src/reference/character.js, fur style, the
-## default): a fur ball with soft patches, tinted by the saved colour (pink by
-## default), glossy 3D eyes, the drawn face (mouth and blush) on a cap over the
-## front, and the red ribbon on top. Radius in game units. Front is +Z; show_at()
-## turns him toward a point and squashes him.
+## Dahrooj as drawn in the web game (src/reference/character.js make()): the body in his
+## style (jelly, fur or bubble; legacy fabric and clay too) tinted by the saved colour,
+## glossy 3D eyes, the drawn face (mouth and blush) on a cap over the front, the jelly's
+## bandage or the fur ball's ribbon, and the accessory he wears. Radius in game units.
+## Front is +Z; show_at() turns him toward a point and squashes him. set_look() changes
+## style, colour and accessory (materials and meshes shared: dahrooj_looks.gd).
+##
+## Draws: body, face cap, 6 eye parts, and one each for the ribbon or bandage and the
+## accessory when shown.
 
 const FACE_SPAN := PI * 0.62
 const EYE_FACES := ["open", "focus", "wide", "joy"]
 const FACES := ["open", "focus", "wide", "joy", "closed", "squint", "laugh"]
-const BOW_AT := Vector3(-0.1, 0.86, 0.5)
+const BOW_AT := DahroojLooks.BOW_AT
 
 static var _shared := {}
 
 var r := Ball.BR
+## Fewer facets (character.js make(style, {lite: true}): the world's resting balls).
+var lite := false
+var style := ""
+var color_id := ""
+var accessory := ""
 var inner: Node3D
 var body: MeshInstance3D
 var cap: MeshInstance3D
-var eyes: Array = []  # {s, pivot, ball, pupil}
-var bow: Node3D
+var eyes: Array = []  # {s, pivot, ball, pupil, white}
+var bow: MeshInstance3D
+var bandage: MeshInstance3D
+var acc: MeshInstance3D
 var _face := ""
 
 
-func _init(radius := Ball.BR) -> void:
+func _init(radius := Ball.BR, lite_ := false) -> void:
 	r = radius
+	lite = lite_
 	inner = Node3D.new()
 	add_child(inner)
 	_build()
+	set_look("fur", "pink", "")
 
 
-static func _tex(path: String) -> Texture2D:
-	if not _shared.has(path):
-		_shared[path] = load(path)
-	return _shared[path]
-
-
-static func _mat(key: String) -> Material:
-	if _shared.has(key):
-		return _shared[key]
-	var m := StandardMaterial3D.new()
-	match key:
-		"fur":
-			m.albedo_texture = _tex("res://assets/character/fur.png")
-			m.albedo_color = Color("ff69b4")  # the saved colour (pink by default) tints the fur
-			m.roughness = 0.95
-			m.metallic_specular = 0.25
-		"sclera":
-			m.albedo_color = Color("fffaf2")
-			m.roughness = 0.2
-			m.clearcoat_enabled = true
-			m.clearcoat = 1.0
-		"pupil":
-			m.albedo_color = Color("2c2d3d")
-			m.roughness = 0.06
-			m.clearcoat_enabled = true
-			m.clearcoat = 1.0
-		"glint":
-			m.albedo_color = Color.WHITE
-			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		"bow":
-			m.albedo_color = Color("d8452f")
-			m.roughness = 0.45
-		"bow_dark":
-			m.albedo_color = Color("b8432a")
-			m.roughness = 0.6
-	_shared[key] = m
-	return m
+static func _sphere_mesh(radius: float, segs: int, rings: int) -> ArrayMesh:
+	return DahroojLooks.body_mesh(radius, segs, rings)
 
 
 static func _face_mat(face: String) -> Material:
-	var key := "face_" + face
-	if not _shared.has(key):
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.albedo_texture = _tex("res://assets/character/face_%s.png" % face)
-		m.render_priority = 1
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		_shared[key] = m
-	return _shared[key]
-
-
-static func _sphere_mesh(radius: float, segs: int, rings: int) -> SphereMesh:
-	var s := SphereMesh.new()
-	s.radius = radius
-	s.height = radius * 2.0
-	s.radial_segments = segs
-	s.rings = rings
-	return s
+	return DahroojLooks.face_material(face)
 
 
 ## The cap for the drawn face: a patch of the sphere where angle maps linearly to
@@ -122,11 +82,11 @@ static func _cap_mesh(radius: float) -> ArrayMesh:
 
 func _build() -> void:
 	body = MeshInstance3D.new()
-	body.mesh = _sphere_mesh(r, 32, 20)
-	body.material_override = _mat("fur")
+	body.mesh = _sphere_mesh(r, 24 if lite else 32, 16 if lite else 20)
 	inner.add_child(body)
 	# 3D eyes, where the drawing puts them.
 	var er := r * 0.19
+	var eye_mesh := _sphere_mesh(1.0, 12 if lite else 24, 8 if lite else 16)
 	for s in [-1.0, 1.0]:
 		var pivot := Node3D.new()
 		pivot.rotation_order = EULER_ORDER_YXZ
@@ -135,58 +95,75 @@ func _build() -> void:
 		ball.position.z = r - er * 0.22
 		pivot.add_child(ball)
 		var white := MeshInstance3D.new()
-		white.mesh = _sphere_mesh(1.0, 24, 16)
-		white.material_override = _mat("sclera")
+		white.mesh = eye_mesh
+		white.material_override = DahroojLooks.eye_material("sclera")
 		white.scale = Vector3(er, er * 1.12, er * 0.55)
 		ball.add_child(white)
 		var pupil := Node3D.new()
 		pupil.position.z = er * 0.42
 		ball.add_child(pupil)
 		var dot := MeshInstance3D.new()
-		dot.mesh = white.mesh
-		dot.material_override = _mat("pupil")
+		dot.mesh = eye_mesh
+		dot.material_override = DahroojLooks.eye_material("pupil")
 		dot.scale = Vector3(er * 0.55, er * 0.55, er * 0.22)
 		pupil.add_child(dot)
 		var glint := MeshInstance3D.new()
-		glint.mesh = white.mesh
-		glint.material_override = _mat("glint")
+		glint.mesh = eye_mesh
+		glint.material_override = DahroojLooks.eye_material("glint")
 		glint.scale = Vector3.ONE * er * 0.15
 		glint.position = Vector3(-er * 0.2, er * 0.22, er * 0.2)
 		pupil.add_child(glint)
-		eyes.append({"s": s, "pivot": pivot, "ball": ball, "pupil": pupil, "er": er})
+		# Eyes, ribbon and bandage cast no shadow (three's default), only body and accessory.
+		for part in [white, dot, glint]:
+			(part as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		eyes.append({"s": s, "pivot": pivot, "ball": ball, "pupil": pupil, "white": white, "er": er})
 	cap = MeshInstance3D.new()
 	cap.mesh = _cap_mesh(r * 1.006)
 	cap.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	inner.add_child(cap)
-	# The ribbon on top, a little to the left and forward.
-	bow = Node3D.new()
-	bow.position = BOW_AT.normalized() * r * 1.06
-	bow.rotation = Vector3(-0.15, -0.1, 0.15)
-	inner.add_child(bow)
-	for s in [-1.0, 1.0]:
-		var loop := MeshInstance3D.new()
-		loop.mesh = _sphere_mesh(r * 0.17, 20, 14)
-		loop.material_override = _mat("bow")
-		loop.scale = Vector3(1.2, 0.9, 0.6)
-		loop.position = Vector3(s * r * 0.2, 0, 0)
-		loop.rotation.z = s * 0.35
-		bow.add_child(loop)
-		var tail := MeshInstance3D.new()
-		var cone := CylinderMesh.new()
-		cone.top_radius = 0.0
-		cone.bottom_radius = r * 0.06
-		cone.height = r * 0.3
-		cone.radial_segments = 10
-		tail.mesh = cone
-		tail.material_override = _mat("bow_dark")
-		tail.position = Vector3(s * r * 0.09, -r * 0.19, r * 0.12)
-		tail.rotation = Vector3(0.35, 0, s * 0.35)
-		bow.add_child(tail)
-	var knot := MeshInstance3D.new()
-	knot.mesh = _sphere_mesh(r * 0.07, 12, 10)
-	knot.material_override = _mat("bow_dark")
-	bow.add_child(knot)
+	# The ribbon on top (fur), a little to the left and forward; the bandage (jelly).
+	bow = _deco(DahroojLooks.bow_mesh())
+	bandage = _deco(DahroojLooks.bandage_mesh())
+	acc = _deco(null)
+	acc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	set_face("open", false)
+
+
+func _deco(mesh: Mesh) -> MeshInstance3D:
+	var m := MeshInstance3D.new()
+	m.mesh = mesh
+	m.material_override = DahroojLooks.acc_material()
+	m.scale = Vector3.ONE * r
+	m.visible = false
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	inner.add_child(m)
+	return m
+
+
+## His look: style (jelly | fur | bubble, or legacy fabric | clay), colour (appearance.ts
+## DAHROOJ_COLOR_CHOICES id: original | pink | red | orange | yellow | green | blue | purple)
+## and accessory ("" for none). Unknown values fall back as the web store does.
+func set_look(style_: String, color: String, accessory_: String) -> void:
+	var s := style_ if style_ in DahroojLooks.STYLES else "jelly"
+	var c := DahroojLooks.color_id(color)
+	var a := DahroojLooks.normalize_accessory(accessory_)
+	if s == style and c == color_id and a == accessory:
+		return
+	style = s
+	color_id = c
+	accessory = a
+	body.material_override = DahroojLooks.body_material(s, c)
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if s == "bubble" else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	bandage.visible = s == "jelly"
+	# A hat takes the place of the fur ball's ribbon.
+	bow.visible = s == "fur" and not a in DahroojLooks.HEADWEAR
+	acc.visible = a != ""
+	if a != "":
+		acc.mesh = DahroojLooks.accessory_mesh(a)
+		acc.scale = Vector3.ONE * r * (1.08 if s == "fur" else 1.0)
+	var sclera := DahroojLooks.eye_material("sclera_felt" if s == "fabric" else "sclera")
+	for e in eyes:
+		(e.white as MeshInstance3D).material_override = sclera
 
 
 func set_face(face: String, blink: bool, look := Vector2.ZERO) -> void:

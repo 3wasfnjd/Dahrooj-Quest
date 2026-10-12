@@ -15,6 +15,11 @@ var counts := {}  # mode id -> scores this session's best
 var best := {}
 var challenges := {}  # challenge id -> value (store.data.challenges)
 var styles_used: Array = []
+## Dahrooj's look (store.ts defaults: fur, pink, nothing worn): jelly | fur | bubble; an
+## appearance.ts DAHROOJ_COLOR_CHOICES id; an accessory id ("" for none).
+var style := "fur"
+var jelly_color := "pink"
+var accessory := ""
 
 
 func _ready() -> void:
@@ -50,6 +55,10 @@ func load_data() -> void:
 	challenges = d.get("challenges", {}) if typeof(d.get("challenges", {})) == TYPE_DICTIONARY else {}
 	styles_used = d.get("styles_used", []) if typeof(d.get("styles_used", [])) == TYPE_ARRAY else []
 	best = d.get("best", {}) if typeof(d.get("best", {})) == TYPE_DICTIONARY else {}
+	var look := DahroojLooks.load_look(d, challenges)
+	style = look.style
+	jelly_color = look.jelly_color
+	accessory = look.accessory
 
 
 func save() -> void:
@@ -57,4 +66,5 @@ func save() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"version": VERSION, "language": language, "mode": mode, "haptics": haptics,
-		"quality": quality, "muted": muted, "throw_style": throw_style, "shot_style": shot_style, "best": best, "challenges": challenges, "styles_used": styles_used}))
+		"quality": quality, "muted": muted, "throw_style": throw_style, "shot_style": shot_style, "best": best, "challenges": challenges, "styles_used": styles_used,
+		"style": style, "jelly_color": jelly_color, "accessory": accessory}))
