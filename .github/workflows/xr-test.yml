@@ -1,5 +1,10 @@
 name: XR Test
-on: [push, pull_request, workflow_dispatch]
+on:
+  # The browser version's checks; the native Quest branch has its own workflow.
+  push:
+    branches-ignore: [quest-native]
+  pull_request:
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
