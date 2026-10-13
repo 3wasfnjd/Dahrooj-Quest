@@ -32,13 +32,12 @@ extends Node3D
 ## from the floor. No usable planes: the court's booth.
 ## Game units, like the other stages. The blaster finds targets through hidden (layers = 0)
 ## sphere MeshInstance3Ds; the cover is real MeshInstance3Ds (they stop shots); the booth and
-## every effect are MultiMeshes or Label3Ds (shots pass through them).
+## every effect are MultiMeshes or JuiceTexts (shots pass through them).
 
 const R := 0.6  # a Dahrooj target's radius (game units, × size)
 const CARD_R := 0.72  # a cardboard target's disc radius (× size)
 const CARD_H := 1.85  # its centre above the hinge (× disc radius): the stick
 const SLOTS := 36
-const POPS := 12
 const FX_MAX := 1500
 const ROCKETS_MAX := 8
 const RINGS_MAX := 16
@@ -184,14 +183,12 @@ var targets: Array = []
 var rows: Array = []
 var covers: Array = []
 var crowd: Crowd
-var banner: Label3D
-var banner_sub: Label3D
-var combo_label: Label3D
+var banner: JuiceText
+var banner_sub: JuiceText
+var combo_label: JuiceText
 var sign_label: Label3D
 var booth: Node3D
 var fx_spawned := 0
-var _pops: Array = []
-var _pop_i := 0
 var _rings: Array = []
 var _rockets: Array = []
 var _fx_i := 0
@@ -214,8 +211,6 @@ func _init() -> void:
 	add_child(crowd)
 	for i in SLOTS:
 		targets.append(_blank(_proxy("TargetHit%d" % i)))
-	for i in POPS:
-		_pops.append({"l": _label(120, Color("ffe08a"), 16, Color("1d2230"), 0.0055), "t": 9.0, "life": 0.9, "at": Vector3.ZERO, "k": 1.0})
 	_fx_mat = _shader_mat(FX_CODE)
 	var quad := QuadMesh.new()
 	quad.size = Vector2(2, 2)
@@ -230,9 +225,9 @@ func _init() -> void:
 	_mm.rings = _multi("Rings", Crowd.merge([[Crowd.torus(1.0, 0.06, 6, 40), Transform3D.IDENTITY, Color.WHITE]]), _mat("glow"), RINGS_MAX)
 	_mm.stars = _multi("Stars", star_mesh(), _mat("flat2"), STARS_MAX)
 	_build_booth()
-	banner = _label(210, Color("ffd166"), 28, Color("3a1630"), 0.0062)
-	banner_sub = _label(96, Color("fff3e0"), 18, Color("3a1630"), 0.0058)
-	combo_label = _label(150, Color("ff7ad9"), 22, Color("2a1240"), 0.0058)
+	banner = _label("banner", 210 * 0.0062, Color("ffd166"))
+	banner_sub = _label("sub", 96 * 0.0058, Color("fff3e0"))
+	combo_label = _label("combo", 150 * 0.0058, Color("ff7ad9"))
 	_refresh_room()
 	draw()
 
@@ -251,14 +246,10 @@ func _blank(proxy: MeshInstance3D) -> Dictionary:
 
 # ---- art ----
 
-func _label(font: int, col: Color, outline: int, outline_col: Color, px: float) -> Label3D:
-	var l := Panel3D.label("", font, col)
-	l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	l.pixel_size = px
-	l.outline_size = outline
-	l.outline_modulate = outline_col
-	l.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	l.visible = false
+func _label(kind: String, em: float, col: Color) -> JuiceText:
+	var l := JuiceText.make(kind, em)
+	if kind != "combo":
+		l.modulate = col
 	add_child(l)
 	return l
 
@@ -586,16 +577,10 @@ func _ring(at: Vector3, n: Vector3, r0: float, r1: float, life: float, col: Colo
 	_rings.append({"p": at, "n": n, "r0": r0, "r1": r1, "t": 0.0, "life": life, "c": col})
 
 
-func _pop_label(at: Vector3, text: String, col: Color, k := 1.0, life := 0.9) -> void:
-	var p: Dictionary = _pops[_pop_i]
-	_pop_i = (_pop_i + 1) % _pops.size()
-	p.t = 0.0
-	p.at = at
-	p.k = k
-	p.life = life
-	(p.l as Label3D).text = text
-	(p.l as Label3D).modulate = col
-
+## kind: a JuiceText kind (a callout like BULLSEYE! is a small banner).
+func _pop_label(at: Vector3, text: String, col: Color, k := 1.0, kind := "points") -> void:
+	var sk := k * size * maxf(1.0, at.distance_to(viewer) / (12.0 * size))
+	JuiceText.spawn(self, text, at, kind, sk * (0.55 if kind == "banner" else 1.0), col)
 
 func _banner(text: String, sub: String, color: Color, secs := BANNER_T) -> void:
 	banner.text = text
@@ -844,17 +829,17 @@ func hit(T: Dictionary, point: Vector3, dir: Vector3, by_ball := false) -> bool:
 	_pop_label(top, "+" + _num(pts), Color("ffe08a") if mult_all <= 1 else Color("ff8ad8"), 1.0 + 0.1 * (mult_all - 1))
 	if bull:
 		F.bullseyes += 1
-		_pop_label(top + Vector3.UP * 0.75 * size, _tr("في العين!", "BULLSEYE!"), Color("ffd23f"), 1.1)
+		_pop_label(top + Vector3.UP * 0.75 * size, _tr("في العين!", "BULLSEYE!"), Color("ffd23f"), 1.1, "banner")
 		_sfx("fair_ding", 1.0, c)
 		_buzz2(0.6, 50)
 		_glitter(c, 14, "ffd23f")
 	elif T.mover == "toss":
 		F.tricks += 1
-		_pop_label(top + Vector3.UP * 0.75 * size, _tr("ضربة خرافية!", "TRICK SHOT!"), Color("7fd8ff"), 1.15, 1.2)
+		_pop_label(top + Vector3.UP * 0.75 * size, _tr("ضربة خرافية!", "TRICK SHOT!"), Color("7fd8ff"), 1.15, "banner")
 		_sfx("chime", 0.8, c)
 		_confetti(c, 0.8)
 	elif int(P.far) >= 10:
-		_pop_label(top + Vector3.UP * 0.75 * size, _tr("رمية بعيدة!", "LONG SHOT!"), Color("b0ffb0"), 0.9)
+		_pop_label(top + Vector3.UP * 0.75 * size, _tr("رمية بعيدة!", "LONG SHOT!"), Color("b0ffb0"), 0.9, "banner")
 	if T.kind == "gold":
 		_glitter(c, 20, "ffd23f")
 		_confetti(c, 0.7)
@@ -908,9 +893,9 @@ func _ouch(T: Dictionary) -> void:
 	F.combo_t = 0.0
 	var c: Vector3 = T.c
 	var top := c + Vector3.UP * float(T.rr) * 1.25
-	_pop_label(top, _tr("آخ!", "OUCH!"), Color("ff7ab0"), 1.3, 1.1)
+	_pop_label(top, _tr("آخ!", "OUCH!"), Color("ff7ab0"), 1.3, "ouch")
 	if had >= 2:
-		_pop_label(top + Vector3.UP * 0.7 * size, _tr("ضاعت السلسلة", "streak lost"), Color("ffd6e8"), 0.75, 1.1)
+		_pop_label(top + Vector3.UP * 0.7 * size, _tr("ضاعت السلسلة", "streak lost"), Color("ffd6e8"), 0.75, "miss")
 	_sfx("squeak", 1.35, c)
 	_sfx("thump", 0.3, c)
 	if T.flat:
@@ -1774,17 +1759,6 @@ func _draw_labels() -> void:
 		_lang = ctx.lang
 	sign_label.text = _tr("ميدان الرماية", "DAHROOJ GALLERY")
 	sign_label.font_size = 150 if _en() else 190
-	for p in _pops:
-		var l: Label3D = p.l
-		l.visible = p.t < p.life and l.text != ""
-		if not l.visible:
-			continue
-		var k: float = p.t / p.life
-		l.position = (p.at as Vector3) + Vector3.UP * (0.3 + k * 1.1) * size
-		l.modulate.a = 1.0 - k * k
-		l.outline_modulate.a = l.modulate.a
-		var grow := 0.6 + 0.6 * minf(1.0, k * 7.0) - 0.2 * minf(1.0, k * 7.0) * (1.0 - minf(1.0, k * 4.0))
-		l.scale = Vector3.ONE * size * float(p.k) * grow * maxf(1.0, (p.at as Vector3).distance_to(viewer) / (12.0 * size))
 	var bt: float = F.banner_t
 	banner.visible = bt > 0.0 and banner.text != ""
 	banner_sub.visible = banner.visible and banner_sub.text != ""
@@ -1799,11 +1773,9 @@ func _draw_labels() -> void:
 		banner.position = at + Vector3.UP * out * 0.35 * size
 		banner.scale = Vector3.ONE * s * size
 		banner.modulate.a = 1.0 - out
-		banner.outline_modulate.a = banner.modulate.a
 		banner_sub.position = at + Vector3(0, -1.05, 0) * size + Vector3.UP * out * 0.35 * size
 		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5) * size
 		banner_sub.modulate.a = 1.0 - out
-		banner_sub.outline_modulate.a = banner_sub.modulate.a
 	var ct: float = F.combo_show_t
 	combo_label.visible = ct > 0.0
 	if combo_label.visible:
@@ -1811,7 +1783,6 @@ func _draw_labels() -> void:
 		combo_label.position = (F.combo_at as Vector3) + Vector3.UP * (1.4 + a * 0.6) * size
 		combo_label.scale = Vector3.ONE * size * (0.6 + 0.6 * minf(1.0, a * 6.0)) * (1.0 + 0.08 * sin(a * 30.0) * (1.0 - a))
 		combo_label.modulate.a = clampf(ct / 0.3, 0.0, 1.0)
-		combo_label.outline_modulate.a = combo_label.modulate.a
 
 
 # ---- stage interface ----
@@ -1902,8 +1873,7 @@ func deactivate() -> void:
 		_off(T)
 	for cv in covers:
 		cv.busy = false
-	for p in _pops:
-		p.t = 99.0
+	JuiceText.clear(self)
 	_rings.clear()
 	_rockets.clear()
 	var keep := {"banner_life": BANNER_T, "next_rapid": RAPID_FIRST, "spawn_t": 0.8, "spd": 1.0}
@@ -1953,8 +1923,6 @@ func update(_b: Ball, dt: float) -> void:
 		_rings[i].t += dt
 		if _rings[i].t >= _rings[i].life:
 			_rings.remove_at(i)
-	for p in _pops:
-		p.t += dt
 	# Drawn about once a frame (update runs three times a frame).
 	_draw_acc += dt
 	if _draw_acc >= 0.0125:

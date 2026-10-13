@@ -4,32 +4,43 @@ extends RefCounted
 ## (src/reference/complete-game.js): scores per mode, challenges, the hoop streak,
 ## switching modes (each stage is built once and kept), recall.
 
-## The challenges of the modes in this version (celebration.js `challenges`).
+## The challenges of the modes in this version (celebration.js `challenges`), easiest
+## first: each one opens one reward (ChallengeRewards), in this order.
 const CHALLENGES := [
 	["keeper3", "سجّل على الحارس ٣ مرات", "Score past the keeper 3 times", 3],
 	["hoop3", "٣ سلات ورا بعض", "3 hoops in a row", 3],
 	["windowMin", "صغّر الشباك لأصغر حجم", "Shrink the window to its smallest", 1],
 	["cansOne", "طيّح كل العلب برمية وحدة", "Knock down every can in one throw", 1],
 	["styles5", "العب بالستايلات الثلاثة", "Play in all three styles", 3],
-	["summit1", "اوصل قمة الجبل", "Reach the top of the Summit", 1],
-	["monsters15", "اهزم ١٥ وحش في مرحلة القمة", "Beat 15 monsters on the Summit", 15],
+	["firework10", "فجّر ١٠ أهداف بالألعاب النارية", "Blast 10 targets with fireworks", 10],
 	["strike1", "سترايك في البولينغ", "A strike in bowling", 1],
-	["crates5", "فجّر ٥ صناديق في عالم النظارة", "Blow up 5 crates in the headset world", 5],
 	["skyPop5", "فجّر ٥ دحاريج في السماء", "Pop 5 Dahroojs above your head", 5],
 	["curve3", "سجّل ٣ أهداف برمية ملتفة في النظارة", "Score 3 curved goals in the headset", 3],
+	["bouncy3", "طلقة نطّاطة وحدة تصيب ٣ أهداف", "Hit 3 targets with one bouncy ball", 3],
+	["pop20", "فجّر ٢٠ دحروج بالطلقات", "Pop 20 Dahroojs with your shots", 20],
+	["crates5", "فجّر ٥ صناديق في عالم النظارة", "Blow up 5 crates in the headset world", 5],
+	["laser30", "اصب ٣٠ هدف بالليزر", "Hit 30 targets with the laser", 30],
+	["modes5", "العب ٥ أنماط مختلفة", "Play 5 different modes", 5],
+	["shemaghPlay", "العب أي نمط وأنت لابس الشماغ", "Play a mode wearing the shemagh", 1],
+	["boomerang3", "بوميرانغ يصيب ويرجع ليدك ٣ مرات", "Catch 3 boomerangs that hit something", 3],
 	["bricks20", "اكسر ٢٠ طوبة في حائط الطوب", "Break 20 bricks on the brick wall", 20],
 	["wall1", "حطّم حائط الطوب كامل", "Smash the whole brick wall", 1],
 	["fair25", "اجمع ٢٥ نقطة في زيارة للملاهي", "Score 25 in one visit to the fair", 25],
 	["bell3", "اضرب جرس الملاهي ٣ مرات", "Ring the fair bell 3 times", 3],
-	["pop20", "فجّر ٢٠ دحروج بالطلقات", "Pop 20 Dahroojs with your shots", 20],
 	["mole20", "اضرب ٢٠ دحروج", "Whack 20 Dahroojs", 20],
-	["invasion10", "اصمد ١٠ موجات", "Survive 10 waves", 10],
-	["slime5", "برج سلايم من ٥", "A slime tower of 5", 5],
+	["rocket20", "اصب ٢٠ هدف بالصواريخ", "Hit 20 targets with rockets", 20],
+	["chain4", "صاعقة وحدة تصيب ٤ أهداف", "Chain 4 targets with one lightning bolt", 4],
+	["dallah15", "اصب ١٥ هدف بالدلّة", "Hit 15 targets with the dallah", 15],
+	["combo10", "كومبو ١٠ في نيازك الدحاريج", "A 10-blast combo in Dahrooj Meteors", 10],
 	["meteor50", "فجّر ٥٠ نيزك", "Blast 50 meteors", 50],
 	["giant3", "اهزم العملاق ٣ مرات", "Knock out the Giant 3 times", 3],
+	["invasion10", "اصمد ١٠ موجات", "Survive 10 waves", 10],
+	["slime5", "برج سلايم من ٥", "A slime tower of 5", 5],
 	["frenzy3", "ادخل الحمّى ٣ مرات", "Enter FRENZY 3 times", 3],
 	["castle25", "طيّح ٢٥ دحروج من الحصن", "Knock 25 Dahroojs off the fort", 25],
 	["gallery10", "سلسلة ١٠ إصابات في ميدان الرماية", "A 10-hit streak in the shooting gallery", 10],
+	["summit1", "اوصل قمة الجبل", "Reach the top of the Summit", 1],
+	["monsters15", "اهزم ١٥ وحش في مرحلة القمة", "Beat 15 monsters on the Summit", 15],
 	# Tabletops (challenges.ts; tabletop_progress.gd records them).
 	["balance1", "أكمل مرحلة توازن", "Complete a balance round", 1],
 	["balance5", "مراحل التوازن الخمس", "All five balance rounds", 5],
@@ -119,6 +130,35 @@ func add_count(m: String, reset: bool) -> void:
 
 func curved_goal() -> void:
 	ch_progress("curve3", int(Save.challenges.get("curve3", 0)) + 1)
+
+
+## The shot styles whose hits count toward a challenge (the dallah's beans for the dallah).
+const SHOT_CHALLENGES := {"firework": "firework10", "laser": "laser30", "rocket": "rocket20", "dallah": "dallah15", "bean": "dallah15"}
+
+
+## The blaster's `kind` hit n targets (WorldBalls): toward that style's challenge.
+func shot_hits(kind: String, n: int) -> void:
+	if n <= 0 or not SHOT_CHALLENGES.has(kind):
+		return
+	var id: String = SHOT_CHALLENGES[kind]
+	ch_progress(id, int(Save.challenges.get(id, 0)) + n)
+
+
+## A mode was chosen (main.gd): modes5 counts the different ones ("played:<id>" in the saved
+## progress), and wearing the shemagh there counts for shemaghPlay.
+func note_mode(id: String, worn: String) -> void:
+	if id == "":
+		return
+	if not Save.challenges.has("played:" + id):
+		Save.challenges["played:" + id] = 1
+		Save.save()
+	var n := 0
+	for k: Variant in Save.challenges.keys():
+		if str(k).begins_with("played:"):
+			n += 1
+	ch_progress("modes5", n)
+	if worn == "shemagh":
+		ch_progress("shemaghPlay", 1)
 
 
 func note_style(style: String) -> void:

@@ -27,22 +27,37 @@ const PAGES := [
 const APPEARANCE := [["character", "دحروج", "Dahrooj"], ["accessories", "الإكسسوارات", "Accessories"]]
 const STYLES := [["jelly", "جلي", "Jelly"], ["fur", "فرو", "Fur"], ["bubble", "فقاعة", "Bubble"]]
 const THROWS := [["trigger", "شحن", "Charge"], ["hand", "يد", "Hand"], ["sling", "نبيطة", "Slingshot"]]
-const SHOTS := [["bolt", "برق", "Bolt"], ["mini", "دحروج", "Dahrooj"], ["bubble", "فقاعة", "Bubble"], ["firework", "ألعاب نارية", "Firework"]]
+## The blaster's shot styles, in ShotCatalog.ORDER (which has their icons, unlocks and lines).
+const SHOTS := [
+	["bolt", "برق", "Bolt"], ["mini", "دحروج", "Dahrooj"], ["bubble", "فقاعة", "Bubble"], ["firework", "ألعاب نارية", "Firework"],
+	["confetti", "قصاصات", "Confetti"], ["bouncy", "نطّاطة", "Bouncy"], ["laser", "ليزر", "Laser"], ["boomerang", "بوميرانغ", "Boomerang"],
+	["glob", "جلي", "Jelly"], ["rocket", "صاروخ", "Rocket"], ["lightning", "صاعقة", "Lightning"], ["dallah", "دلّة", "Dallah"],
+]
 const TIMES := [["auto", "تلقائي", "Auto"], ["day", "نهار", "Day"], ["dusk", "غروب", "Dusk"], ["night", "ليل", "Night"], ["dawn", "فجر", "Dawn"]]
 const WEATHERS := [["auto", "تلقائي", "Auto"], ["clear", "صافي", "Clear"], ["rain", "مطر", "Rain"], ["snow", "ثلج", "Snow"]]
-## core/appearance.ts DAHROOJ_COLOR_CHOICES: [id, ar, en, hex ("" = the style's own colour)].
+## core/appearance.ts DAHROOJ_COLOR_CHOICES: [id, ar, en, hex ("" = the style's own colour),
+## need ("" = open from the start, else the challenge id that opens it)].
 const COLORS := [
-	["original", "اللون الأصلي", "Original colour", ""],
-	["pink", "وردي", "Pink", "ff69b4"], ["red", "أحمر", "Red", "ff505c"], ["orange", "برتقالي", "Orange", "ff9b3d"],
-	["yellow", "أصفر", "Yellow", "ffdf45"], ["green", "أخضر", "Green", "58db83"], ["blue", "أزرق", "Blue", "58b9ff"],
-	["purple", "بنفسجي", "Purple", "b878ff"],
+	["original", "اللون الأصلي", "Original colour", "", ""],
+	["pink", "وردي", "Pink", "ff69b4", ""], ["red", "أحمر", "Red", "ff505c", "ricochet1"], ["orange", "برتقالي", "Orange", "ff9b3d", "windowMin"],
+	["yellow", "أصفر", "Yellow", "ffdf45", "bouncy3"], ["green", "أخضر", "Green", "58db83", "shemaghPlay"], ["blue", "أزرق", "Blue", "58b9ff", "slime5"],
+	["purple", "بنفسجي", "Purple", "b878ff", "styles5"],
 ]
-## MENU_ACCESSORIES: [id, ar, en, need] — need is a count of finished challenges or a challenge id.
+## MENU_ACCESSORIES: [id, ar, en, need] — need is 0 for the one open from the start, else the
+## challenge id (GameRuntime's) that opens it; each challenge opens one reward
+## (ChallengeRewards). In the order the challenges give them, easiest first.
 const ACCESSORIES := [
-	["", "بدون", "None", 0], ["party", "قبعة حفلة", "Party hat", 1], ["glasses", "نظارة شمسية", "Sunglasses", 3],
-	["cap", "كاب", "Cap", 5], ["flower", "وردة", "Flower", 7], ["crown", "تاج", "Crown", 10],
-	["headphones", "سماعات", "Headphones", 12], ["scarf", "وشاح", "Scarf", 14],
-	["aviator", "قبعة طيّار", "Aviator cap", "balance5"], ["woodhat", "قبعة خشبية", "Wooden hat", "ricochet5"],
+	["", "بدون", "None", 0], ["party", "قبعة حفلة", "Party hat", "keeper3"], ["glasses", "نظارة شمسية", "Sunglasses", "cansOne"],
+	["ghutra", "غترة وعقال", "Ghutra & agal", "strike1"], ["cap", "كاب", "Cap", "curve3"], ["taqiyah", "طاقية", "Taqiyah", "crates5"],
+	["shemagh", "شماغ وعقال", "Shemagh & agal", "modes5"], ["chef", "قبعة طباخ", "Chef’s hat", "bricks20"], ["flower", "وردة", "Flower", "wall1"],
+	["jasmine", "طوق ياسمين", "Jasmine crown", "fair25"], ["headphones", "سماعات", "Headphones", "bell3"], ["bunny", "آذان أرنب", "Bunny ears", "mole20"],
+	["kufi", "طاقية مطرزة", "Embroidered cap", "dallah15"], ["wizard", "قبعة ساحر", "Wizard hat", "combo10"],
+	["astronaut", "خوذة فضاء", "Space helmet", "meteor50"], ["dino", "قبعة ديناصور", "Dino hood", "giant3"],
+	["viking", "خوذة فايكنغ", "Viking helmet", "invasion10"], ["propeller", "طاقية مروحة", "Propeller cap", "frenzy3"],
+	["crown", "تاج", "Crown", "castle25"], ["pirate", "قبعة قرصان", "Pirate hat", "gallery10"], ["scarf", "وشاح", "Scarf", "summit1"],
+	["headband", "عصابة رياضية", "Sports headband", "monsters15"], ["bowtie", "بابيون", "Bow tie", "balance1"],
+	["aviator", "قبعة طيّار", "Aviator cap", "balance5"], ["halo", "هالة", "Halo", "balanceClean"], ["woodhat", "قبعة خشبية", "Wooden hat", "ricochet5"],
+	["falcon", "صقر", "Falcon", "ricochetAce"], ["gradcap", "قبعة تخرّج", "Graduation cap", "maze1"],
 	["starGlasses", "نظارة نجوم", "Star glasses", "maze5"], ["beanie", "طاقية صوف", "Wool hat", "mazeClean"],
 ]
 ## progression/challenges.ts CHALLENGES: [id, goal, ar, en] (unlock rules and their hints).
@@ -82,11 +97,13 @@ const CREDITS := [
 ]
 
 
+## [id, goal, ar, en] of a challenge: this list's, else the game's (GameRuntime.CHALLENGES).
 static func challenge(id: String) -> Array:
 	for c: Array in CHALLENGES:
 		if c[0] == id:
 			return c
-	return []
+	var g := GameRuntime.challenge(id)
+	return [] if g.is_empty() else [g[0], g[3], g[1], g[2]]
 
 
 static func accessory(id: String) -> Array:
@@ -111,6 +128,26 @@ static func accessory_available(id: String, completed: int, progress: Dictionary
 		return completed >= int(need)
 	var c := challenge(str(need))
 	return not c.is_empty() and int(progress.get(c[0], 0)) >= int(c[1])
+
+
+static func color(id: String) -> Array:
+	for c: Array in COLORS:
+		if c[0] == id:
+			return c
+	return []
+
+
+## Whether Dahrooj's colour `id` can be picked: open from the start, its challenge finished
+## (progress = challenge id -> value), or "reward:<id>" = 1.
+static func color_available(id: String, progress: Dictionary) -> bool:
+	var c := color(id)
+	if c.is_empty():
+		return false
+	var need := str(c[4]) if c.size() > 4 else ""
+	if need == "" or int(progress.get("reward:" + id, 0)) == 1:
+		return true
+	var ch := challenge(need)
+	return not ch.is_empty() and int(progress.get(ch[0], 0)) >= int(ch[1])
 
 
 ## The Touch-controller bindings for a mode and throw style (after quest-controls.ts,

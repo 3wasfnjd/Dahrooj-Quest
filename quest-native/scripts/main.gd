@@ -55,7 +55,7 @@ var audio: GameAudio
 var intro: IntroRain
 var _slime_look := false
 var summit: SummitMode
-var _known_rewards := {}  # accessory id -> true, unlocked when last checked
+var _known_rewards := {}  # "kind:id" -> true for the rewards open when last checked (ChallengeRewards.watch)
 var _reward_check := 0.0
 var summit_hud: SummitHud
 var summit_on := false
@@ -1019,31 +1019,30 @@ func worn() -> String:
 	return Save.accessory if DahroojLooks.accessory_available(Save.accessory, done, Save.challenges) else ""
 
 
-func _open_rewards() -> Array:
-	var done := DahroojLooks.done_count(Save.challenges)
-	var out := []
-	for a: Array in MenuCatalog.ACCESSORIES:
-		if a[0] != "" and DahroojLooks.accessory_available(a[0], done, Save.challenges):
-			out.append(a)
-	return out
-
-
-## xr-runtime.js watchRewards: a card (and the chime) when a challenge unlocks an accessory.
+## xr-runtime.js watchRewards: a card, the chime and confetti when a challenge opens a
+## reward (an accessory, a shot style or a colour; ChallengeRewards.watch).
 func _watch_rewards(dt: float) -> void:
 	_reward_check -= dt
 	if _reward_check > 0.0:
 		return
 	_reward_check = 0.5
-	var open := _open_rewards()
-	var first := _known_rewards.is_empty() and not _known_rewards.has("_init")
-	for a: Array in open:
-		if not first and not _known_rewards.has(a[0]):
-			toast.notify("reward", Save.text("فتحت %s!" % a[1], "%s unlocked!" % a[2]),
-				Save.text("البسها من المظهر ← الإكسسوارات", "Equip from Appearance → Accessories"))
-			sfx("chime", 1.0, eye_game())
-	_known_rewards = {"_init": true}
-	for a: Array in open:
-		_known_rewards[a[0]] = true
+	var w := ChallengeRewards.watch(_known_rewards, Save.challenges, Save.arabic())
+	_known_rewards = w.known
+	for c: Dictionary in w.cards:
+		toast.notify("reward", str(c.title), str(c.sub))
+		sfx("chime", 1.0, eye_game())
+		_reward_confetti()
+
+
+## Confetti a little ahead of the eyes (in the game's units).
+func _reward_confetti() -> void:
+	if confetti == null:
+		return
+	var head := head_transform()
+	var fwd := -head.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length_squared() > 1e-6 else Vector3.FORWARD
+	confetti.celebrate(to_game(head.origin + fwd * 1.4 + Vector3.DOWN * 0.3), eye_game())
 
 
 func _apply_look() -> void:
@@ -1329,8 +1328,10 @@ func _menu_action(i: int) -> void:
 			Save.throw_style = String(b.id)
 			Save.save()
 		"shot":
-			Save.shot_style = String(b.id)
-			Save.save()
+			# A style the challenges have not unlocked yet is refused (its card is locked too).
+			if ShotCatalog.open_now(String(b.id), Save.challenges):
+				Save.shot_style = String(b.id)
+				Save.save()
 		"lang":
 			Save.language = "en" if Save.arabic() else "ar"
 			Save.save()
@@ -1352,6 +1353,8 @@ func _menu_action(i: int) -> void:
 				Save.challenges.clear()
 				Save.styles_used.clear()
 				Save.accessory = ""
+				if not MenuCatalog.color_available(Save.jelly_color, Save.challenges):
+					Save.jelly_color = "pink"
 				TabletopProgress.clear(Save.best)
 				Save.save()
 				_apply_look()
@@ -1367,9 +1370,11 @@ func _menu_action(i: int) -> void:
 				Save.save()
 				_apply_look()
 		"jellyColor":
-			Save.jelly_color = DahroojLooks.color_id(b.id)
-			Save.save()
-			_apply_look()
+			# A colour the challenges have not opened yet is refused (its card is locked too).
+			if MenuCatalog.color_available(DahroojLooks.color_id(b.id), Save.challenges):
+				Save.jelly_color = DahroojLooks.color_id(b.id)
+				Save.save()
+				_apply_look()
 		"acc":
 			var id := String(b.id)
 			if DahroojLooks.accessory_available(id, DahroojLooks.done_count(Save.challenges), Save.challenges):
@@ -1643,6 +1648,7 @@ func _choose_mode(id: String) -> void:
 		_set_table("")
 		set_summit(true)
 		sfx("whoosh", 0.5, sound_pos)
+		runtime.note_mode(id, worn())
 		return
 	if not (id in GameRuntime.MODES or id in ["rain", "balance", "ricochet", "maze", "climb"]):
 		toast.show_text(Save.text("قريبًا في النسخة القادمة", "Coming in the next version"))
@@ -1675,6 +1681,7 @@ func _choose_mode(id: String) -> void:
 		_setup_invasion()
 		_setup_slime()
 		_setup_new_mode()
+	runtime.note_mode(id, worn())
 	sfx("whoosh", 0.5, sound_pos)
 	buzz("left", 0.45, 70)
 	buzz("right", 0.45, 70)

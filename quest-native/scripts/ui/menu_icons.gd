@@ -23,6 +23,9 @@ const IDS := [
 	"hand", "sling", "bolt", "firework", "auto", "reset", "day", "dusk", "night", "dawn",
 	"weather-rain", "snow", "place", "exit", "up", "down", "star", "mole", "mr", "vr",
 	"lang", "invasion", "slime", "meteor", "castle", "giant", "gallery", "frenzy",
+	"confetti", "bouncy", "laser", "boomerang", "glob", "rocket", "lightning", "dallah",
+	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef",
+	"dino", "halo", "bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
 ]
 ## The start screen's large icons, baked again at HI_CELL pixels.
 const HI_IDS := ["mr", "vr", "lang", "world"]
@@ -1010,6 +1013,341 @@ static func shapes(id: String) -> Array:
 			d.s(P([[-22, -1], [-10, -1]]), false, 4.5)
 			d.s(arc(17, -6, 10, PI * 0.5, PI * 1.6), false, 4.5)
 			d.s(P([[13, 3], [27, 6], [17, 12]]), false, 4.5)
+		"laser":
+			# The laser: an emitter, a straight beam through two ringed targets, a spark at its end.
+			d.f(P([[-24, 15], [42, -37], [46, -29], [-20, 23]]))
+			d.sf(rr(-48, 16, 28, 20, 6))
+			d.s(P([[-22, 22], [42, -30]]), false, 6.5)
+			d.s(ell(4, 1.5, 10, 10), true, 4.0)
+			d.s(ell(24, -14.2, 10, 10), true, 4.0)
+			d.ink(star(44, -32, 9, 0.4))
+		"confetti":
+			# The confetti cannon: a tilted barrel spraying slips and dots.
+			d.xf = Transform2D(-0.65, Vector2(-20, 22))
+			d.sf(rr(-22, -12, 40, 24, 6))
+			d.s(P([[18, -15], [18, 15]]), false, 5.0)
+			d.xf = Transform2D.IDENTITY
+			d.s(P([[-42, 40], [-8, 40]]), false, 4.5)
+			for c: Array in [[10, -22, 0.5], [30, -6, -0.6], [-2, -42, 1.1], [26, -38, 0.2], [44, 12, 0.9], [44, -26, -0.3]]:
+				d.xf = Transform2D(float(c[2]), Vector2(float(c[0]), float(c[1])))
+				d.sf(rr(-6, -3, 12, 6, 1.5), 3.5)
+			d.xf = Transform2D.IDENTITY
+			for c: Array in [[16, 10], [8, -36], [40, -46], [36, 30]]:
+				d.ink(ell(float(c[0]), float(c[1]), 3.2, 3.2, 16))
+		"bouncy":
+			# The bouncy ball: a striped ball and the hops it took to get there.
+			var hop := P([[-46, -32]])
+			bez(hop, Vector2(-38, -32), Vector2(-22, -4), Vector2(-16, 36))
+			d.s(hop, false, 3.5)
+			var hop2 := P([[-16, 36]])
+			bez(hop2, Vector2(-10, 10), Vector2(0, 0), Vector2(10, -2))
+			d.s(hop2, false, 3.5)
+			d.s(P([[-34, 44], [4, 44]]), false, 4.5)
+			d.s(P([[-24, 32], [-29, 27]]), false, 3.5)
+			d.s(P([[-8, 32], [-3, 27]]), false, 3.5)
+			d.sf(ell(25, -12, 19, 19))
+			d.s(arc(25, -12, 12, PI * 0.95, PI * 1.6), false, 4.5)
+			d.s(P([[8, -4], [42, -20]]), false, 4.0)
+		"boomerang":
+			# The boomerang: a V of two arms and the loop that brings it back.
+			var arm := rr(0, -8, 46, 16, 8)
+			d.xf = Transform2D(0.62, Vector2(-30, -2))
+			d.sf(arm)
+			d.xf = Transform2D(-0.62, Vector2(-30, 2))
+			d.cut(arm, 3.0)
+			d.sf(arm)
+			d.xf = Transform2D.IDENTITY
+			d.s(arc(8, 0, 40, -1.05, 1.35), false, 4.0)
+			d.s(P([[23.6, 33.1], [16.8, 39.0], [25.4, 41.5]]), false, 4.0)
+		"glob":
+			# The jelly glob: a gooey wobbling blob with drips, droplets and a shine.
+			var blob := PackedVector2Array()
+			for i in 48:
+				var t := TAU * i / 48.0
+				var r := 28.0 + 4.0 * sin(5.0 * t + 0.6) + 2.0 * sin(3.0 * t)
+				blob.append(Vector2(cos(t) * r * 1.1, -4.0 + sin(t) * r * 0.9))
+			d.sf(rr(-14, 8, 10, 34, 5), 4.5)
+			d.sf(rr(10, 8, 9, 26, 4.5), 4.5)
+			d.cut(blob, 0.0)
+			d.sf(blob)
+			d.ink(ell(-14, -16, 6, 3.5, 16))
+			d.cut(ell(-8, 0, 3.5, 5, 16))
+			d.cut(ell(8, 0, 3.5, 5, 16))
+			d.ink(ell(-44, -30, 4, 4, 16))
+			d.ink(ell(42, -36, 3, 3, 16))
+			d.ink(ell(-38, 30, 3, 3, 16))
+		"rocket":
+			# The homing rocket: nose up and to the right, fins, a window and its flame.
+			d.xf = Transform2D(PI / 4.0, Vector2(-2, 4))
+			var flame := P([[-8, 22], [0, 46], [8, 22]])
+			d.f(flame)
+			d.s(flame, false, 4.0)
+			for sx in [-1.0, 1.0]:
+				var fin := P([[sx * 12, 2], [sx * 25, 18], [sx * 25, 27], [sx * 12, 20]])
+				d.sf(fin, 4.5)
+			var body := P([[0, -44]])
+			bez(body, Vector2(10, -38), Vector2(13, -22), Vector2(13, -6))
+			body.append(Vector2(13, 22))
+			body.append(Vector2(-13, 22))
+			body.append(Vector2(-13, -6))
+			bez(body, Vector2(-13, -22), Vector2(-10, -38), Vector2(0, -44))
+			d.cut(body, 3.0)
+			d.sf(body)
+			d.cut(ell(0, -12, 6, 6, 20), 0.0)
+			d.s(ell(0, -12, 6, 6, 20), true, 4.0)
+			d.xf = Transform2D.IDENTITY
+			# The target it has locked on to.
+			d.s(ell(36, -36, 9, 9, 28), true, 3.5)
+			for c: Array in [[36, -50, 36, -44], [36, -28, 36, -22], [22, -36, 28, -36], [44, -36, 50, -36]]:
+				d.s(P([[c[0], c[1]], [c[2], c[3]]]), false, 3.5)
+		"lightning":
+			# Chain lightning: a jagged arc leaping from one Dahrooj to the next, and the next.
+			d.s(P([[-36, -26], [-28, -14], [-34, -8], [-18, 2], [-22, 8], [-8, 14]]), false, 4.5)
+			d.s(P([[6, 12], [12, 2], [8, -4], [22, -10], [18, -16], [28, -24]]), false, 4.5)
+			d.s(P([[34, -16], [38, -2], [32, 4], [40, 18], [36, 24]]), false, 4.5)
+			d.face(-38, -34, 11, 3.0)
+			d.face(0, 20, 12, 3.0)
+			d.face(36, -30, 10, 3.0)
+			d.face(34, 36, 9, 3.0)
+			d.ink(star(-50, -14, 5, 0.4))
+		"dallah":
+			# The dallah: the Arabic coffee pot (round belly, waist, flared top, domed lid and
+			# finial, the long beaked spout and the handle) and two coffee beans.
+			var spout := P([[-14, 26]])
+			bez(spout, Vector2(-32, 22), Vector2(-38, 0), Vector2(-48, -22))
+			spout.append(Vector2(-38, -22))
+			bez(spout, Vector2(-30, -4), Vector2(-24, 12), Vector2(-10, 12))
+			d.sf(spout, 4.5)
+			var handle := P([[14, -6]])
+			bez(handle, Vector2(36, -8), Vector2(38, 22), Vector2(18, 28))
+			d.s(handle, false, 5.0)
+			var pot := P([[-20, 38], [20, 38]])
+			bez(pot, Vector2(28, 28), Vector2(14, 14), Vector2(9, 4))
+			bez(pot, Vector2(6, -2), Vector2(16, -6), Vector2(17, -12))
+			pot.append(Vector2(-17, -12))
+			bez(pot, Vector2(-16, -6), Vector2(-6, -2), Vector2(-9, 4))
+			bez(pot, Vector2(-14, 14), Vector2(-28, 28), Vector2(-20, 38))
+			d.cut(pot, 3.0)
+			d.sf(pot)
+			d.s(P([[-14, 24], [14, 24]]), false, 3.5)
+			var lid := arc(0, -13, 13, PI, TAU)
+			d.sf(lid, 4.5)
+			d.s(P([[0, -26], [0, -33]]), false, 4.5)
+			d.ink(ell(0, -37, 4, 4, 16))
+			for c: Array in [[34, -36, 0.5], [46, -20, -0.4]]:
+				d.xf = Transform2D(float(c[2]), Vector2(float(c[0]), float(c[1])))
+				d.sf(ell(0, 0, 7, 4.5, 20), 3.5)
+				d.s(P([[-4, 0], [4, 0]]), false, 2.5)
+			d.xf = Transform2D.IDENTITY
+		"shemagh", "ghutra":
+			# Dahrooj in a head-cloth with the peak over the brow and the double agal; the
+			# shemagh is checked.
+			var hood := arc(0, 4, 40, PI, 0)
+			hood.append_array(P([[40, 46], [24, 40], [-24, 40], [-40, 46]]))
+			d.sf(hood)
+			if id == "shemagh":
+				for gy in range(-30, 46, 9):
+					for gx in range(-36, 40, 9):
+						var q := Vector2(gx, gy)
+						if (gy < 4 and q.distance_to(Vector2(0, 4)) > 34.0) or (gy >= -24 and gy <= -6) or q.distance_to(Vector2(0, 16)) < 28.0 or gy > 36:
+							continue
+						d.ink(rr(gx - 2.4, gy - 2.4, 4.8, 4.8, 1.0))
+			var peak := P([[-10, -33], [0, -48], [10, -33]])
+			d.cut(peak, 2.5)
+			d.sf(peak)
+			for y in [-21.0, -11.0]:
+				var band := PackedVector2Array()
+				for k in 25:
+					var t := PI * k / 24.0
+					band.append(Vector2(cos(t) * 41.0, y + sin(t) * 6.0))
+				d.cut(band, 2.0)
+				d.s(band, false, 6.5)
+			d.face(0, 16, 22, 3.5)
+		"taqiyah":
+			# A crocheted skullcap: rows of little holes over a rolled rim.
+			var dome := arc(0, 12, 36, PI, 0)
+			d.sf(dome)
+			d.cut(rr(-39, 8, 78, 13, 6), 2.5)
+			d.sf(rr(-39, 8, 78, 13, 6))
+			for row: Array in [[-1.0, 6, 11.0], [-12.0, 5, 11.0], [-23.0, 3, 11.0]]:
+				var n: int = row[1]
+				for k in n:
+					var x := (k - (n - 1) / 2.0) * float(row[2])
+					d.cut(ell(x, row[0], 3.2, 3.2, 16))
+			d.ink(ell(0, -31, 3.5, 3.5, 16))
+		"kufi":
+			# An embroidered pillbox cap: a zigzag band between two borders.
+			var body := P([[-34, -20], [34, -20], [37, 24], [-37, 24]])
+			d.sf(body)
+			d.cut(ell(0, -20, 34, 9), 2.5)
+			d.sf(ell(0, -20, 34, 9))
+			d.s(P([[-35, -9], [35, -9]]), false, 3.5)
+			d.s(P([[-36, 14], [36, 14]]), false, 3.5)
+			var zz := PackedVector2Array()
+			for k in 9:
+				zz.append(Vector2(-32 + k * 8, -5 if k % 2 == 0 else 10))
+			d.s(zz, false, 3.5)
+			d.ink(star(0, -20, 6, 0.45))
+		"falcon":
+			# A falcon in profile on a perch: hooked beak, folded wing, long tail.
+			d.s(P([[-34, 40], [36, 40]]))
+			var tail := P([[-14, 26], [-34, 44], [-24, 48], [-2, 30]])
+			d.sf(tail)
+			var body := ell(-2, 8, 19, 27)
+			d.cut(body, 3.0)
+			d.sf(body)
+			var head := ell(8, -24, 14, 14)
+			d.cut(head, 3.0)
+			d.sf(head)
+			var beak := P([[19, -31], [31, -27], [30, -19], [25, -22], [19, -19]])
+			d.cut(beak, 2.0)
+			d.sf(beak, 4.0)
+			var wing := P([[-18, -6], [8, 0], [2, 26], [-22, 40], [-22, 10]])
+			d.cut(wing, 2.5)
+			d.sf(wing)
+			d.ink(ell(12, -27, 3.5, 3.5, 16))
+			d.s(P([[12, -21], [10, -14]]), false, 3.5)
+			d.s(P([[0, 34], [2, 40]]), false, 4.0)
+			d.s(P([[8, 33], [10, 40]]), false, 4.0)
+		"jasmine":
+			# A crown of five little jasmine stars on a vine.
+			d.s(arc(0, 26, 38, PI * 1.08, PI * 1.92), false, 4.0)
+			for k in 4:
+				var a := PI * (1.2 + 0.2 * k)
+				d.f(ell(cos(a) * 38.0, 26.0 + sin(a) * 38.0, 5, 5, 16))
+			for k in 5:
+				var a := PI * (1.1 + 0.2 * k)
+				var cx := cos(a) * 38.0
+				var cy := 26.0 + sin(a) * 38.0
+				var fl := star(cx, cy, 13, 0.45)
+				d.cut(fl, 2.5)
+				d.sf(fl, 4.0)
+				d.ink(ell(cx, cy, 3, 3, 16))
+		"headband":
+			# Dahrooj with a striped sports band tied at the side.
+			d.face(0, 8, 34, 3.0)
+			var band := rr(-39, -22, 78, 15, 5)
+			d.cut(band, 2.5)
+			d.sf(band)
+			d.s(P([[-34, -14], [34, -14]]), false, 3.0)
+			d.ink(ell(40, -14, 5.5, 5.5, 16))
+			d.s(P([[42, -10], [46, 8]]), false, 5.0)
+			d.s(P([[44, -12], [54, 0]]), false, 5.0)
+		"astronaut":
+			# A glass helmet bowl on a collar, with a little antenna light.
+			d.f(ell(0, -4, 38, 38))
+			d.s(ell(0, -4, 38, 38), true)
+			d.face(0, 2, 22, 3.0)
+			d.s(arc(0, -4, 30, PI * 1.15, PI * 1.4), false, 4.0)
+			d.cut(rr(-32, 28, 64, 16, 8), 2.5)
+			d.sf(rr(-32, 28, 64, 16, 8))
+			d.s(P([[0, -42], [0, -50]]), false, 3.5)
+			d.ink(ell(0, -52, 4, 4, 16))
+		"pirate":
+			# A bicorne with a skull and crossbones.
+			var hat := PackedVector2Array()
+			for k in 33:
+				var t := PI + PI * k / 32.0
+				hat.append(Vector2(cos(t) * 46.0, 18.0 + sin(t) * 40.0))
+			d.sf(hat)
+			d.s(P([[-46, 18], [46, 18]]))
+			d.s(P([[-11, 6], [11, 16]]), false, 4.5)
+			d.s(P([[-11, 16], [11, 6]]), false, 4.5)
+			d.cut(ell(0, -4, 10, 9), 2.0)
+			d.ink(ell(0, -4, 9, 8.5, 24))
+			d.cut(ell(-3.5, -5, 2.5, 2.5, 12))
+			d.cut(ell(3.5, -5, 2.5, 2.5, 12))
+		"chef":
+			# A chef's toque: a puffy top over a pleated band.
+			d.sf(rr(-22, 8, 44, 30, 4))
+			for x in [-11, 0, 11]:
+				d.s(P([[x, 14], [x, 32]]), false, 3.0)
+			for c: Array in [[-20, -6, 16], [20, -6, 16], [0, -18, 21]]:
+				var e := ell(c[0], c[1], c[2], c[2])
+				d.cut(e, 2.5)
+				d.sf(e)
+		"dino":
+			# A dinosaur hood: spikes along the top, soft teeth over the brow, two eyes.
+			for k in 5:
+				var a := PI * (1.15 + 0.175 * k)
+				var bx := cos(a) * 36.0
+				var by := 14.0 + sin(a) * 36.0
+				var o := Vector2(cos(a), sin(a))
+				var side := Vector2(-o.y, o.x) * 7.0
+				d.sf(PackedVector2Array([Vector2(bx, by) + side, Vector2(bx, by) + o * 14.0, Vector2(bx, by) - side]), 4.0)
+			var hood := arc(0, 14, 36, PI, 0)
+			hood.append_array(P([[36, 38], [24, 38], [24, 14], [-24, 14], [-24, 38], [-36, 38]]))
+			d.cut(hood, 2.5)
+			d.sf(hood)
+			var teeth := PackedVector2Array()
+			for k in 9:
+				teeth.append(Vector2(-22 + k * 5.5, 14 if k % 2 == 0 else 21))
+			d.s(teeth, false, 3.5)
+			for sx in [-12.0, 12.0]:
+				d.cut(ell(sx, -18, 8, 8, 24), 2.0)
+				d.s(ell(sx, -18, 7, 7, 24), true, 3.5)
+				d.ink(ell(sx, -17, 3.2, 3.2, 16))
+		"halo":
+			# Dahrooj under a glowing ring with sparkles.
+			d.face(0, 16, 28, 3.0)
+			d.s(ell(0, -30, 26, 8), true, 6.0)
+			d.ink(star(-36, -40, 7, 0.4))
+			d.ink(star(38, -34, 6, 0.4))
+		"bunny":
+			# Dahrooj with two tall bunny ears.
+			for sx in [-15.0, 15.0]:
+				var ear := ell(sx, -26, 10, 24)
+				d.sf(ear)
+				d.s(P([[sx, -40], [sx, -16]]), false, 3.5)
+			d.face(0, 18, 28, 3.0)
+		"wizard":
+			# A pointed hat leaning over, on a wide brim, with stars.
+			d.sf(P([[-27, 20], [27, 20], [12, -18], [-2, -40], [-12, -20]]))
+			d.ink(star(-4, 2, 7, 0.45))
+			d.ink(star(10, -16, 5, 0.45))
+			var brim := ell(0, 23, 45, 10)
+			d.cut(brim, 2.5)
+			d.sf(brim)
+		"viking":
+			# A round helmet with a band and two horns curling up.
+			for sx in [-1.0, 1.0]:
+				d.sf(P([[sx * 22, 0], [sx * 40, -6], [sx * 48, -24], [sx * 46, -42], [sx * 38, -18], [sx * 26, -12]]))
+			var dome := arc(0, 16, 32, PI, 0)
+			d.cut(dome, 2.5)
+			d.sf(dome)
+			d.sf(rr(-35, 12, 70, 12, 5))
+			d.s(P([[0, -16], [0, 12]]), false, 4.0)
+			for x in [-22.0, -8.0, 8.0, 22.0]:
+				d.ink(ell(x, 18, 2.6, 2.6, 12))
+		"propeller":
+			# A cap with a peak and a little propeller on top.
+			var dome := arc(0, 18, 30, PI, 0)
+			d.sf(dome)
+			d.s(P([[-10, -11], [-4, 18]]), false, 3.5)
+			d.s(P([[10, -11], [4, 18]]), false, 3.5)
+			d.sf(rr(-4, 14, 46, 10, 5))
+			d.s(P([[0, -12], [0, -28]]), false, 4.0)
+			d.sf(ell(-17, -31, 15, 5))
+			d.sf(ell(17, -31, 15, 5))
+			d.ink(ell(0, -30, 4.5, 4.5, 16))
+		"bowtie":
+			# A bow tie with polka dots.
+			d.sf(P([[-6, -4], [-42, -22], [-42, 22], [-6, 4]]))
+			d.sf(P([[6, -4], [42, -22], [42, 22], [6, 4]]))
+			for c: Array in [[-28, -6], [-30, 9], [28, -6], [30, 9]]:
+				d.ink(ell(c[0], c[1], 3.2, 3.2, 12))
+			var knot := rr(-9, -11, 18, 22, 6)
+			d.cut(knot, 2.5)
+			d.sf(knot)
+		"gradcap":
+			# A mortarboard over its cap, the tassel hanging at the side.
+			d.sf(P([[-26, -6], [-26, 16], [-14, 22], [14, 22], [26, 16], [26, -6]]))
+			var board := P([[0, -32], [46, -14], [0, 4], [-46, -14]])
+			d.cut(board, 2.5)
+			d.sf(board)
+			d.ink(ell(0, -14, 4, 3, 16))
+			d.s(P([[0, -14], [36, -8], [36, 16]]), false, 3.5)
+			d.ink(rr(32, 14, 8, 14, 3))
 		_:
 			d.sf(star(0, 0, 36, 0.46))
 	return d.ops

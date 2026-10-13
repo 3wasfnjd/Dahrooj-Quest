@@ -8,7 +8,7 @@ extends Node3D
 ## style, colour and accessory (materials and meshes shared: dahrooj_looks.gd).
 ##
 ## Draws: body, face cap, 6 eye parts, and one each for the ribbon or bandage and the
-## accessory when shown.
+## accessory when shown (two for the space helmet: its glass).
 
 const FACE_SPAN := PI * 0.62
 const EYE_FACES := ["open", "focus", "wide", "joy"]
@@ -30,6 +30,8 @@ var eyes: Array = []  # {s, pivot, ball, pupil, white}
 var bow: MeshInstance3D
 var bandage: MeshInstance3D
 var acc: MeshInstance3D
+## The see-through part of an accessory (the space helmet's glass).
+var glass: MeshInstance3D
 var _face := ""
 
 
@@ -126,6 +128,8 @@ func _build() -> void:
 	bandage = _deco(DahroojLooks.bandage_mesh())
 	acc = _deco(null)
 	acc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	glass = _deco(null)
+	glass.material_override = DahroojLooks.glass_material()
 	set_face("open", false)
 
 
@@ -161,6 +165,11 @@ func set_look(style_: String, color: String, accessory_: String) -> void:
 	if a != "":
 		acc.mesh = DahroojLooks.accessory_mesh(a)
 		acc.scale = Vector3.ONE * r * (1.08 if s == "fur" else 1.0)
+	var see := DahroojLooks.accessory_glass(a)
+	glass.visible = see != null
+	if see != null:
+		glass.mesh = see
+		glass.scale = acc.scale
 	var sclera := DahroojLooks.eye_material("sclera_felt" if s == "fabric" else "sclera")
 	for e in eyes:
 		(e.white as MeshInstance3D).material_override = sclera

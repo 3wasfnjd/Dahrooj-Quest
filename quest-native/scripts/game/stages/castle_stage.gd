@@ -30,7 +30,7 @@ extends Node3D
 ## SlimeStage's: {pos, normal, ax, ay, half, label} in game units) lets them march out of the
 ## real walls and parachute from the real ceiling. The blaster finds Dahroojs, canopies,
 ## ladders, catapults and the siege tower's pieces through hidden (layers = 0) MeshInstance3Ds;
-## the fort itself is solid (shots stop on it). Effects are MultiMeshes and Label3Ds.
+## the fort itself is solid (shots stop on it). Effects are MultiMeshes and JuiceTexts.
 
 const W := 3.2  # the fort's half width (fort units)
 const H := 2.9  # the wall walk's height
@@ -59,7 +59,6 @@ const SPARKS_MAX := 320
 const PLANKS_MAX := 96
 const RINGS_MAX := 14
 const STARS_MAX := 72
-const LABELS := 14
 const COMBO_T := 2.4
 const COMBO_STEPS := [3, 6, 10, 15]  # combo counts where the multiplier steps up (×2 .. ×5)
 const BANNER_T := 2.4
@@ -127,11 +126,9 @@ var canopies: Array = []  # canopy proxies: {proxy, owner}
 var spots: Array = []  # top spots on the walls: owner dude index or -1
 var groups := {}
 var crowd: Crowd
-var banner: Label3D
-var banner_sub: Label3D
-var combo_label: Label3D
-var _labels: Array = []
-var _label_i := 0
+var banner: JuiceText
+var banner_sub: JuiceText
+var combo_label: JuiceText
 var _sparks: Array = []
 var _planks: Array = []
 var _rings: Array = []
@@ -199,33 +196,17 @@ func _init() -> void:
 	_mm.siege_tier = _multi("SiegeFloors", siege_mesh("tier"), _mat("lit"), 3)
 	_mm.siege_deck = _multi("SiegeDeck", siege_mesh("deck"), _mat("lit"), 1)
 	_mm.siege_ramp = _multi("SiegeRamp", siege_mesh("ramp"), _mat("lit"), 1)
-	for i in LABELS:
-		var l := Panel3D.label("", 120, Color("ffe08a"))
-		l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-		l.pixel_size = 0.0085
-		l.outline_size = 14
-		l.outline_modulate = Color("1d2230")
-		l.no_depth_test = true  # points read over the towers
-		l.render_priority = 8
-		l.visible = false
-		root.add_child(l)
-		_labels.append({"l": l, "t": 99.0, "life": 0.9, "at": Vector3.ZERO, "k": 1.0})
-	banner = _big_label(210, Color("ffd166"), 0.0062, 28, Color("3a1630"))
-	banner_sub = _big_label(96, Color("fff3e0"), 0.0058, 18, Color("3a1630"))
-	combo_label = _big_label(150, Color("ff7ad9"), 0.0058, 22, Color("2a1240"))
+	banner = _big_label("banner", 210 * 0.0062, Color("ffd166"))
+	banner_sub = _big_label("sub", 96 * 0.0058, Color("fff3e0"))
+	combo_label = _big_label("combo", 150 * 0.0058, Color("ff7ad9"))
 	_sync_root()
 	draw()
 
 
-func _big_label(px: int, col: Color, ps: float, outline: int, ocol: Color) -> Label3D:
-	var l := Panel3D.label("", px, col)
-	l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	l.pixel_size = ps
-	l.outline_size = outline
-	l.outline_modulate = ocol
-	l.no_depth_test = true  # banners read over the towers
-	l.render_priority = 9
-	l.visible = false
+func _big_label(kind: String, em: float, col: Color) -> JuiceText:
+	var l := JuiceText.make(kind, em)
+	if kind != "combo":
+		l.modulate = col
 	root.add_child(l)
 	return l
 
@@ -873,15 +854,7 @@ func _ring(at: Vector3, r0: float, r1: float, life: float, col: Color) -> void:
 
 
 func _label(at: Vector3, text: String, col: Color, k := 1.0) -> void:
-	var p: Dictionary = _labels[_label_i]
-	_label_i = (_label_i + 1) % _labels.size()
-	p.t = 0.0
-	p.at = at
-	p.k = k
-	p.life = 0.9 if k <= 1.0 else 1.3
-	(p.l as Label3D).text = text
-	(p.l as Label3D).modulate = col
-
+	JuiceText.spawn(root, text, at, "points", k * 0.0085 * 120.0 / 0.66, col)
 
 ## Where banners show: between the fort's top and you, a little above your eye line.
 func banner_at() -> Vector3:
@@ -2731,17 +2704,6 @@ func _draw_fx() -> void:
 
 
 func _draw_labels() -> void:
-	for p in _labels:
-		var l: Label3D = p.l
-		l.visible = p.t < p.life and l.text != ""
-		if not l.visible:
-			continue
-		var k: float = p.t / p.life
-		l.position = (p.at as Vector3) + Vector3.UP * (0.3 + k * 1.1)
-		l.modulate.a = 1.0 - k * k
-		l.outline_modulate.a = l.modulate.a
-		var grow := 0.6 + 0.6 * minf(1.0, k * 7.0) - 0.2 * minf(1.0, k * 7.0) * (1.0 - minf(1.0, k * 4.0))
-		l.scale = Vector3.ONE * float(p.k) * grow
 	var bt: float = F.banner_t
 	banner.visible = bt > 0.0 and banner.text != ""
 	banner_sub.visible = banner.visible and banner_sub.text != ""
@@ -2755,11 +2717,9 @@ func _draw_labels() -> void:
 		banner.position = banner_at() + Vector3.UP * out * 0.35
 		banner.scale = Vector3.ONE * s
 		banner.modulate.a = 1.0 - out
-		banner.outline_modulate.a = banner.modulate.a
 		banner_sub.position = banner_at() + Vector3(0, -1.05, 0) + Vector3.UP * out * 0.35
 		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5)
 		banner_sub.modulate.a = 1.0 - out
-		banner_sub.outline_modulate.a = banner_sub.modulate.a
 	var ct: float = F.combo_show_t
 	combo_label.visible = ct > 0.0
 	if combo_label.visible:
@@ -2767,7 +2727,6 @@ func _draw_labels() -> void:
 		combo_label.position = (F.combo_at as Vector3) + Vector3.UP * (1.3 + a * 0.6)
 		combo_label.scale = Vector3.ONE * (0.6 + 0.6 * minf(1.0, a * 6.0)) * (1.0 + 0.08 * sin(a * 30.0) * (1.0 - a))
 		combo_label.modulate.a = clampf(ct / 0.3, 0.0, 1.0)
-		combo_label.outline_modulate.a = combo_label.modulate.a
 
 
 # ---- the thrown Dahrooj ----
@@ -2938,8 +2897,7 @@ func deactivate() -> void:
 	for k in spots.size():
 		spots[k] = -1
 	groups.clear()
-	for p in _labels:
-		p.t = 99.0
+	JuiceText.clear(root)
 	_sparks.clear()
 	_planks.clear()
 	_rings.clear()
@@ -3023,8 +2981,6 @@ func update(_b: Ball, sub_dt: float) -> void:
 		_rings[i].t += dt
 		if _rings[i].t >= _rings[i].life:
 			_rings.remove_at(i)
-	for p in _labels:
-		p.t += dt
 	draw()
 
 

@@ -20,6 +20,9 @@ var styles_used: Array = []
 var style := "fur"
 var jelly_color := "pink"
 var accessory := ""
+## 2: every reward has its own challenge (ChallengeRewards); a save from before keeps what
+## it had opened (load_data).
+const REWARDS_VERSION := 2
 
 
 func _ready() -> void:
@@ -55,6 +58,12 @@ func load_data() -> void:
 	challenges = d.get("challenges", {}) if typeof(d.get("challenges", {})) == TYPE_DICTIONARY else {}
 	styles_used = d.get("styles_used", []) if typeof(d.get("styles_used", [])) == TYPE_ARRAY else []
 	best = d.get("best", {}) if typeof(d.get("best", {})) == TYPE_DICTIONARY else {}
+	if int(d.get("rewards_version", 1)) < REWARDS_VERSION:
+		ChallengeRewards.migrate(challenges)
+		# The colour already chosen stays.
+		var col := DahroojLooks.color_id(d.get("jelly_color", "pink"))
+		if not MenuCatalog.color_available(col, challenges):
+			challenges["reward:" + col] = 1
 	var look := DahroojLooks.load_look(d, challenges)
 	style = look.style
 	jelly_color = look.jelly_color
@@ -67,4 +76,4 @@ func save() -> void:
 		return
 	f.store_string(JSON.stringify({"version": VERSION, "language": language, "mode": mode, "haptics": haptics,
 		"quality": quality, "muted": muted, "throw_style": throw_style, "shot_style": shot_style, "best": best, "challenges": challenges, "styles_used": styles_used,
-		"style": style, "jelly_color": jelly_color, "accessory": accessory}))
+		"rewards_version": REWARDS_VERSION, "style": style, "jelly_color": jelly_color, "accessory": accessory}))

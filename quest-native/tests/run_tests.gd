@@ -287,5 +287,35 @@ func _scene() -> void:
 	main._panel_action("vr")
 	check(main.state == "play" and main.mode == "vr", "choosing VR starts the game")
 	await _world(main)
+	_reward_cards(main)
 	main.queue_free()
 	await get_tree().process_frame
+
+
+## The reward watch (main.gd _watch_rewards): a card «فتحت طلقة …!» with the chime and
+## confetti when a challenge opens a shot, and for an accessory too.
+func _reward_cards(main: Node) -> void:
+	var keep: Dictionary = Save.challenges.duplicate(true)
+	var toast: ToastCard = main.toast
+	Save.challenges.clear()
+	main._known_rewards = {}
+	main._reward_check = 0.0
+	main._watch_rewards(1.0)
+	toast.cards.clear()
+	var conf: Confetti = main.confetti
+	var c0 := conf.active_count()
+	Save.challenges["hoop3"] = 3
+	main._reward_check = 0.0
+	main._watch_rewards(1.0)
+	var shot_card := toast.cards.any(func(n: Dictionary) -> bool: return n.kind == "reward" and n.title == Save.text("فتحت طلقة قصاصات!", "Unlocked shot Confetti!"))
+	check(shot_card and toast.cards.size() == 1 and conf.active_count() > c0, "rewards: a shot that opens gets its card («فتحت طلقة قصاصات!») and confetti")
+	Save.challenges["keeper3"] = 3
+	main._reward_check = 0.0
+	main._watch_rewards(1.0)
+	check(toast.cards.size() == 2 and toast.cards[1].title == Save.text("فتحت قبعة حفلة!", "Party hat unlocked!"), "rewards: and an accessory its own card")
+	main._reward_check = 0.0
+	main._watch_rewards(1.0)
+	check(toast.cards.size() == 2, "rewards: each card once")
+	toast.cards.clear()
+	Save.challenges.clear()
+	Save.challenges.merge(keep)

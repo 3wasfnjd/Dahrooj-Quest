@@ -18,7 +18,7 @@ extends Node3D
 ## - endless and escalating: they come more often, faster and bigger as the minutes go by.
 ## Game units, like the other stages (VR: 2 per metre; mixed reality: 8 per metre, size 2).
 ## The blaster finds the meteors through hidden (layers = 0) sphere MeshInstance3Ds; every effect
-## is a MultiMesh (particles move in their shader: written once, never updated) or a Label3D.
+## is a MultiMesh (particles move in their shader: written once, never updated) or a JuiceText.
 ##
 ## Mixed reality: `planes_provider` returns the room's planes as SlimeStage's do ({pos, normal,
 ## ax, ay, half, label}, game units): the ceiling ("ceiling", or facing down) is where they come
@@ -39,7 +39,6 @@ const HALO_MAX := SLOTS * 2 + 8
 const RINGS_MAX := 24
 const WARN_MAX := SLOTS * 2
 const CRATERS_MAX := 14
-const POPS := 10
 const SKY_H := 21.0  # VR: how high they appear (× size)
 const GRAV := 3.0  # their gravity (× size)
 const T_START := 4.4  # flight time at the start (s)
@@ -222,12 +221,10 @@ var F := {"state": "idle", "t": 0.0, "score": 0, "combo": 0, "combo_t": 0.0, "mu
 var meteors: Array = []
 var craters: Array = []
 var crowd: Crowd
-var banner: Label3D
-var banner_sub: Label3D
-var combo_label: Label3D
+var banner: JuiceText
+var banner_sub: JuiceText
+var combo_label: JuiceText
 var fx_spawned := 0  # particles started (tests)
-var _pops: Array = []
-var _pop_i := 0
 var _rings: Array = []
 var _fx_i := 0
 var _dust_i := 0
@@ -253,9 +250,6 @@ func _init() -> void:
 			"style": "clay", "color": "ff7a3d", "fire": "ff7a2a", "acc": "", "wob": 0.0, "emit": 0.0, "smoke": 0.0,
 			"chain_t": -1.0, "chain_n": 0, "flash_t": 0.0, "crack": {}, "n": Vector3.DOWN, "seed": 0.0,
 			"proxy": _proxy("MeteorHit%d" % i)})
-	for i in POPS:
-		var pl := _label(120, Color("ffe08a"), 16, Color("1d2230"), 0.0055)
-		_pops.append({"l": pl, "t": 9.0, "life": 0.9, "at": Vector3.ZERO, "k": 1.0})
 	_fx_mat = _shader_mat(FX_CODE % "blend_premul_alpha")
 	_dust_mat = _shader_mat(FX_CODE % "blend_premul_alpha")
 	_dust_mat.render_priority = -1
@@ -275,25 +269,20 @@ func _init() -> void:
 	var cm := _shader_mat(CRATER_CODE)
 	cm.render_priority = -2
 	_mm.craters = _multi("Craters", plane, cm, CRATERS_MAX)
-	banner = _label(210, Color("ffb347"), 28, Color("3a1206"), 0.0062)
-	banner_sub = _label(96, Color("fff3e0"), 18, Color("3a1206"), 0.0058)
-	combo_label = _label(150, Color("ff7ad9"), 22, Color("2a1240"), 0.0058)
+	banner = _label("banner", 210 * 0.0062, Color("ffb347"))
+	banner_sub = _label("sub", 96 * 0.0058, Color("fff3e0"))
+	combo_label = _label("combo", 150 * 0.0058, Color("ff7ad9"))
 	draw()
 
 
 # ---- art ----
 
-func _label(font: int, col: Color, outline: int, outline_col: Color, px: float) -> Label3D:
-	var l := Panel3D.label("", font, col)
-	l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	l.pixel_size = px
-	l.outline_size = outline
-	l.outline_modulate = outline_col
-	l.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	l.visible = false
+func _label(kind: String, em: float, col: Color) -> JuiceText:
+	var l := JuiceText.make(kind, em)
+	if kind != "combo":
+		l.modulate = col
 	add_child(l)
 	return l
-
 
 func _proxy(id: String) -> MeshInstance3D:
 	var proxy := MeshInstance3D.new()
@@ -484,15 +473,7 @@ func _crater(at: Vector3, n: Vector3, r: float, heat: float, crack := false) -> 
 
 
 func _pop_label(at: Vector3, text: String, col: Color, k := 1.0) -> void:
-	var p: Dictionary = _pops[_pop_i]
-	_pop_i = (_pop_i + 1) % _pops.size()
-	p.t = 0.0
-	p.at = at
-	p.k = k
-	p.life = 0.9 if k <= 1.0 else 1.3
-	(p.l as Label3D).text = text
-	(p.l as Label3D).modulate = col
-
+	JuiceText.spawn(self, text, at, "points", k * size * maxf(1.0, at.distance_to(viewer) / (9.0 * size)), col)
 
 # ---- the game ----
 
@@ -808,6 +789,8 @@ func _score(base: int, at: Vector3, count: bool, col := Color("ffe08a")) -> int:
 	if count:
 		F.combo = F.combo + 1 if F.combo_t > 0.0 else 1
 		F.combo_t = COMBO_T
+		if ctx and int(F.combo) >= 2:
+			ctx.ch_progress.call("combo10", int(F.combo))
 		var before: int = F.mult
 		F.mult = multiplier(F.combo)
 		if F.mult > before and F.mult > 1:
@@ -1151,17 +1134,6 @@ func _halo(mm: MultiMesh, i: int, p: Vector3, s: float, col: Color, kind: int) -
 
 
 func _draw_labels() -> void:
-	for p in _pops:
-		var l: Label3D = p.l
-		l.visible = p.t < p.life and l.text != ""
-		if not l.visible:
-			continue
-		var k: float = p.t / p.life
-		l.position = (p.at as Vector3) + Vector3.UP * (0.3 + k * 1.1) * size
-		l.modulate.a = 1.0 - k * k
-		l.outline_modulate.a = l.modulate.a
-		var grow := 0.6 + 0.6 * minf(1.0, k * 7.0) - 0.2 * minf(1.0, k * 7.0) * (1.0 - minf(1.0, k * 4.0))
-		l.scale = Vector3.ONE * size * float(p.k) * grow * maxf(1.0, (p.at as Vector3).distance_to(viewer) / (9.0 * size))
 	var bt: float = F.banner_t
 	banner.visible = bt > 0.0 and banner.text != ""
 	banner_sub.visible = banner.visible and banner_sub.text != ""
@@ -1176,11 +1148,9 @@ func _draw_labels() -> void:
 		banner.position = at + Vector3.UP * out * 0.35 * size
 		banner.scale = Vector3.ONE * s
 		banner.modulate.a = 1.0 - out
-		banner.outline_modulate.a = banner.modulate.a
 		banner_sub.position = at + Vector3(0, -1.05 * size, 0) + Vector3.UP * out * 0.35 * size
 		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5) * size
 		banner_sub.modulate.a = 1.0 - out
-		banner_sub.outline_modulate.a = banner_sub.modulate.a
 	var ct: float = F.combo_show_t
 	combo_label.visible = ct > 0.0
 	if combo_label.visible:
@@ -1188,7 +1158,6 @@ func _draw_labels() -> void:
 		combo_label.position = (F.combo_at as Vector3) + Vector3.UP * (1.3 + a * 0.6) * size
 		combo_label.scale = Vector3.ONE * size * (0.6 + 0.6 * minf(1.0, a * 6.0)) * (1.0 + 0.08 * sin(a * 30.0) * (1.0 - a)) * maxf(1.0, (F.combo_at as Vector3).distance_to(viewer) / (9.0 * size))
 		combo_label.modulate.a = clampf(ct / 0.3, 0.0, 1.0)
-		combo_label.outline_modulate.a = combo_label.modulate.a
 
 
 # ---- stage interface ----
@@ -1236,8 +1205,7 @@ func deactivate() -> void:
 		m.on = false
 		m.phase = ""
 		(m.proxy as MeshInstance3D).visible = false
-	for p in _pops:
-		p.t = 99.0
+	JuiceText.clear(self)
 	_rings.clear()
 	craters.clear()
 	F.state = "idle"
@@ -1287,8 +1255,6 @@ func update(_b: Ball, dt: float) -> void:
 		q.t += dt
 		if q.t >= CRATER_T:
 			craters.remove_at(i)
-	for p in _pops:
-		p.t += dt
 	# Drawn about once a frame (update runs three times a frame).
 	_draw_acc += dt
 	if _draw_acc >= 0.0125:

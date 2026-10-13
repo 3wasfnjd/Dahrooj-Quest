@@ -18,7 +18,7 @@ extends Node3D
 ##   slime stage: {pos, normal, ax, ay, half, label}): he knocks and bulges the wall that faces
 ##   you best, cracks it open and squeezes in through the hole, then stands in your room scaled
 ##   to fit under the scanned ceiling (hops too). No scan: the court layout.
-## Every effect is a MultiMesh or a Label3D, so shots pass through them; the blaster finds the
+## Every effect is a MultiMesh or a JuiceText, so shots pass through them; the blaster finds the
 ## weak spots and the little ones through hidden (layers = 0) spheres, and the big bodies
 ## through their own meshes. Game units, like the other stages.
 
@@ -109,11 +109,10 @@ var room := {"floor": 0.0, "ceil": INF, "wall": {}, "home": Vector3(0, 0, HOME_Z
 	"lane": 3.0, "max_h": INF, "planes": false, "r": R_BASE}
 ## The hole in the wall he comes in through (mixed reality).
 var breach := {"on": false, "p": Vector3.ZERO, "n": Vector3.BACK, "bulge": 0.0, "crack": 0.0, "hole": 0.0, "r": 1.0, "spin": 0.0, "jolt": 0.0}
-var banner: Label3D
-var banner_sub: Label3D
-var combo_label: Label3D
-var lv_label: Label3D
-var _pops: Array = []
+var banner: JuiceText
+var banner_sub: JuiceText
+var combo_label: JuiceText
+var lv_label: JuiceText
 var _sparks: Array = []
 var _rings: Array = []
 var _puffs: Array = []
@@ -164,26 +163,19 @@ func _init() -> void:
 	_mm.bulge = _multi("WallBulge", Crowd.merge([[Crowd.sphere(1.0, 24, 12, 0.0, TAU, 0.0, PI / 2.0), Transform3D.IDENTITY, PLASTER]]), _mat("lit"), 1)
 	_mm.cracks = _multi("WallCracks", crack_mesh(), _mat("flat"), 1)
 	_mm.hole = _multi("WallHole", breach_mesh(), _mat("lit"), 1)
-	for i in 10:
-		var pl := _label(120, Color("ffe08a"), 16)
-		_pops.append({"l": pl, "t": 9.0, "life": 0.9, "at": Vector3.ZERO, "k": 1.0})
-	banner = _label(210, Color("ffd166"), 28)
-	banner_sub = _label(96, Color("fff3e0"), 18)
-	combo_label = _label(150, Color("ff7ad9"), 22)
-	lv_label = _label(110, Color("fff3e0"), 20)
+	banner = _label("banner", 210, Color("ffd166"))
+	banner_sub = _label("sub", 96, Color("fff3e0"))
+	combo_label = _label("combo", 150, Color("ff7ad9"))
+	lv_label = _label("sub", 110, Color("fff3e0"))
 	draw()
 
 
 # ---- art ----
 
-func _label(font_size: int, col: Color, outline: int) -> Label3D:
-	var l := Panel3D.label("", font_size, col)
-	l.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	l.pixel_size = 0.006
-	l.outline_size = outline
-	l.outline_modulate = Color("2a1240")
-	l.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	l.visible = false
+func _label(kind: String, font_size: int, col: Color) -> JuiceText:
+	var l := JuiceText.make(kind, font_size * 0.006)
+	if kind != "combo":
+		l.modulate = col
 	add_child(l)
 	return l
 
@@ -910,17 +902,7 @@ func _break_combo() -> void:
 
 
 func _pop_label(at: Vector3, text: String, col: Color, k := 1.0) -> void:
-	var best: Dictionary = _pops[0]
-	for p in _pops:
-		if p.t > best.t:
-			best = p
-	best.t = 0.0
-	best.at = at
-	best.k = k * clampf(at.distance_to(viewer) / 9.0, 0.45, 2.5)
-	var l: Label3D = best.l
-	l.text = text
-	l.modulate = col
-
+	JuiceText.spawn(self, text, at, "points", k * clampf(at.distance_to(viewer) / 9.0, 0.45, 2.5), col)
 
 ## A weak spot is hit.
 func spot_hit(b: Dictionary, sp: Dictionary, dir: Vector3, by_ball := false) -> void:
@@ -1761,8 +1743,7 @@ func deactivate() -> void:
 	for mi in minions:
 		mi.on = false
 		(mi.proxy as MeshInstance3D).visible = false
-	for p in _pops:
-		p.t = 99.0
+	JuiceText.clear(self)
 	_sparks.clear()
 	_rings.clear()
 	_puffs.clear()
@@ -1850,8 +1831,6 @@ func update(_b: Ball, dt: float) -> void:
 			_step_minion(mi, dt)
 	_step_props(dt)
 	_step_fx(dt)
-	for p in _pops:
-		p.t += dt
 	_draw_acc += dt
 	if _draw_acc >= 0.0125:
 		_draw_acc = 0.0
@@ -2412,17 +2391,6 @@ func _draw_fx() -> void:
 
 
 func _draw_labels() -> void:
-	for p in _pops:
-		var l: Label3D = p.l
-		l.visible = p.t < p.life and l.text != ""
-		if not l.visible:
-			continue
-		var k: float = p.t / p.life
-		l.position = (p.at as Vector3) + Vector3.UP * (0.4 + k * 1.4) * float(p.k)
-		l.modulate.a = 1.0 - k * k
-		l.outline_modulate.a = l.modulate.a
-		var grow := 0.6 + 0.6 * minf(1.0, k * 7.0) - 0.2 * minf(1.0, k * 7.0) * (1.0 - minf(1.0, k * 4.0))
-		l.scale = Vector3.ONE * float(p.k) * grow
 	var bt: float = F.banner_t
 	banner.visible = bt > 0.0 and banner.text != ""
 	banner_sub.visible = banner.visible and banner_sub.text != ""
@@ -2438,11 +2406,9 @@ func _draw_labels() -> void:
 		banner.position = at + Vector3.UP * out * 0.35 * dk
 		banner.scale = Vector3.ONE * s
 		banner.modulate.a = 1.0 - out
-		banner.outline_modulate.a = banner.modulate.a
 		banner_sub.position = at + Vector3(0, -1.05, 0) * dk + Vector3.UP * out * 0.35 * dk
 		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5) * dk
 		banner_sub.modulate.a = 1.0 - out
-		banner_sub.outline_modulate.a = banner_sub.modulate.a
 	var ct: float = F.combo_show_t
 	combo_label.visible = ct > 0.0
 	if combo_label.visible:
@@ -2451,7 +2417,6 @@ func _draw_labels() -> void:
 		combo_label.position = (F.combo_at as Vector3) + Vector3.UP * (1.4 + a * 0.6) * ck
 		combo_label.scale = Vector3.ONE * ck * (0.6 + 0.6 * minf(1.0, a * 6.0)) * (1.0 + 0.08 * sin(a * 30.0) * (1.0 - a))
 		combo_label.modulate.a = clampf(ct / 0.3, 0.0, 1.0)
-		combo_label.outline_modulate.a = combo_label.modulate.a
 
 
 ## For tests and the HUD.

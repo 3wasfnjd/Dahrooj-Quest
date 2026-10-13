@@ -18,6 +18,8 @@ static func run(check: Callable) -> void:
 	_accessories(check)
 	_save(check)
 	_unlocks(check)
+	_new_accessories(check)
+	_menu_pages(check)
 
 
 static func _styles(check: Callable) -> void:
@@ -79,7 +81,7 @@ static func _accessories(check: Callable) -> void:
 		var tris := mesh.surface_get_array_index_len(0) if mesh else 0
 		ok = ok and v.acc.visible and mesh != null and tris > 60 and v.bow.visible == (not hat) \
 			and absf(v.acc.scale.x - Ball.BR * 1.08) < 1e-5 and mesh.get_surface_count() == 1
-	check.call(ok, "looks: all eleven accessories attach (one draw each, 1.08x on fur); hats hide the ribbon")
+	check.call(ok, "looks: all %d accessories attach (one draw each, 1.08x on fur); hats hide the ribbon" % (DahroojLooks.ACCESSORIES.size() - 1))
 	v.set_look("jelly", "pink", "crown")
 	check.call(absf(v.acc.scale.x - Ball.BR) < 1e-5 and not v.bow.visible, "looks: no ribbon or scale-up off the fur")
 	v.set_look("fur", "pink", "")
@@ -105,7 +107,7 @@ static func _save(check: Callable) -> void:
 	var keep := [Save.style, Save.jelly_color, Save.accessory, Save.challenges.duplicate()]
 	Save.style = "bubble"
 	Save.jelly_color = "purple"
-	Save.challenges = {"reward:crown": 1}
+	Save.challenges = {"reward:crown": 1, "styles5": 3}
 	Save.accessory = "crown"
 	Save.save()
 	Save.style = "fur"
@@ -131,14 +133,153 @@ static func _save(check: Callable) -> void:
 
 static func _unlocks(check: Callable) -> void:
 	var A := func(id: String, done: int, p: Dictionary) -> bool: return DahroojLooks.accessory_available(id, done, p)
-	check.call(A.call("", 0, {}) and A.call("party", 1, {}) and not A.call("party", 0, {}) and A.call("glasses", 3, {}) and not A.call("cap", 4, {}),
-		"looks: nothing is always free; party at 1, glasses at 3, cap at 5")
-	check.call(A.call("scarf", 14, {}) and not A.call("scarf", 13, {}) and A.call("crown", 0, {"reward:crown": 1}),
-		"looks: scarf at 14; rewards kept from old saves stay")
+	check.call(A.call("", 0, {}) and A.call("party", 0, {"keeper3": 3}) and not A.call("party", 40, {"keeper3": 2}) and A.call("glasses", 0, {"cansOne": 1})
+		and A.call("cap", 0, {"curve3": 3}) and not A.call("cap", 40, {}),
+		"looks: nothing is always free; party with keeper3, sunglasses with cansOne, cap with curve3 (not a count)")
+	check.call(A.call("scarf", 0, {"summit1": 1}) and not A.call("scarf", 40, {}) and A.call("crown", 0, {"reward:crown": 1}),
+		"looks: the scarf at the Summit's top; rewards kept from old saves stay")
 	check.call(A.call("aviator", 0, {"balance5": 5}) and not A.call("aviator", 0, {"balance5": 4}) and A.call("woodhat", 0, {"ricochet5": 5})
 		and A.call("starGlasses", 0, {"maze5": 5}) and A.call("beanie", 0, {"mazeClean": 1}) and not A.call("beanie", 25, {}),
 		"looks: aviator, wooden hat, star glasses and beanie unlock with their challenge")
 	var all := {}
-	for c: Array in MenuCatalog.CHALLENGES:
-		all[c[0]] = c[1]
-	check.call(DahroojLooks.done_count(all) == MenuCatalog.CHALLENGES.size() and DahroojLooks.done_count({"keeper3": 2}) == 0, "looks: finished challenges counted")
+	for c: Array in GameRuntime.CHALLENGES:
+		all[c[0]] = c[3]
+	check.call(DahroojLooks.done_count(all) == GameRuntime.CHALLENGES.size() and DahroojLooks.done_count({"keeper3": 2}) == 0, "looks: finished challenges counted (every challenge of the game)")
+
+
+## The head-cloths, caps, falcon, flowers and the rest: each builds full and lite, attaches
+## (hiding the ribbon when it is headwear), unlocks on schedule, and crowds wear it too.
+static func _new_accessories(check: Callable) -> void:
+	var added := ["shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef", "dino", "halo",
+		"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap"]
+	var v := DahroojView.new()
+	var bad: Array = []
+	for id: String in added:
+		var full := DahroojLooks.accessory_mesh(id)
+		var lite := DahroojLooks.accessory_mesh(id, true)
+		var named: bool = not MenuCatalog.accessory(id).is_empty() and MenuCatalog.accessory(id)[1] != "" and MenuCatalog.accessory(id)[2] != ""
+		var aabb := full.get_aabb()
+		for s in ["fur", "jelly", "bubble"]:
+			v.set_look(s, "pink", id)
+			var hat := id in DahroojLooks.HEADWEAR
+			if v.accessory != id or not v.acc.visible or v.acc.mesh != full or v.bow.visible != (s == "fur" and not hat) \
+					or v.glass.visible != (id == "astronaut"):
+				bad.append("%s/%s" % [id, s])
+		if not named or full.surface_get_array_index_len(0) < 300 or lite.surface_get_array_len(0) >= full.surface_get_array_len(0) \
+				or not (full.surface_get_format(0) & Mesh.ARRAY_FORMAT_TEX_UV2) or aabb.size.x > 3.0 or aabb.end.y > 2.0 or aabb.position.y < -1.1:
+			bad.append(id)
+	check.call(bad.is_empty(), "looks: the %d newer accessories build (lite smaller), fit on the head, attach and hide the ribbon when worn on it %s" % [added.size(), bad])
+	check.call("shemagh" in DahroojLooks.HEADWEAR and "ghutra" in DahroojLooks.HEADWEAR and "taqiyah" in DahroojLooks.HEADWEAR
+		and not "halo" in DahroojLooks.HEADWEAR and not "headband" in DahroojLooks.HEADWEAR, "looks: cloths and caps are headwear; the halo and the headband keep the ribbon")
+	v.set_look("jelly", "pink", "")
+	check.call(not v.glass.visible and DahroojLooks.accessory_glass("shemagh") == null and DahroojLooks.accessory_glass("astronaut") != null,
+		"looks: only the space helmet has glass")
+	# The shemagh is red and white with its black agal; the ghutra all white.
+	var sh := DahroojLooks.accessory_mesh("shemagh")
+	var cols: PackedColorArray = sh.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+	var black := 0
+	for c in cols:
+		if c.r < 0.05 and c.g < 0.05:
+			black += 1
+	check.call(black > 200 and DahroojLooks.ACC_SHADER.contains("hound("), "looks: the shemagh has its agal and its houndstooth")
+	var A := func(id: String, done: int, p: Dictionary) -> bool: return DahroojLooks.accessory_available(id, done, p)
+	check.call(A.call("ghutra", 0, {"strike1": 1}) and not A.call("ghutra", 40, {}) and A.call("shemagh", 0, {"modes5": 5}) and not A.call("shemagh", 0, {"modes5": 4})
+		and A.call("falcon", 0, {"ricochetAce": 1}) and A.call("halo", 0, {"balanceClean": 1}) and A.call("wizard", 0, {"combo10": 10}) and A.call("bowtie", 0, {"balance1": 1}),
+		"looks: ghutra with a strike, shemagh with 5 modes, falcon with a first-throw ricochet, wizard hat with a 10 combo")
+	check.call(A.call("astronaut", 0, {"meteor50": 50}) and not A.call("astronaut", 30, {"meteor50": 49}) and A.call("dino", 0, {"giant3": 3}),
+		"looks: the space helmet and dino hood unlock with their arcade challenge")
+	var needs: Array = []
+	for a: Array in MenuCatalog.ACCESSORIES:
+		if a[3] is int:
+			needs.append(a[3])
+		else:
+			check.call(not MenuCatalog.challenge(str(a[3])).is_empty(), "looks: %s's challenge exists" % a[0])
+	var sorted := needs.duplicate()
+	sorted.sort()
+	var all_ids := true
+	for id: String in DahroojLooks.ACCESSORIES:
+		all_ids = all_ids and not MenuCatalog.accessory(id).is_empty()
+	check.call(all_ids and needs == sorted and MenuCatalog.ACCESSORIES.size() == DahroojLooks.ACCESSORIES.size(), "looks: every accessory has a menu entry; rewards come in order")
+	v.free()
+	# Crowds build any accessory the first time it is worn (lite, with the helmet's glass).
+	var c := Crowd.new(6, true)
+	c.begin()
+	c.add("fur", Vector3.ZERO, 0.1, null, Vector2.ONE, "open", "shemagh")
+	c.add("jelly", Vector3.ONE, 0.1, null, Vector2.ONE, "open", "astronaut")
+	c.add("fur", Vector3.ONE * 2.0, 0.1, null, Vector2.ONE, "open", "halo")
+	c.end()
+	check.call(c.part_count("acc_shemagh") == 1 and c.part_count("acc_astronaut") == 1 and c.part_count("glass_astronaut") == 1
+		and c.part_count("bow") == 1 and (c.parts["acc_shemagh"].mm as MultiMesh).mesh == DahroojLooks.accessory_mesh("shemagh", true),
+		"looks: crowds wear the new accessories (lite), the helmet with its glass; the halo keeps the ribbon")
+	c.free()
+
+
+## The accessories page: twelve cards a page, page arrows, every label fits.
+static func _menu_pages(check: Callable) -> void:
+	var p := MenuPanel.new()
+	p.set_page("appearance")
+	p.appearance = "accessories"
+	var seen := {}
+	var bad: Array = []
+	var pages := MenuPanel.acc_pages()
+	for en in [false, true]:
+		var m := {"english": en, "kind": "vr", "accessory": "falcon", "done": 30, "rewards": {}, "challenges": []}
+		for pg in pages:
+			p.acc_page = pg
+			p.draw(m, -1)
+			var cards := 0
+			for i in p.buttons.size():
+				var b: Dictionary = p.buttons[i]
+				if b.kind == "acc":
+					cards += 1
+					seen[b.id] = true
+					if float(b.y) + float(b.h) > 820.0:
+						bad.append("low:" + str(b.id))
+			if cards > MenuPanel.ACC_PER_PAGE or cards == 0:
+				bad.append("cards:%d" % cards)
+			for hv in range(-1, p.buttons.size()):
+				p.draw(m, hv)
+				for r: Dictionary in p.measure():
+					if float(r.w) > float(r.max_w) + 0.5 or int(r.size) < Glass.MIN_SIZE:
+						bad.append(r.s)
+	check.call(pages >= 2 and seen.size() == MenuCatalog.ACCESSORIES.size() and bad.is_empty(),
+		"menu: the accessories page pages through all %d accessories and every label fits %s" % [seen.size(), bad.slice(0, 6)])
+	var m := {"english": true, "kind": "vr", "accessory": "", "done": 0, "rewards": {}, "challenges": []}
+	p.appearance = "character"
+	p.model = m
+	p.acc_page = 0
+	p.draw(m, -1)
+	p.navigate({"kind": "appearance", "id": "accessories"})
+	p.draw(m, -1)
+	var prev := -1
+	var next := -1
+	for i in p.buttons.size():
+		if p.buttons[i].kind == "accPage":
+			if p.buttons[i].id == "prev":
+				prev = i
+			else:
+				next = i
+	check.call(prev >= 0 and next >= 0 and p.action(prev).is_empty() and not p.action(next).is_empty() and p.buttons[prev].x < p.buttons[next].x,
+		"menu: on the first page only Next turns (English: Previous on the left)")
+	p.navigate(p.action(next))
+	p.draw(m, -1)
+	var crown := -1
+	for i in p.buttons.size():
+		if p.buttons[i].kind == "acc" and p.buttons[i].id == "crown":
+			crown = i
+	check.call(p.acc_page == 1 and crown >= 0 and p.buttons[crown].disabled and p.buttons[crown].sub == "Knock 25 Dahroojs off the fort",
+		"menu: Next shows the second page (the crown, locked: the fort's challenge)")
+	var astro := -1
+	for i in p.buttons.size():
+		if p.buttons[i].kind == "acc" and p.buttons[i].id == "astronaut":
+			astro = i
+	check.call(astro >= 0 and p.buttons[astro].sub == "Blast 50 meteors", "menu: an arcade challenge prize names its challenge")
+	p.model = {"english": false, "accessory": "shemagh"}
+	p.appearance = "character"
+	p.navigate({"kind": "appearance", "id": "accessories"})
+	check.call(p.acc_page == 0, "menu: opening the accessories shows the page of the one worn")
+	p.model = {"english": false, "accessory": "dino"}
+	p.appearance = "character"
+	p.navigate({"kind": "appearance", "id": "accessories"})
+	check.call(p.acc_page == 1, "menu: ... on the second page too")
+	p.free()

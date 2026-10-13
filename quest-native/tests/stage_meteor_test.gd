@@ -232,4 +232,9 @@ static func run(check: Callable) -> void:
 	check.call(m.c.y == y0, "meteor: held while paused")
 	st.deactivate()
 	check.call(st.meteor_state().alive == 0 and st.craters.is_empty() and st.meteor_state().state == "idle", "meteor: deactivate clears the sky")
+	# Quick blasts in a row feed the combo, and its length goes toward combo10.
+	extra.clear()
+	for k in 3:
+		st._score(1, Vector3.ZERO, true)
+	check.call(extra.any(func(e): return e[0] == "ch" and e[1] == "combo10" and int(e[2]) == 3), "meteor: a combo of three counts toward combo10")
 	st.free()

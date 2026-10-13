@@ -14,7 +14,8 @@ extends Node3D
 const DAHROOJ_COLORS := DahroojLooks.DAHROOJ_COLORS
 const STYLES := DahroojLooks.STYLES
 const HEADWEAR := DahroojLooks.HEADWEAR
-## The accessories built for crowds (the rain's own seven).
+## The accessories built up front for crowds (the rain's own seven); any other one of
+## DahroojLooks.ACCESSORIES (lite, with its glass) on first use.
 const ACCESSORIES := ["party", "glasses", "cap", "flower", "crown", "headphones", "scarf"]
 const EYE_LOOKS := {"open": [1.0, 1.0], "wide": [1.0, 0.42 / 0.55], "shut": [0.12, 1.0]}
 const ER := 0.19
@@ -108,8 +109,16 @@ func add(style: String, pos: Vector3, radius: float, toward, squash := Vector2.O
 	_put(body, m, tint.srgb_to_linear())
 	if style == "jelly":
 		_put("bandage", m)
+	if with_accessories and accessory != "" and not parts.has("acc_" + accessory) and accessory in DahroojLooks.ACCESSORIES:
+		# The other accessories are built the first time a ball wears one.
+		_part("acc_" + accessory, _accessory_mesh(accessory), _deco_mat(), max_n)
+		if accessory in DahroojLooks.GLASS:
+			_part("glass_" + accessory, DahroojLooks.accessory_glass(accessory, true), DahroojLooks.glass_material(), max_n)
 	if parts.has("acc_" + accessory):
-		_put("acc_" + accessory, m * Transform3D(Basis.from_scale(Vector3.ONE * 1.08), Vector3.ZERO) if style == "fur" else m)
+		var am := m * Transform3D(Basis.from_scale(Vector3.ONE * 1.08), Vector3.ZERO) if style == "fur" else m
+		_put("acc_" + accessory, am)
+		if parts.has("glass_" + accessory):
+			_put("glass_" + accessory, am)
 	if style == "fur" and accessory not in HEADWEAR:
 		_put("bow", m)
 	if eyes != "":

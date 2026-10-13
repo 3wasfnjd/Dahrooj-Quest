@@ -1,10 +1,12 @@
 extends RefCounted
-## Feedback effects: confetti bursts, the jelly score popup, the notification card.
+## Feedback effects: confetti bursts, the jelly score popup, the festive JuiceText texts,
+## the notification card.
 
 
 static func run(check: Callable) -> void:
 	_confetti(check)
 	_popup(check)
+	_juice(check)
 	_toast(check)
 
 
@@ -38,6 +40,37 @@ static func _confetti(check: Callable) -> void:
 		c.pop(Vector3.ZERO)
 	check.call(c.pop(Vector3.ZERO) == -1, "confetti: only four bursts at once")
 	c.free()
+
+
+static func _juice(check: Callable) -> void:
+	check.call(JuiceText.western("كومبو ×١٢!") == "كومبو ×12!" and JuiceText.western("+۳") == "+3", "juice: points and combos use Western digits")
+	var host := Node3D.new()
+	var a := JuiceText.spawn(host, "+10", Vector3(0, 1, -2), "points", 1.0, Color("ffe08a"))
+	var layer := host.get_node_or_null("JuiceLayer")
+	check.call(layer != null and a.visible and a.picture.x > a.picture.y and a.picture.y > 40, "juice: a spawn shows a painted picture (%s)" % a.picture)
+	var b := JuiceText.spawn(host, "+10", Vector3(1, 1, -2), "points", 1.0, Color("ffe08a"))
+	check.call(b != a and layer.cache.size() == 1, "juice: one cached picture per distinct string")
+	for i in 30:
+		JuiceText.spawn(host, "+%d" % i, Vector3.ZERO, "points")
+	check.call(layer.items.size() == JuiceText.POOL and layer.cache.size() <= JuiceText.CACHE, "juice: pooled texts and a bounded cache")
+	var y0 := b.position.y
+	for i in 30:
+		b.step(1.0 / 72.0)
+	check.call(b.position.y > y0 and b.visible, "juice: a points text rises")
+	for i in 120:
+		b.step(1.0 / 72.0)
+	check.call(not b.visible, "juice: and fades away")
+	JuiceText.clear(host)
+	check.call(JuiceText.showing(host).is_empty(), "juice: clear hides every text")
+	var c := JuiceText.make("combo", 0.8)
+	host.add_child(c)
+	c.text = "COMBO ×3!"
+	check.call(c.text == "COMBO ×3!" and c.picture.x > 0 and c.get_node_or_null("Stars") != null, "juice: a placed combo paints and bursts stars")
+	c.modulate = Color(1, 1, 1, 0.5)
+	c.visible = true
+	c.step(0.1)
+	check.call(is_equal_approx(float(c.material.get_shader_parameter("opacity")), 0.5), "juice: modulate.a fades a placed text")
+	host.free()
 
 
 static func _popup(check: Callable) -> void:

@@ -33,6 +33,11 @@ const LIST_HEIGHT := 552.0
 const ROW_HEIGHT := 96.0
 const TRACK_TOP := 300.0
 const TRACK_HEIGHT := 440.0
+## A challenge row (824 wide): the title, then the reward's pill at CHIP_X (mirrored in
+## Arabic), then the count.
+const TITLE_W := 410.0
+const CHIP_X := 494.0
+const CHIP_W := 196.0
 
 const BG := Color(0.07, 0.075, 0.1)
 const TEXT := Glass.TEXT
@@ -56,6 +61,9 @@ class Sheet:
 
 var page := "modes"
 var appearance := "character"  # the appearance page's sub page: character | accessories
+## The accessories sub page shows ACC_PER_PAGE cards at a time; acc_page is the one shown.
+var acc_page := 0
+const ACC_PER_PAGE := 12
 var challenge_offset := 0.0
 var buttons: Array[Dictionary] = []
 var model: Dictionary = {}
@@ -151,6 +159,16 @@ func _say(ar: String, en: String) -> String:
 	return en if _english() else ar
 
 
+## The saved progress (challenge id -> value): the model's rewards, else its challenge list.
+func _progress(m: Dictionary) -> Dictionary:
+	if m.get("rewards") is Dictionary:
+		return m.rewards
+	var out := {}
+	for c: Dictionary in m.get("challenges", []):
+		out[str(c.get("id", ""))] = int(c.get("value", 0))
+	return out
+
+
 func _challenges() -> Array:
 	var c: Variant = model.get("challenges", [])
 	return c if c is Array else []
@@ -198,9 +216,14 @@ func layout(m: Dictionary) -> Array[Dictionary]:
 			for i in MenuCatalog.STYLES.size():
 				var c: Array = MenuCatalog.STYLES[i]
 				add.call("style", c[0], c[1], c[2], grid(i, 3, 300, 200, english), {"selected": c[0] == m.get("style", ""), "icon": c[0]})
+			# The colours a challenge opens are locked until then, with its title.
+			var col_progress := _progress(m)
 			for i in MenuCatalog.COLORS.size():
 				var c: Array = MenuCatalog.COLORS[i]
-				add.call("jellyColor", c[0], c[1], c[2], grid(i, 4, 575, 102, english), {"selected": c[0] == m.get("jelly_color", ""), "color": c[3], "icon": "original" if c[0] == "original" else "palette"})
+				var open := MenuCatalog.color_available(c[0], col_progress)
+				var need := ChallengeRewards.need_text(str(c[4])) if c.size() > 4 else ["", ""]
+				add.call("jellyColor", c[0], c[1], c[2], grid(i, 4, 575, 102, english), {"selected": c[0] == m.get("jelly_color", ""), "color": c[3],
+					"icon": "original" if c[0] == "original" else "palette", "disabled": not open, "sub": "" if open else _say(need[0], need[1])})
 		else:
 			var progress: Dictionary = {}
 			if m.get("rewards") is Dictionary:
@@ -209,21 +232,38 @@ func layout(m: Dictionary) -> Array[Dictionary]:
 				for c: Dictionary in m.get("challenges", []):
 					progress[str(c.get("id", ""))] = int(c.get("value", 0))
 			var done := int(m.get("done", 0))
-			for i in MenuCatalog.ACCESSORIES.size():
+			acc_page = clampi(acc_page, 0, acc_pages() - 1)
+			var first := acc_page * ACC_PER_PAGE
+			for i in range(first, mini(first + ACC_PER_PAGE, MenuCatalog.ACCESSORIES.size())):
 				var a: Array = MenuCatalog.ACCESSORIES[i]
 				var open := MenuCatalog.accessory_available(a[0], done, progress)
 				var sub := ""
 				if not open:
 					var ch := MenuCatalog.challenge(str(a[3])) if a[3] is String else []
 					sub = _say(ch[2], ch[3]) if not ch.is_empty() else _say("يحتاج %d تحديات" % int(a[3]), "Needs %d challenges" % int(a[3]))
-				add.call("acc", a[0], a[1], a[2], grid(i, 4, 304, 168, english), {"selected": a[0] == m.get("accessory", ""), "disabled": not open, "sub": sub})
+				add.call("acc", a[0], a[1], a[2], grid(i - first, 4, 300, 160, english), {"selected": a[0] == m.get("accessory", ""), "disabled": not open, "sub": sub})
+			# Page arrows: back on the reading side, on along it (mirrored in Arabic).
+			var pw := 132.0
+			add.call("accPage", "prev", "السابق", "Previous", {"x": base if english else base + 888.0 - pw, "y": 830.0, "w": pw, "h": 64.0}, {"disabled": acc_page == 0})
+			add.call("accPage", "next", "التالي", "Next", {"x": base + 888.0 - pw if english else base, "y": 830.0, "w": pw, "h": 64.0}, {"disabled": acc_page >= acc_pages() - 1})
 	elif page == "play":
 		for i in MenuCatalog.THROWS.size():
 			var c: Array = MenuCatalog.THROWS[i]
-			add.call("throw", c[0], c[1], c[2], grid(i, 3, 206, 100, english), {"selected": c[0] == m.get("throw_style", "")})
+			add.call("throw", c[0], c[1], c[2], grid(i, 3, 206, 84, english), {"selected": c[0] == m.get("throw_style", "")})
+		# The shot styles, six across; the ones challenges have not unlocked yet are locked
+		# (like the accessories) with what they need.
+		var shot_progress: Dictionary = {}
+		if m.get("rewards") is Dictionary:
+			shot_progress = m.rewards
+		else:
+			for c: Dictionary in m.get("challenges", []):
+				shot_progress[str(c.get("id", ""))] = int(c.get("value", 0))
 		for i in MenuCatalog.SHOTS.size():
 			var c: Array = MenuCatalog.SHOTS[i]
-			add.call("shot", c[0], c[1], c[2], grid(i, 4, 360, 100, english), {"selected": c[0] == m.get("shot_style", "")})
+			var open := ShotCatalog.available(c[0], int(m.get("done", 0)), shot_progress)
+			var need := ShotCatalog.need_text(c[0])
+			add.call("shot", c[0], c[1], c[2], grid(i, 6, 334, 92, english, 10.0), {"selected": c[0] == m.get("shot_style", ""), "disabled": not open,
+				"sub": "" if open else _say(need[0], need[1]), "icon": str(ShotCatalog.info(c[0]).get("icon", c[0]))})
 	elif page == "world":
 		if is_vr(kind):
 			for i in MenuCatalog.TIMES.size():
@@ -268,10 +308,10 @@ func draw(m: Dictionary, hot := -1) -> void:
 	match page:
 		"modes": seen = [m.get("mode")]
 		"appearance": seen = [m.get("style"), m.get("jelly_color"), m.get("accessory"), m.get("done"), m.get("challenges"), m.get("rewards")]
-		"play": seen = [m.get("throw_style"), m.get("shot_style"), m.get("mode"), m.get("kind")]
+		"play": seen = [m.get("throw_style"), m.get("shot_style"), m.get("mode"), m.get("kind"), m.get("done"), m.get("rewards")]
 		"world": seen = [m.get("kind"), m.get("time"), m.get("weather")]
 		"challenges": seen = [m.get("reset_armed"), m.get("challenges")]
-	var next := str([page, appearance, challenge_offset, hot, m.get("english", false), seen])
+	var next := str([page, appearance, challenge_offset, acc_page, hot, m.get("english", false), seen])
 	model = m
 	if next == _key:
 		return
@@ -319,13 +359,33 @@ func navigate(b: Dictionary) -> bool:
 			set_page(str(b.id))
 			return true
 		"appearance":
+			if appearance != str(b.id) and str(b.id) == "accessories":
+				show_accessory(str(model.get("accessory", "")))
 			appearance = str(b.id)
 			_key = ""
 			return true
 		"scrollStep":
 			scroll_by(ROW_HEIGHT * 2.0 if b.id == "down" else -ROW_HEIGHT * 2.0)
 			return true
+		"accPage":
+			acc_page = clampi(acc_page + (1 if b.id == "next" else -1), 0, acc_pages() - 1)
+			_key = ""
+			return true
 	return false
+
+
+## Pages of accessory cards.
+static func acc_pages() -> int:
+	return maxi(1, ceili(MenuCatalog.ACCESSORIES.size() / float(ACC_PER_PAGE)))
+
+
+## Shows the accessories page holding `id` (the one worn, when the sub page opens).
+func show_accessory(id: String) -> void:
+	for i in MenuCatalog.ACCESSORIES.size():
+		if MenuCatalog.ACCESSORIES[i][0] == id:
+			acc_page = floori(i / float(ACC_PER_PAGE))
+			_key = ""
+			return
 
 
 ## A world-space ray against the panel: {index, uv, distance} (index -1 off the
@@ -560,12 +620,19 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 				_icon(ci, "original", sc, 50, line, tint)
 			else:
 				var col := Color(str(b.color))
+				if dis:
+					col = Color(col.lerp(Color(0.5, 0.5, 0.55), 0.55), 0.55)
 				_circle(ci, sc, 24, Color(0, 0, 0, 0.25))
 				_circle(ci, sc, 22, col)
 				_circle(ci, sc + Vector2(-7, -8), 6, Color(1, 1, 1, 0.3))
 				_circle(ci, sc, 22, Color(1, 1, 1, 0.55 if on or hot else 0.2), false, 2.0)
 				if on:
 					_icon(ci, "check", sc, 24, INK, Color(0, 0, 0, 0))
+				if dis:
+					# Locked until its challenge: the lock badge, like a locked accessory.
+					_circle(ci, sc, 12, Color(0.12, 0.13, 0.17, 0.95))
+					_circle(ci, sc, 12, Color(1, 1, 1, 0.2), false, 1.5)
+					_icon(ci, "lock", sc, 15.6, Color(TEXT, 0.85), Color(ACCENT, 0.3))
 			_text(ci, name, c.x, r.end.y - 16, Glass.T_SMALL, label_col, lw, "center", Glass.W_LABEL)
 		"appearance", "reset":
 			# Icon and label side by side, centred as a group (icon on the reading side).
@@ -582,6 +649,15 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 			_text(ci, name, tx, c.y + fs * 0.36, fs, label_col, max_text, "left" if _english() else "right", Glass.W_LABEL)
 		"scrollStep":
 			_icon(ci, str(b.icon), c, 28, line, tint)
+		"accPage":
+			# A chevron and the label, the chevron pointing the way the page turns.
+			var fwd: bool = (b.id == "next") == _english()
+			var ax := r.end.x - 26.0 if fwd else r.position.x + 26.0
+			if ci != null:
+				var k := 1.0 if fwd else -1.0
+				ci.draw_polyline(PackedVector2Array([Vector2(ax - 6 * k, c.y - 12), Vector2(ax + 6 * k, c.y), Vector2(ax - 6 * k, c.y + 12)]), line, 4.0, true)
+			var tw := r.size.x - 58.0
+			_text(ci, name, ax - (tw / 2.0 + 18.0) * (1.0 if fwd else -1.0), c.y + Glass.T_SMALL * 0.36, Glass.T_SMALL, label_col, tw, "center", Glass.W_LABEL)
 		"lang", "exit":
 			if kind == "lang":
 				_lang_icon(ci, Vector2(c.x, r.position.y + 100), 100)
@@ -607,11 +683,13 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 			_icon(ci, str(b.icon), ic, isz, line, tint)
 			for li in lines.size():
 				_text(ci, lines[li], c.x, label_y - (lines.size() - 1 - li) * (fs + 4.0), fs, label_col, lw, "center", Glass.W_LABEL)
-			if dis and kind == "acc":
-				var lc := ic + Vector2(isz * 0.42, isz * 0.36)
-				_circle(ci, lc, 17, Color(0.12, 0.13, 0.17, 0.95))
-				_circle(ci, lc, 17, Color(1, 1, 1, 0.2), false, 1.5)
-				_icon(ci, "lock", lc, 22, Color(TEXT, 0.85), Color(ACCENT, 0.3))
+			if dis and (kind == "acc" or kind == "shot"):
+				# A shot card's icon is small: a smaller badge, off to its corner.
+				var br := 12.0 if kind == "shot" else 17.0
+				var lc := ic + (Vector2(isz * 0.5 + 10.0, isz * 0.22) if kind == "shot" else Vector2(isz * 0.42, isz * 0.36))
+				_circle(ci, lc, br, Color(0.12, 0.13, 0.17, 0.95))
+				_circle(ci, lc, br, Color(1, 1, 1, 0.2), false, 1.5)
+				_icon(ci, "lock", lc, br * 1.3, Color(TEXT, 0.85), Color(ACCENT, 0.3))
 
 
 ## The language card: "A" and "ع" (menu-art.ts draws them as text too).
@@ -637,11 +715,12 @@ func _details(ci: CanvasItem) -> void:
 		_section(ci, _say("لون دحروج", "Dahrooj’s colour"), 556)
 	if page == "appearance" and appearance == "accessories":
 		var done := int(model.get("done", 0))
-		_text(ci, _say("مكافآت التحديات · مكتمل %d" % done, "Challenge rewards · %d complete" % done), cx, 878, Glass.T_SMALL, SUB, 860)
+		_text(ci, _say("مكافآت التحديات · مكتمل %d" % done, "Challenge rewards · %d complete" % done), cx, 856, Glass.T_SMALL, SUB, 560)
+		_text(ci, "%d / %d" % [acc_page + 1, acc_pages()], cx, 888, Glass.T_SMALL, Glass.MUTED, 200, "center", Glass.W_LABEL, TextServer.DIRECTION_LTR)
 	if page == "play":
 		_section(ci, _say("طريقة الرمي", "Throw style"), 192)
-		_section(ci, _say("نوع الطلقة", "Projectile"), 346)
-		_section(ci, _say("أزرار Meta Quest", "Meta Quest controls"), 500)
+		_section(ci, _say("نوع الطلقة", "Projectile"), 320)
+		_section(ci, _say("أزرار Meta Quest", "Meta Quest controls"), 556)
 		var help := MenuCatalog.quest_controls(str(model.get("mode", "")), str(model.get("throw_style", "")))
 		var hands := [
 			{"title": _say("اليد اليسرى", "Left hand"), "rows": [["≡", _say("الأنماط", "Modes")], ["X", _say("التحديات", "Challenges")], ["Y", _say("المظهر", "Appearance")], ["trigger", _pair(help.left_trigger)], ["grip", _pair(help.left_grip)]]},
@@ -651,28 +730,28 @@ func _details(ci: CanvasItem) -> void:
 			var hand: Dictionary = hands[i]
 			# The left hand on the left in both languages (it is the controller).
 			var x := base + i * 456.0
-			var box := Rect2(x, 516, 432, 232)
+			var box := Rect2(x, 570, 432, 202)
 			if ci != null:
 				ci.draw_polygon(Glass.rounded(box, 20, 8), PackedColorArray([Color(1, 1, 1, 0.045)]))
 				Glass.rim(ci, box, 20, 0.14, 0.05, 1.5)
-			_text(ci, hand.title, x + 216, 552, Glass.T_LABEL, TEXT, 400, "center", Glass.W_LABEL)
+			_text(ci, hand.title, x + 216, 602, Glass.T_LABEL, TEXT, 400, "center", Glass.W_LABEL)
 			var rows: Array = hand.rows
 			for j in rows.size():
 				var row: Array = rows[j]
-				var y := 592.0 + j * 36.0
+				var y := 636.0 + j * 31.0
 				var bx := x + 50.0 if english else x + 382.0
 				if row[0] == "trigger" or row[0] == "grip":
 					# A key cap for the trigger and the grip.
-					var cap := Rect2(bx - 32, y - 23, 64, 30)
-					_rect(ci, cap, 15, Color(ACCENT, 0.16))
+					var cap := Rect2(bx - 32, y - 22, 64, 28)
+					_rect(ci, cap, 14, Color(ACCENT, 0.16))
 					if ci != null:
-						var pts := Glass.rounded(cap, 15, 6)
+						var pts := Glass.rounded(cap, 14, 6)
 						pts.append(pts[0])
 						ci.draw_polyline(pts, Color(ACCENT, 0.9), 2.0, true)
 					_text(ci, _say("الزناد", "Trigger") if row[0] == "trigger" else _say("القبضة", "Grip"), bx, y - 2, 15, TEXT, 56, "center", Glass.W_LABEL)
 				else:
-					_circle(ci, Vector2(bx, y - 8), 15, Color(ACCENT, 0.16))
-					_circle(ci, Vector2(bx, y - 8), 15, Color(ACCENT, 0.9), false, 2.0)
+					_circle(ci, Vector2(bx, y - 8), 14, Color(ACCENT, 0.16))
+					_circle(ci, Vector2(bx, y - 8), 14, Color(ACCENT, 0.9), false, 2.0)
 					if row[0] == "≡":
 						# The controller's menu button: three bars (the font has no ≡).
 						if ci != null:
@@ -682,10 +761,10 @@ func _details(ci: CanvasItem) -> void:
 					else:
 						_text(ci, row[0], bx, y, 20, TEXT, 26, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
 				_text(ci, row[1], x + 98.0 if english else x + 334.0, y, Glass.T_SMALL + 1, TEXT, 316, "left" if english else "right", Glass.W_BODY)
-		_text(ci, _pair(help.grip), cx, 790, Glass.T_SMALL, SUB, 880)
-		_text(ci, _say("في القائمة: الزناد للاختيار · قير اليمين لتمرير التحديات", "In menus: the trigger selects · the right stick scrolls challenges"), cx, 826, Glass.T_SMALL, Glass.MUTED, 880)
+		_text(ci, _pair(help.grip), cx, 804, Glass.T_SMALL, SUB, 880)
+		_text(ci, _say("في القائمة: الزناد للاختيار · قير اليمين لتمرير التحديات", "In menus: the trigger selects · the right stick scrolls challenges"), cx, 836, Glass.T_SMALL, Glass.MUTED, 880)
 		if is_ar(kind):
-			_text(ci, _say("الواقع المختلط: وجّه إلى سطح واضغط الزناد لتثبيته", "Mixed reality: aim at a surface and pull a trigger to pin it"), cx, 862, Glass.T_SMALL, Glass.MUTED, 880)
+			_text(ci, _say("الواقع المختلط: وجّه إلى سطح واضغط الزناد لتثبيته", "Mixed reality: aim at a surface and pull a trigger to pin it"), cx, 866, Glass.T_SMALL, Glass.MUTED, 880)
 	if page == "world":
 		if is_vr(kind):
 			_section(ci, _say("وقت اليوم", "Time of day"), 222)
@@ -753,9 +832,43 @@ func _paint_list(ci: CanvasItem) -> void:
 			_icon(ci, "check", Vector2(ix, y + 36), 26, INK, Color(0, 0, 0, 0))
 		else:
 			_icon(ci, "challenges", Vector2(ix, y + 36), 36, Color(TEXT, 0.8), Color(ACCENT, 0.3))
-		_text(ci, _say(str(c.get("title", "")), str(c.get("en", ""))), 70.0 if english else 754.0, y + 44, 25, TEXT, 600, "left" if english else "right", Glass.W_LABEL)
-		_text(ci, "%d / %d" % [value, goal], 804.0 if english else 20.0, y + 44, 22, ACCENT if done else SUB, 110, "right" if english else "left", Glass.W_LABEL, TextServer.DIRECTION_LTR)
+		_text(ci, _say(str(c.get("title", "")), str(c.get("en", ""))), 70.0 if english else 754.0, y + 44, 25, TEXT, TITLE_W, "left" if english else "right", Glass.W_LABEL)
+		_reward_chip(ci, str(c.get("id", "")), done, y)
+		_text(ci, "%d / %d" % [value, goal], 804.0 if english else 20.0, y + 44, 22, ACCENT if done else SUB, 100, "right" if english else "left", Glass.W_LABEL, TextServer.DIRECTION_LTR)
 		_rect(ci, Rect2(24, y + 64, 776, 7), 3.5, Color(1, 1, 1, 0.09))
 		var w := clampf(value / maxf(1.0, goal), 0.0, 1.0) * 776.0
 		if w > 0.5:
 			_rect(ci, Rect2(24.0 if english else 800.0 - w, y + 64, w, 7), 3.5, ACCENT if done else Color(ACCENT, 0.75))
+
+
+## A challenge row's reward (ChallengeRewards): a pill between the title and the count with
+## the reward's icon (a colour's swatch) and name; tinted when won, dimmed with a lock until.
+func _reward_chip(ci: CanvasItem, id: String, done: bool, y: float) -> void:
+	var r := ChallengeRewards.reward_of(id)
+	if r.is_empty():
+		return
+	var english := _english()
+	var x := CHIP_X if english else 824.0 - CHIP_X - CHIP_W
+	var box := Rect2(x, y + 14, CHIP_W, 44)
+	_rect(ci, box, 22, Color(ACCENT, 0.2) if done else Color(1, 1, 1, 0.06))
+	if ci != null and done:
+		Glass.rim(ci, box, 22, 0.16, 0.06, 1.5)
+	var ic := Vector2(x + 24.0 if english else x + CHIP_W - 24.0, y + 36)
+	var line := TEXT if done else Color(TEXT, 0.5)
+	var tint := Color(ACCENT, 0.9) if done else Color(SLATE, 0.5)
+	if str(r.kind) == "color":
+		_circle(ci, ic, 13, Color(str(r.hex)) if done else Color(Color(str(r.hex)).lerp(Color(0.5, 0.5, 0.55), 0.5), 0.6))
+		_circle(ci, ic, 13, Color(1, 1, 1, 0.35), false, 1.5)
+	else:
+		_icon(ci, str(r.icon), ic, 34, line, tint)
+	if not done:
+		var lc := ic + Vector2(11, 10)
+		_circle(ci, lc, 8, Color(0.12, 0.13, 0.17, 0.95))
+		_icon(ci, "lock", lc, 11, Color(TEXT, 0.85), Color(ACCENT, 0.3))
+	var name := _say(str(r.ar), str(r.en))
+	if str(r.kind) == "shot":
+		name = _say("طلقة " + str(r.ar), str(r.en) + " shot")
+	elif str(r.kind) == "color":
+		name = _say("لون " + str(r.ar), str(r.en) + " colour")
+	_text(ci, name, x + 44.0 if english else x + CHIP_W - 44.0, y + 43, Glass.T_SMALL - 2, TEXT if done else Color(TEXT, 0.6), CHIP_W - 54.0,
+		"left" if english else "right", Glass.W_LABEL)

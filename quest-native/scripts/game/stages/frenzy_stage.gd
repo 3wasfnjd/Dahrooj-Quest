@@ -19,7 +19,7 @@ extends Node3D
 ##   busier (more of them, more colours, faster currents) the longer you play. The points go to
 ##   ctx.counts["frenzy"], which the jelly score popup shows.
 ## Game units, like the other stages. The blaster finds them through hidden (layers = 0) sphere
-## MeshInstance3Ds; everything drawn is a MultiMesh or a Label3D (a handful of draws).
+## MeshInstance3Ds; everything drawn is a MultiMesh or a JuiceText (a handful of draws).
 ##
 ## Mixed reality: `planes_provider` returns the room's planes in game units, as for the slime
 ## stage: Array of {pos, normal (into the room), ax, ay (unit axes), half: Vector2, label}.
@@ -93,11 +93,9 @@ var F := {"score": 0, "chain": 0, "chain_col": -1, "chain_t": 0.0, "mult": 1, "f
 	"firework_t": 0.0, "snd_t": 0.0, "buzz_t": 0.0, "best_chain": 0}
 var items: Array = []
 var crowd: Crowd
-var banner: Label3D
-var banner_sub: Label3D
-var combo_label: Label3D
-var _pops: Array = []
-var _pop_i := 0
+var banner: JuiceText
+var banner_sub: JuiceText
+var combo_label: JuiceText
 var _sparks: Array = []
 var _rings: Array = []
 var _rockets: Array = []
@@ -140,39 +138,13 @@ func _init() -> void:
 	_mm.beads = _multi("ChainBeads", Crowd.merge([[Crowd.sphere(1.0, 8, 6), Transform3D.IDENTITY, Color.WHITE]]), _mat("glow"), BEADS * 2 + 2)
 	_mm.halo = _multi("ChainHalo", Crowd.merge([[Crowd.torus(1.0, 0.07, 6, 40), Transform3D.IDENTITY, Color.WHITE]]), _mat("ring"), 2)
 	_mm.flash = _multi("GoldDome", Crowd.merge([[Crowd.sphere(1.0, 16, 10), Transform3D.IDENTITY, Color.WHITE]]), _mat("flash"), 1)
-	for i in 12:
-		var pl := Panel3D.label("", 120, Color("ffe08a"))
-		pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-		pl.pixel_size = 0.0055
-		pl.outline_size = 16
-		pl.outline_modulate = Color("1d2230")
-		pl.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-		pl.visible = false
-		add_child(pl)
-		_pops.append({"l": pl, "t": 9.0, "life": 0.9, "at": Vector3.ZERO, "k": 1.0})
-	banner = Panel3D.label("", 230, GOLD)
-	banner.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	banner.pixel_size = 0.0062
-	banner.outline_size = 30
-	banner.outline_modulate = Color("5a2a00")
-	banner.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	banner.visible = false
+	banner = JuiceText.make("banner", 230 * 0.0062)
+	banner.modulate = GOLD
 	add_child(banner)
-	banner_sub = Panel3D.label("", 96, Color("fff3e0"))
-	banner_sub.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	banner_sub.pixel_size = 0.0058
-	banner_sub.outline_size = 18
-	banner_sub.outline_modulate = Color("5a2a00")
-	banner_sub.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	banner_sub.visible = false
+	banner_sub = JuiceText.make("sub", 96 * 0.0058)
+	banner_sub.modulate = Color("fff3e0")
 	add_child(banner_sub)
-	combo_label = Panel3D.label("", 140, Color.WHITE)
-	combo_label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	combo_label.pixel_size = 0.0058
-	combo_label.outline_size = 22
-	combo_label.outline_modulate = Color("1d1630")
-	combo_label.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	combo_label.visible = false
+	combo_label = JuiceText.make("combo", 140 * 0.0058)
 	add_child(combo_label)
 	draw()
 
@@ -719,15 +691,7 @@ func _ring(at: Vector3, r0: float, r1: float, life: float, col: Color) -> void:
 
 
 func _pop_label(at: Vector3, text: String, col: Color, k := 1.0) -> void:
-	var p: Dictionary = _pops[_pop_i]
-	_pop_i = (_pop_i + 1) % _pops.size()
-	p.t = 0.0
-	p.at = at
-	p.k = k
-	p.life = 0.85 if k <= 1.1 else 1.15
-	(p.l as Label3D).text = text
-	(p.l as Label3D).modulate = col
-
+	JuiceText.spawn(self, text, at, "points", k * size * _near_k(at + Vector3.UP * 0.5 * size), col)
 
 ## A firework: a rocket climbing to `at`, then a burst of gold and colours.
 func _firework(at: Vector3) -> void:
@@ -1064,18 +1028,6 @@ func _near_k(p: Vector3) -> float:
 
 
 func _draw_labels() -> void:
-	for p in _pops:
-		var l: Label3D = p.l
-		l.visible = float(p.t) < float(p.life) and l.text != ""
-		if not l.visible:
-			continue
-		var k: float = float(p.t) / float(p.life)
-		l.position = (p.at as Vector3) + Vector3.UP * (0.15 + k * 0.9) * size
-		l.modulate.a = 1.0 - pow(k, 4.0)
-		l.outline_modulate.a = l.modulate.a
-		var grow := 0.6 + 0.6 * minf(1.0, k * 7.0) - 0.2 * minf(1.0, k * 7.0) * (1.0 - minf(1.0, k * 4.0))
-		grow *= 1.0 - 0.6 * maxf(0.0, (k - 0.7) / 0.3)
-		l.scale = Vector3.ONE * size * float(p.k) * grow * _near_k(l.position)
 	var bt: float = F.banner_t
 	banner.visible = bt > 0.0 and banner.text != ""
 	banner_sub.visible = banner.visible and banner_sub.text != ""
@@ -1089,11 +1041,9 @@ func _draw_labels() -> void:
 		banner.position = banner_at() + Vector3.UP * out * 0.35 * size
 		banner.scale = Vector3.ONE * s
 		banner.modulate.a = 1.0 - out
-		banner.outline_modulate.a = banner.modulate.a
 		banner_sub.position = banner_at() + Vector3(0, -1.0, 0) * size + Vector3.UP * out * 0.35 * size
 		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5) * size
 		banner_sub.modulate.a = 1.0 - out
-		banner_sub.outline_modulate.a = banner_sub.modulate.a
 	var ct: float = F.combo_t
 	combo_label.visible = ct > 0.0
 	if combo_label.visible:
@@ -1101,7 +1051,6 @@ func _draw_labels() -> void:
 		combo_label.position = (F.combo_at as Vector3) + Vector3.UP * (0.9 + a * 0.5) * size
 		combo_label.scale = Vector3.ONE * size * _near_k(combo_label.position) * (0.6 + 0.5 * minf(1.0, a * 6.0)) * (1.0 + 0.08 * sin(a * 30.0) * (1.0 - a))
 		combo_label.modulate.a = clampf(ct / 0.3, 0.0, 1.0)
-		combo_label.outline_modulate.a = combo_label.modulate.a
 
 
 # ---- stage interface ----
@@ -1158,8 +1107,7 @@ func deactivate() -> void:
 	for it in items:
 		it.on = false
 		(it.proxy as MeshInstance3D).visible = false
-	for p in _pops:
-		p.t = 99.0
+	JuiceText.clear(self)
 	_sparks.clear()
 	_rings.clear()
 	_rockets.clear()
@@ -1281,8 +1229,6 @@ func _step_fx(dt: float) -> void:
 		if k >= 1.0:
 			_burst_firework(to)
 			_rockets.remove_at(i)
-	for p in _pops:
-		p.t = float(p.t) + dt
 
 
 ## For tests.

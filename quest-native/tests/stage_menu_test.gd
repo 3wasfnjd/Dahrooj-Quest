@@ -96,7 +96,7 @@ static func run(check: Callable) -> void:
 	_start_screen(check)
 	var p := MenuPanel.new()
 	# Button counts per page (7 tabs + Close on every page).
-	var want := {"modes": 28, "appearance": 21, "accessories": 22, "play": 15, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
+	var want := {"modes": 28, "appearance": 21, "accessories": 24, "play": 23, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
 	for en in [false, true]:
 		var bad: Array = []
 		for k: String in want:
@@ -215,8 +215,12 @@ static func run(check: Callable) -> void:
 	p.draw(_model(true), -1)
 	var cap: Dictionary = p.buttons[_find(p, "acc", "cap")]
 	var glasses: Dictionary = p.buttons[_find(p, "acc", "glasses")]
+	p.acc_page = 1
+	p.draw(_model(true), -1)
 	var aviator: Dictionary = p.buttons[_find(p, "acc", "aviator")]
-	check.call(cap.disabled and cap.sub == "Needs 5 challenges" and not glasses.disabled and aviator.sub == "All five balance rounds", "menu: locked accessories are disabled with their unlock")
+	p.acc_page = 0
+	check.call(cap.disabled and cap.sub == "3 curved goals" and glasses.disabled and glasses.sub == "Clear cans in one throw" and aviator.sub == "All five balance rounds",
+		"menu: locked accessories are disabled with the challenge that opens them")
 	check.call(MenuCatalog.accessory_available("beanie", 0, {"mazeClean": 1}) and MenuCatalog.accessory_available("crown", 0, {"reward:crown": 1}) and not MenuCatalog.accessory_available("crown", 9, {}), "menu: accessory unlock rules")
 	var qc := MenuCatalog.quest_controls("climb", "sling")
 	check.call(qc.left_grip[1] == "Jump" and qc.left_trigger[1] == "—" and qc.right_grip[1] == "Throw a ball"

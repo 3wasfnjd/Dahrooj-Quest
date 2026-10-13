@@ -103,19 +103,11 @@ func _init() -> void:
 		zzz.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS  # a depth prepass keeps the fill solid over other see-through things
 		zzz.visible = false
 		add_child(zzz)
-		var pop := Panel3D.label("+1", 128, Color("ffe08a"))
-		pop.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		pop.pixel_size = 0.004
-		pop.outline_size = 7
-		pop.outline_modulate = Color("2c2d3d")
-		pop.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS  # a depth prepass keeps the fill solid over other see-through things
-		pop.visible = false
-		add_child(pop)
 		moles.append({"on": false, "phase": "", "t": 0.0, "spot": Vector3.ZERO, "n": Vector3.UP, "sink": true,
 			"kind": "plain", "style": "fur", "color": "ff69b4", "acc": "", "up_t": 1.5, "e": 0.0,
 			"sq": Vector2.ONE, "hs": 0.0, "look": 0.0, "look_to": 0.0, "look_t": 0.3, "blink": 0.0,
 			"blink_t": 1.0, "woke": false, "hit_dir": Vector3.ZERO, "c": Vector3.ZERO, "rr": 0.0,
-			"spin": 0.0, "hole": hole, "proxy": proxy, "zzz": zzz, "pop": pop, "pop_t": 0.0, "pop_at": Vector3.ZERO})
+			"spin": 0.0, "hole": hole, "proxy": proxy, "zzz": zzz, "pop_t": 0.0, "pop_at": Vector3.ZERO})
 	_debris_mm = _multi("Debris", Crowd.merge([[Crowd.sphere(1.0, 5, 3), Transform3D.IDENTITY, Color.WHITE]]), _mat("debris"), DEBRIS_MAX)
 	_stars_mm = _multi("Stars", star_mesh(), _mat("star"), STARS_MAX)
 	draw()
@@ -298,8 +290,8 @@ func _score(m: Dictionary) -> void:
 	var at: Vector3 = m.c + (m.n as Vector3) * float(m.rr) * 1.3
 	m.pop_t = 0.85
 	m.pop_at = at
-	(m.pop as Label3D).text = ("+%d" % pts) if pts > 0 else ("%d" % pts)
-	(m.pop as Label3D).modulate = Color("ffc21a") if m.kind == "gold" else (Color("ff4d3d") if pts < 0 else Color("5dff8a"))
+	JuiceText.spawn(self, ("+%d" % pts) if pts > 0 else ("%d" % pts), at + Vector3.UP * 0.15 * size, "points" if pts > 0 else "ouch",
+		size * 128.0 * 0.004 / 0.66 * (1.25 if m.kind == "gold" else 1.0), Color("ffc21a") if m.kind == "gold" else (Color("ff4d3d") if pts < 0 else Color("5dff8a")))
 	F.score = maxi(0, F.score + pts)
 	if ctx:
 		ctx.counts["mole"] = maxi(0, int(ctx.counts.get("mole", 0)) + pts)
@@ -645,14 +637,6 @@ func draw() -> void:
 		var hole: MeshInstance3D = m.hole
 		var proxy: MeshInstance3D = m.proxy
 		var zzz: Label3D = m.zzz
-		var pop: Label3D = m.pop
-		pop.visible = m.pop_t > 0.0
-		if pop.visible:
-			var k: float = 1.0 - m.pop_t / 0.85
-			pop.position = (m.pop_at as Vector3) + Vector3.UP * (0.25 + k * 0.7) * size
-			pop.modulate.a = 1.0 - k * k
-			pop.outline_modulate.a = pop.modulate.a  # the outline fades with the fill
-			pop.scale = Vector3.ONE * size * (0.7 + 0.5 * minf(1.0, k * 6.0))
 		if not m.on:
 			hole.visible = false
 			proxy.visible = false
@@ -764,6 +748,7 @@ func deactivate() -> void:
 	for m in moles:
 		m.on = false
 		m.pop_t = 0.0
+	JuiceText.clear(self)
 	_debris.clear()
 	F.score = 0
 	F.streak = 0

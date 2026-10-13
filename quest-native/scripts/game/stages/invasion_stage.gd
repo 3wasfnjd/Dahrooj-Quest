@@ -18,7 +18,7 @@ extends Node3D
 ##   back instead); the waves keep coming. The points go to ctx.counts["invasion"], which the
 ##   jelly score popup shows; it starts on its own when the mode is shown.
 ## Game units, like the other stages. The blaster finds the invaders and power-ups through
-## hidden (layers = 0) sphere MeshInstance3Ds; every effect is a MultiMesh or a Label3D, so
+## hidden (layers = 0) sphere MeshInstance3Ds; every effect is a MultiMesh or a JuiceText, so
 ## shots pass through them.
 
 const KINDS := {
@@ -103,11 +103,9 @@ var F := {"state": "idle", "wave": 0, "score": 0, "breaches": 0,
 var invaders: Array = []
 var powerups: Array = []
 var crowd: Crowd
-var banner: Label3D
-var banner_sub: Label3D
-var combo_label: Label3D
-var _pops: Array = []
-var _pop_i := 0
+var banner: JuiceText
+var banner_sub: JuiceText
+var combo_label: JuiceText
 var _sparks: Array = []
 var _rings: Array = []
 var _holes: Array = []
@@ -145,16 +143,6 @@ func _init() -> void:
 		add_child(lab)
 		powerups.append({"on": false, "kind": "triple", "p": Vector3.ZERO, "v": Vector3.ZERO, "t": 0.0, "home_y": 2.6,
 			"proxy": _proxy("PowerUpHit%d" % i), "label": lab, "spin": 0.0})
-	for i in 10:
-		var pl := Panel3D.label("", 120, Color("ffe08a"))
-		pl.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-		pl.pixel_size = 0.0055
-		pl.outline_size = 16
-		pl.outline_modulate = Color("1d2230")
-		pl.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-		pl.visible = false
-		add_child(pl)
-		_pops.append({"l": pl, "t": 0.0, "life": 0.9, "at": Vector3.ZERO, "rise": 1.0, "k": 1.0})
 	_mm.sparks = _multi("Sparks", Crowd.merge([[Crowd.sphere(1.0, 6, 4), Transform3D.IDENTITY, Color.WHITE]]), _mat("glow"), SPARKS_MAX)
 	_mm.rings = _multi("Rings", Crowd.merge([[Crowd.torus(1.0, 0.06, 6, 48), Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3.ZERO), Color.WHITE]]), _mat("glow"), RINGS_MAX + MARKS)
 	_mm.dashes = _multi("Line", Crowd.merge([[Crowd.box(1.0, 0.04, 1.0), Transform3D.IDENTITY, Color.WHITE]]), _mat("glow"), DASHES)
@@ -167,29 +155,13 @@ func _init() -> void:
 	for k in PU:
 		_mm["icon_" + k] = _multi("Icon_" + k, icon_mesh(k), _mat("flat"), PU_SLOTS)
 	_mm.flash = _multi("Flash", Crowd.merge([[Crowd.sphere(1.0, 16, 10), Transform3D.IDENTITY, Color.WHITE]]), _mat("flash"), 1)
-	banner = Panel3D.label("", 210, Color("ffd166"))
-	banner.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	banner.pixel_size = 0.0062
-	banner.outline_size = 28
-	banner.outline_modulate = Color("3a1630")
-	banner.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	banner.visible = false
+	banner = JuiceText.make("banner", 210 * 0.0062)
+	banner.modulate = Color("ffd166")
 	add_child(banner)
-	banner_sub = Panel3D.label("", 96, Color("fff3e0"))
-	banner_sub.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	banner_sub.pixel_size = 0.0058
-	banner_sub.outline_size = 18
-	banner_sub.outline_modulate = Color("3a1630")
-	banner_sub.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	banner_sub.visible = false
+	banner_sub = JuiceText.make("sub", 96 * 0.0058)
+	banner_sub.modulate = Color("fff3e0")
 	add_child(banner_sub)
-	combo_label = Panel3D.label("", 150, Color("ff7ad9"))
-	combo_label.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	combo_label.pixel_size = 0.0058
-	combo_label.outline_size = 22
-	combo_label.outline_modulate = Color("2a1240")
-	combo_label.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	combo_label.visible = false
+	combo_label = JuiceText.make("combo", 150 * 0.0058)
 	add_child(combo_label)
 	draw()
 
@@ -656,14 +628,7 @@ func _hole(at: Vector3, n: Vector3) -> void:
 
 
 func _pop_label(at: Vector3, text: String, col: Color, k := 1.0) -> void:
-	var p: Dictionary = _pops[_pop_i]
-	_pop_i = (_pop_i + 1) % _pops.size()
-	p.t = 0.0
-	p.at = at
-	p.k = k
-	p.life = 0.9 if k <= 1.0 else 1.3
-	(p.l as Label3D).text = text
-	(p.l as Label3D).modulate = col
+	JuiceText.spawn(self, text, at, "points", k * size, col)
 
 
 # ---- hits ----
@@ -1362,17 +1327,6 @@ func _draw_fx() -> void:
 
 
 func _draw_labels() -> void:
-	for p in _pops:
-		var l: Label3D = p.l
-		l.visible = p.t < p.life and l.text != ""
-		if not l.visible:
-			continue
-		var k: float = p.t / p.life
-		l.position = (p.at as Vector3) + Vector3.UP * (0.3 + k * 1.1) * size
-		l.modulate.a = 1.0 - k * k
-		l.outline_modulate.a = l.modulate.a
-		var grow := 0.6 + 0.6 * minf(1.0, k * 7.0) - 0.2 * minf(1.0, k * 7.0) * (1.0 - minf(1.0, k * 4.0))
-		l.scale = Vector3.ONE * size * float(p.k) * grow
 	# The wave banner: pops in with an overshoot, holds, then flies up and fades.
 	var bt: float = F.banner_t
 	banner.visible = bt > 0.0 and banner.text != ""
@@ -1387,11 +1341,9 @@ func _draw_labels() -> void:
 		banner.position = banner_at() + Vector3.UP * out * 0.35
 		banner.scale = Vector3.ONE * s
 		banner.modulate.a = 1.0 - out
-		banner.outline_modulate.a = banner.modulate.a
 		banner_sub.position = banner_at() + Vector3(0, -1.05, 0) + Vector3.UP * out * 0.35
 		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5)
 		banner_sub.modulate.a = 1.0 - out
-		banner_sub.outline_modulate.a = banner_sub.modulate.a
 	var ct: float = F.combo_show_t
 	combo_label.visible = ct > 0.0
 	if combo_label.visible:
@@ -1399,7 +1351,6 @@ func _draw_labels() -> void:
 		combo_label.position = (F.combo_at as Vector3) + Vector3.UP * (1.3 + a * 0.6) * size
 		combo_label.scale = Vector3.ONE * size * (0.6 + 0.6 * minf(1.0, a * 6.0)) * (1.0 + 0.08 * sin(a * 30.0) * (1.0 - a))
 		combo_label.modulate.a = clampf(ct / 0.3, 0.0, 1.0)
-		combo_label.outline_modulate.a = combo_label.modulate.a
 
 
 # ---- stage interface ----
@@ -1472,8 +1423,7 @@ func deactivate() -> void:
 		(m.proxy as MeshInstance3D).visible = false
 	for u in powerups:
 		u.on = false
-	for p in _pops:
-		p.t = 99.0
+	JuiceText.clear(self)
 	_sparks.clear()
 	_rings.clear()
 	_holes.clear()
@@ -1551,8 +1501,6 @@ func update(_b: Ball, dt: float) -> void:
 		_holes[i].t += dt
 		if _holes[i].t >= 1.8:
 			_holes.remove_at(i)
-	for p in _pops:
-		p.t += rdt
 	# Drawn about once a frame (update runs three times a frame).
 	_draw_acc += rdt
 	if _draw_acc >= 0.0125:

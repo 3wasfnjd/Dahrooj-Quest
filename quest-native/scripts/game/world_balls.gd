@@ -13,17 +13,39 @@ const RESTS_MAX := 8
 const REST_LIFE := 12.0
 const REST_ROOM := 26.0
 const REAL_G := 9.8
-const SPARKS_MAX := 128
-const SHOTS_MAX := 16
+const SPARKS_MAX := 320
+const SHOTS_MAX := 40
+const ARCS_MAX := 24
+const BEAM_SEGS_MAX := 512
+const PUDDLES_MAX := 6
 ## Angle between the shots of a fan (radians): Dahrooj Attack's triple shot.
 const FAN_STEP := 0.11
+## The flight of each style (ShotCatalog has the list, names and unlocks). Metres and
+## seconds, scaled by blast_k(): speed, grav (times g), life, r (hit radius), cool (the
+## least time between two shots of a hand; holding the trigger fires at that rate), sk (the
+## firing sound's k), and per style: burst (radius), pellets/cone, bounces/pops, range/pierce,
+## reach/swing, splat/puddle, turn/seek, chain/hop, spray. "bean" is the dallah's pellet.
 const SHOT_STYLE := {
-	"bolt": {"speed": 45.0, "grav": 0.0, "life": 1.2, "r": 0.02, "cool": 0.12},
-	"mini": {"speed": 11.0, "grav": 1.0, "life": 3.2, "r": 0.022, "cool": 0.12},
-	"bubble": {"speed": 4.2, "grav": -0.06, "life": 3.6, "r": 0.06, "cool": 0.16},
-	"firework": {"speed": 20.0, "grav": 0.35, "life": 0.85, "r": 0.025, "cool": 0.2, "burst": 0.55},
+	"bolt": {"speed": 45.0, "grav": 0.0, "life": 1.2, "r": 0.02, "cool": 0.12, "sk": 0.18},
+	"mini": {"speed": 11.0, "grav": 1.0, "life": 3.2, "r": 0.022, "cool": 0.12, "sk": 0.18},
+	"bubble": {"speed": 4.2, "grav": -0.06, "life": 3.6, "r": 0.06, "cool": 0.16, "sk": 0.18},
+	"firework": {"speed": 20.0, "grav": 0.35, "life": 0.85, "r": 0.025, "cool": 0.2, "burst": 0.55, "sk": 0.18},
+	"confetti": {"speed": 24.0, "grav": 0.45, "life": 0.9, "r": 0.018, "cool": 0.3, "pellets": 5, "cone": 0.12, "sk": 0.5},
+	"bouncy": {"speed": 15.0, "grav": 1.0, "life": 3.5, "r": 0.03, "cool": 0.22, "bounces": 6, "pops": 3, "sk": 1.35},
+	"laser": {"speed": 0.0, "grav": 0.0, "life": 0.25, "r": 0.015, "cool": 0.32, "range": 30.0, "pierce": 3, "sk": 0.5},
+	"boomerang": {"speed": 10.0, "grav": 0.0, "life": 1.5, "r": 0.06, "cool": 0.55, "reach": 6.0, "swing": 1.6, "sk": 0.5},
+	"glob": {"speed": 12.0, "grav": 1.0, "life": 2.5, "r": 0.045, "cool": 0.35, "splat": 0.4, "puddle": 2.2, "sk": 0.7},
+	"rocket": {"speed": 20.0, "grav": 0.0, "life": 2.6, "r": 0.03, "cool": 0.6, "burst": 0.75, "turn": 6.0, "seek": 16.0, "sk": 1.0},
+	"lightning": {"speed": 0.0, "grav": 0.0, "life": 0.32, "r": 0.02, "cool": 0.45, "range": 22.0, "chain": 4, "hop": 3.0, "cone": 0.32, "sk": 1.0},
+	"dallah": {"speed": 13.0, "grav": 0.55, "life": 1.1, "r": 0.05, "cool": 0.5, "spray": 0.08, "sk": 0.5},
+	"bean": {"speed": 7.0, "grav": 1.0, "life": 0.6, "r": 0.014, "cool": 0.0, "sk": 0.5},
 }
 const FIRE_COLS := ["e2603f", "f2c14e", "6fa8d6", "7bbf8a", "c9a2e6", "fffaf2"]
+const CONFETTI_COLS := ["ff5c8a", "ffd23f", "3ec7ff", "7ee05a", "b98cff", "ff8a3d"]
+const BOUNCY_COLS := ["ff4f9a", "4fd1ff", "b6f03c", "ffb02e", "a77bff"]
+## Arabic coffee beans: lightly roasted, golden to brown, a green cardamom now and then.
+const BEAN_COLS := ["b07a3c", "8a5a2b", "c99a5a", "6f8f3a"]
+const MUZZLE := {"laser": "ff6b8f", "lightning": "cfe8ff", "glob": "b8f58a", "confetti": "fff2c2", "rocket": "ffb347", "dallah": "ffe3a0"}
 ## Mini shots are little eyeless Dahroojs: every style character.js draws, each shot in the next style
 ## and a colour from the player's colour choices (appearance.ts) or the style's own (palette.js).
 const MINI_STYLES := ["jelly", "fur", "bubble", "clay", "fabric"]
@@ -36,8 +58,10 @@ const STYLE_COLORS := {"jelly": "ff69b4", "fabric": "b36bff", "clay": "ff9b3d", 
 var host  # main.gd
 var ball: Ball
 var rests: Array = []  # {age, view, style, p, v, d, dv, wander, blink, next, mood, mood_t, pet_t, wet}
-var shots: Array = []  # {kind, node, p, v, dir, t, r, look, wob, skips, float, tap, wet}
-var sparks: Array = []  # {p, v, t, max, flash, color, size}
+var shots: Array = []  # {kind, node, p, v, dir, t, r, k, style, color, spin, wob, skips, float, tap, wet, ...}
+var sparks: Array = []  # {p, v, t, max, flash, color, size, k, flake}
+var arcs: Array = []  # laser beams and lightning arcs: {a, b, n, jit, w, color, t, max, k, pts, tick}
+var puddles: Array = []  # jelly puddles: {p, n, t, max, r, k, node}
 var popped := 0
 var fired := 0
 var last_shot := {"left": -10.0, "right": -10.0}
@@ -46,6 +70,8 @@ var _next_ambient_pop := 0.0
 var _rng := RandomNumberGenerator.new()
 var _views: Array = []  # spare DahroojViews for the rests
 var _spark_mm: MultiMesh
+var _beam_mm: MultiMesh
+var _hand_sign := 1.0
 var _tri_cache := {}  # Mesh -> TriangleMesh
 var _shot_mats := {}
 ## Mini and bubble shots: one crowd (a few MultiMesh draws for every shot in flight).
@@ -68,7 +94,8 @@ func _init(main, b: Ball) -> void:
 	sm.radial_segments = 8
 	sm.rings = 6
 	_spark_mm.mesh = sm
-	_spark_mm.instance_count = SPARKS_MAX
+	# The sparks, then the round shots (confetti pellets, bouncy balls, coffee beans).
+	_spark_mm.instance_count = SPARKS_MAX + SHOTS_MAX
 	_spark_mm.visible_instance_count = 0
 	mmi.multimesh = _spark_mm
 	var m := StandardMaterial3D.new()
@@ -80,6 +107,28 @@ func _init(main, b: Ball) -> void:
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mmi.custom_aabb = AABB(Vector3(-500, -500, -500), Vector3(1000, 1000, 1000))
 	add_child(mmi)
+	# Laser beams and lightning arcs: glowing stretched boxes.
+	var bmi := MultiMeshInstance3D.new()
+	bmi.name = "Beams"
+	_beam_mm = MultiMesh.new()
+	_beam_mm.transform_format = MultiMesh.TRANSFORM_3D
+	_beam_mm.use_colors = true
+	var bx := BoxMesh.new()
+	bx.size = Vector3.ONE
+	_beam_mm.mesh = bx
+	_beam_mm.instance_count = BEAM_SEGS_MAX
+	_beam_mm.visible_instance_count = 0
+	bmi.multimesh = _beam_mm
+	var bm := StandardMaterial3D.new()
+	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bm.vertex_color_use_as_albedo = true
+	# Plain alpha, not added light: the colours must read on a bright day and in passthrough.
+	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	bmi.material_override = bm
+	bmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	bmi.custom_aabb = AABB(Vector3(-500, -500, -500), Vector3(1000, 1000, 1000))
+	add_child(bmi)
 	shot_crowd = Crowd.new(SHOTS_MAX)
 	shot_crowd.name = "ShotCrowd"
 	for id in shot_crowd.parts:
@@ -398,15 +447,19 @@ func blast_k() -> float:
 	return k
 
 
+## The saved shot style while it is unlocked (ShotCatalog), else the bolt.
 func style_for() -> String:
-	return Save.shot_style if Save.shot_style != "" else "bolt"
+	var id: String = Save.shot_style
+	if id == "" or not SHOT_STYLE.has(id) or not ShotCatalog.has(id):
+		return "bolt"
+	return id if ShotCatalog.open_now(id, Save.challenges) else "bolt"
 
 
 ## origin, dir: the hand's ray in game units.
 func fire(hand: String, origin: Vector3, dir: Vector3) -> void:
 	var kind := style_for()
 	var P: Dictionary = SHOT_STYLE[kind]
-	if clock - float(last_shot[hand]) < P.cool:
+	if clock - float(last_shot.get(hand, -10.0)) < P.cool:
 		return
 	last_shot[hand] = clock
 	fired += 1
@@ -414,6 +467,7 @@ func fire(hand: String, origin: Vector3, dir: Vector3) -> void:
 	var hk: float = host.scale_now
 	var k := blast_k()
 	var p := origin + dir * 0.08 * hk
+	_hand_sign = -1.0 if hand == "left" else 1.0
 	# A power-up of the mode (Dahrooj Attack's triple shot) fans the shot out.
 	var fan := 1
 	var st: Node3D = host.stage
@@ -421,98 +475,249 @@ func fire(hand: String, origin: Vector3, dir: Vector3) -> void:
 		fan = clampi(int(st.shot_fan()), 1, 5)
 	for j in fan:
 		var d := dir.rotated(Vector3.UP, (j - (fan - 1) / 2.0) * FAN_STEP) if fan > 1 else dir
-		_add_shot(kind, P, p, d, k, j)
+		match kind:
+			"laser":
+				_laser(p, d, k, P)
+			"lightning":
+				_lightning(p, d, k, P)
+			"confetti":
+				# The cannon: one pellet down the middle, the others in a ring around it.
+				var phase := rnd() * TAU
+				for c in int(P.pellets):
+					var cd := d if c == 0 else cone_dir(d, float(P.cone) * (0.65 + 0.35 * rnd()), phase + (c - 1) * TAU / (int(P.pellets) - 1))
+					_add_shot(kind, P, p, cd, k, j * 8 + c, hand)
+			_:
+				_add_shot(kind, P, p, d, k, j, hand)
 	# Muzzle flash (not for a bubble), at the hand.
 	if kind != "bubble":
-		_spark(p, Vector3.ZERO, 0.07, Color("ffe9b0"), 0.05 * hk, true)
-	host.sfx("pew" if kind == "bolt" else ("firework_launch" if kind == "firework" else "whoosh"), 0.18, p)
-	host.buzz(hand, 0.12 if kind == "bubble" else 0.3, 22)
+		_spark(p, Vector3.ZERO, 0.07, Color(String(MUZZLE.get(kind, "ffe9b0"))), (0.07 if kind == "bolt" else 0.05) * hk, true)
+	var info := ShotCatalog.info(kind)
+	host.sfx(String(info.get("sound", "pew")), float(P.sk), p)
+	if kind == "confetti":
+		host.sfx("start_pop", 0.5, p)
+	host.buzz(hand, 0.12 if kind == "bubble" else (0.45 if kind in ["rocket", "lightning", "laser"] else 0.3), 22)
 
 
-## One shot in flight (j: its place in a fan).
-func _add_shot(kind: String, P: Dictionary, p: Vector3, dir: Vector3, k: float, j: int) -> void:
-	# Reuse the bounded flight budget instead of stalling a held trigger.
+## A direction `ang` radians off `d`, turned `az` around it.
+static func cone_dir(d: Vector3, ang: float, az: float) -> Vector3:
+	var u := d.cross(Vector3.UP) if absf(d.y) < 0.99 else d.cross(Vector3.RIGHT)
+	u = u.normalized()
+	var w := d.cross(u).normalized()
+	return (d * cos(ang) + (u * cos(az) + w * sin(az)) * sin(ang)).normalized()
+
+
+## One shot in flight (j: its place in a fan or a cannon's spray).
+func _add_shot(kind: String, P: Dictionary, p: Vector3, dir: Vector3, k: float, j: int, hand := "") -> Dictionary:
+	# Reuse the bounded flight budget instead of stalling a held trigger (a dallah's
+	# beans only take free places).
 	if shots.size() >= SHOTS_MAX:
+		if kind == "bean":
+			return {}
 		var oldest: Dictionary = shots.pop_front()
 		if oldest.node:
 			oldest.node.queue_free()
 	var node: Node3D = null
 	var style := ""
 	var color := Color.WHITE
-	if kind == "mini":
-		style = MINI_STYLES[(fired + j) % MINI_STYLES.size()]
-		var hex: String = MINI_COLORS[_rng.randi() % MINI_COLORS.size()]
-		color = Color(hex if hex != "" else String(STYLE_COLORS[style]))
-	elif kind == "bubble":
-		style = "bubble"
-		color = Color(BUBBLE_TINTS[_rng.randi() % BUBBLE_TINTS.size()])
-	else:
-		node = _shot_node(kind, k)
-		node.position = p
-		if kind == "bolt" and dir.length_squared() > 0.0:
-			node.basis = Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.999 else Vector3.RIGHT)
-		add_child(node)
-	shots.append({"kind": kind, "node": node, "p": p, "v": dir * P.speed * k, "dir": dir, "t": 0.0, "r": P.r * k,
+	match kind:
+		"mini":
+			style = MINI_STYLES[(fired + j) % MINI_STYLES.size()]
+			var hex: String = MINI_COLORS[_rng.randi() % MINI_COLORS.size()]
+			color = Color(hex if hex != "" else String(STYLE_COLORS[style]))
+		"bubble":
+			style = "bubble"
+			color = Color(BUBBLE_TINTS[_rng.randi() % BUBBLE_TINTS.size()])
+		"confetti":
+			color = Color(CONFETTI_COLS[(fired + j) % CONFETTI_COLS.size()])
+		"bouncy":
+			color = Color(BOUNCY_COLS[_rng.randi() % BOUNCY_COLS.size()])
+		"bean":
+			color = Color(BEAN_COLS[_rng.randi() % BEAN_COLS.size()])
+		_:
+			node = _shot_node(kind, k)
+			node.position = p
+			if dir.length_squared() > 0.0 and kind in ["bolt", "rocket"]:
+				node.basis = Basis.looking_at(dir, Vector3.UP if absf(dir.y) < 0.999 else Vector3.RIGHT)
+			add_child(node)
+	var side := dir.cross(Vector3.UP)
+	side = side.normalized() if side.length_squared() > 1e-6 else Vector3.RIGHT
+	var speed: float = P.speed * k
+	if kind == "rocket":
+		speed *= 0.15  # it starts slow and speeds up
+	var s := {"kind": kind, "node": node, "p": p, "v": dir * speed, "dir": dir, "t": 0.0, "r": P.r * k,
 		"k": k, "style": style, "color": color, "spin": rnd() * TAU,
-		"wob": rnd() * 6.0, "skips": 0, "float": -1.0, "tap": 0.0, "wet": false})
+		"wob": rnd() * 6.0, "skips": 0, "float": -1.0, "tap": 0.0, "wet": false,
+		"o": p, "side": side * _hand_sign, "hand": hand, "ret": false, "caught": false, "hits": {}, "pops": 0, "bounces": 0,
+		"target": {}, "seek_t": 0.0, "size": 1.0, "axis": Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized(),
+		"hue": rnd(), "spray_t": 0.0, "n": Vector3.UP}
+	if kind == "mini":
+		# Every little Dahrooj his own size and tumble.
+		s.size = 0.8 + rnd() * 0.5
+		s.wob = 6.0 + rnd() * 8.0
+	shots.append(s)
+	return s
+
+
+const MATS := {
+	"trail": ["ffe9a8", 0.95, "add"], "head": ["ffffff", 1.0, "flat"], "bolt_glow": ["ffb547", 0.55, "add"],
+	"rocket": ["ffb347", 1.0, "flat"], "fw_glow": ["ff9a3c", 0.5, "add"], "flame": ["ffcf6a", 0.85, "add"],
+	"rk_body": ["e8473c", 1.0, "lit"], "rk_nose": ["f4efe6", 1.0, "lit"], "rk_fin": ["3a6fd8", 1.0, "lit"],
+	"wood": ["d18e4c", 1.0, "lit"], "paint": ["2fb7a4", 1.0, "lit"],
+	"glob": ["7ee05a", 0.8, "alpha"], "glob_core": ["d4ff9e", 0.55, "add"], "puddle": ["6fd14a", 0.72, "alpha"],
+	"brass": ["dcaa48", 1.0, "metal"], "brass_dark": ["9c6b22", 1.0, "metal"], "dallah_glow": ["ffd98a", 0.3, "add"],
+}
 
 
 func _mat(key: String) -> Material:
 	if _shot_mats.has(key):
 		return _shot_mats[key]
+	var spec: Array = MATS.get(key, ["ffffff", 1.0, "flat"])
 	var m := StandardMaterial3D.new()
-	match key:
-		"trail":
+	m.albedo_color = Color(Color(String(spec[0])), float(spec[1]))
+	match String(spec[2]):
+		"flat":
 			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			m.albedo_color = Color(Color("ffd27a"), 0.95)
+		"add":
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		"head":
-			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			m.albedo_color = Color("fff4d6")
-		"rocket":
-			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			m.albedo_color = Color("ffb347")
+			m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		"alpha":
+			m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			m.roughness = 0.15
+			m.rim_enabled = true
+			m.rim = 0.6
+		"metal":
+			m.metallic = 0.75
+			m.roughness = 0.3
+		_:
+			m.roughness = 0.55
 	_shot_mats[key] = m
 	return m
 
 
-## A bolt or a firework rocket (mini and bubble shots are drawn by shot_crowd).
+static func _mesh_mi(mesh: Mesh, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+static func _sphere(r: float, segs := 10) -> SphereMesh:
+	var s := SphereMesh.new()
+	s.radius = r
+	s.height = r * 2.0
+	s.radial_segments = segs
+	s.rings = maxi(4, int(segs * 0.8))
+	return s
+
+
+static func _cyl(top: float, bottom: float, h: float, segs := 8) -> CylinderMesh:
+	var c := CylinderMesh.new()
+	c.top_radius = top
+	c.bottom_radius = bottom
+	c.height = h
+	c.radial_segments = segs
+	c.rings = 1
+	return c
+
+
+## A shot drawn as its own little model (mini and bubble shots are drawn by shot_crowd,
+## pellets, bouncy balls and beans with the sparks). Looks along -z.
 func _shot_node(kind: String, k: float) -> Node3D:
 	var root := Node3D.new()
-	var sphere := func(r: float, mat: Material) -> MeshInstance3D:
-		var mi := MeshInstance3D.new()
-		var s := SphereMesh.new()
-		s.radius = r
-		s.height = r * 2.0
-		s.radial_segments = 10
-		s.rings = 8
-		mi.mesh = s
-		mi.material_override = mat
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		return mi
 	match kind:
 		"bolt":
-			var tr := MeshInstance3D.new()
-			var c := CylinderMesh.new()
-			c.top_radius = 0.006 * k
-			c.bottom_radius = 0.006 * k
-			c.height = 0.35 * k
-			c.radial_segments = 6
-			c.cap_top = false
-			c.cap_bottom = false
-			tr.mesh = c
-			tr.material_override = _mat("trail")
-			tr.rotation.x = PI / 2
-			tr.position.z = 0.175 * k  # behind the head (the head looks along -z)
-			tr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			root.add_child(tr)
-			root.add_child(sphere.call(0.012 * k, _mat("head")))
+			# A hot white core in an amber glow, a long tapering trail behind.
+			for t: Array in [[0.016, 0.52, "bolt_glow"], [0.006, 0.42, "trail"]]:
+				var tr := _mesh_mi(_cyl(0.0015 * k, float(t[0]) * k, float(t[1]) * k, 8), _mat(String(t[2])))
+				tr.rotation.x = PI / 2  # +y (the thin end) behind the head (the head looks along -z)
+				tr.position.z = float(t[1]) * 0.5 * k
+				root.add_child(tr)
+			root.add_child(_mesh_mi(_sphere(0.03 * k), _mat("bolt_glow")))
+			root.add_child(_mesh_mi(_sphere(0.013 * k), _mat("head")))
 		"firework":
-			root.add_child(sphere.call(0.012 * 1.4 * k, _mat("rocket")))
+			root.add_child(_mesh_mi(_sphere(0.017 * k), _mat("rocket")))
+			root.add_child(_mesh_mi(_sphere(0.04 * k), _mat("fw_glow")))
+		"rocket":
+			var body := _mesh_mi(_cyl(0.018 * k, 0.018 * k, 0.11 * k, 10), _mat("rk_body"))
+			body.rotation.x = -PI / 2  # +y (the nose end) forward, -z
+			root.add_child(body)
+			var nose := _mesh_mi(_cyl(0.0, 0.018 * k, 0.045 * k, 10), _mat("rk_nose"))
+			nose.rotation.x = -PI / 2
+			nose.position.z = -0.0775 * k
+			root.add_child(nose)
+			for i in 3:
+				var fin := _mesh_mi(BoxMesh.new(), _mat("rk_fin"))
+				(fin.mesh as BoxMesh).size = Vector3(0.004, 0.03, 0.035) * k
+				var a := i * TAU / 3.0
+				fin.position = Vector3(cos(a) * 0.024 * k, sin(a) * 0.024 * k, 0.045 * k)
+				fin.rotation.z = a - PI / 2
+				root.add_child(fin)
+			var flame := _mesh_mi(_sphere(0.022 * k, 8), _mat("flame"))
+			flame.name = "Flame"
+			flame.position.z = 0.07 * k
+			root.add_child(flame)
+		"boomerang":
+			# Two wooden arms in a V, painted tips, flat in its spin plane.
+			var spin := Node3D.new()
+			spin.name = "Spin"
+			spin.scale = Vector3.ONE * 1.4
+			root.add_child(spin)
+			for side in [-1.0, 1.0]:
+				var arm := _mesh_mi(BoxMesh.new(), _mat("wood"))
+				(arm.mesh as BoxMesh).size = Vector3(0.13, 0.012, 0.034) * k
+				arm.rotation.y = side * 0.55
+				arm.position = Vector3(side * 0.052 * k, 0.0, 0.03 * k)
+				spin.add_child(arm)
+				var tip := _mesh_mi(BoxMesh.new(), _mat("paint"))
+				(tip.mesh as BoxMesh).size = Vector3(0.03, 0.014, 0.036) * k
+				tip.rotation.y = side * 0.55
+				tip.position = Vector3(side * 0.103 * k, 0.0, 0.058 * k)
+				spin.add_child(tip)
+		"glob":
+			var blob := _mesh_mi(_sphere(0.045 * k, 14), _mat("glob"))
+			blob.name = "Blob"
+			root.add_child(blob)
+			var core := _mesh_mi(_sphere(0.026 * k, 10), _mat("glob_core"))
+			core.position = Vector3(-0.012, 0.014, 0.0) * k
+			root.add_child(core)
+		"dallah":
+			# The Arabic coffee pot: a round-bellied brass body, a waisted neck, a domed lid
+			# with its finial, the long beaked spout and the handle at the back.
+			var pot := Node3D.new()
+			pot.name = "Spin"
+			pot.scale = Vector3.ONE * 1.3
+			root.add_child(pot)
+			pot.add_child(_mesh_mi(_cyl(0.02 * k, 0.034 * k, 0.045 * k, 14), _mat("brass")))
+			var base := _mesh_mi(_cyl(0.034 * k, 0.03 * k, 0.008 * k, 14), _mat("brass_dark"))
+			base.position.y = -0.026 * k
+			pot.add_child(base)
+			var neck := _mesh_mi(_cyl(0.023 * k, 0.016 * k, 0.03 * k, 12), _mat("brass"))
+			neck.position.y = 0.037 * k
+			pot.add_child(neck)
+			var lid := _mesh_mi(_cyl(0.004 * k, 0.024 * k, 0.018 * k, 12), _mat("brass_dark"))
+			lid.position.y = 0.061 * k
+			pot.add_child(lid)
+			var fin := _mesh_mi(_sphere(0.007 * k, 8), _mat("brass"))
+			fin.position.y = 0.074 * k
+			pot.add_child(fin)
+			var spout := _mesh_mi(_cyl(0.004 * k, 0.008 * k, 0.07 * k, 8), _mat("brass"))
+			spout.position = Vector3(0.0, 0.03 * k, -0.04 * k)
+			spout.rotation.x = -0.75
+			pot.add_child(spout)
+			var handle := _mesh_mi(TorusMesh.new(), _mat("brass_dark"))
+			(handle.mesh as TorusMesh).inner_radius = 0.016 * k
+			(handle.mesh as TorusMesh).outer_radius = 0.021 * k
+			handle.rotation.z = PI / 2
+			handle.position = Vector3(0.0, 0.012 * k, 0.03 * k)
+			pot.add_child(handle)
+			pot.add_child(_mesh_mi(_sphere(0.07 * k, 10), _mat("dallah_glow")))
 	return root
 
 
-## The mini and bubble shots in flight: tumbling little Dahroojs (no eyes) and wobbling bubbles.
+## The shots drawn by the crowd: tumbling little Dahroojs (no eyes), each his own size and
+## tumble, and iridescent soap bubbles that wobble as they drift.
 func _draw_shots() -> void:
 	var n := 0
 	for s in shots:
@@ -527,37 +732,73 @@ func _draw_shots() -> void:
 		var p: Vector3 = s.p
 		var spin: float = s.spin
 		if s.kind == "mini":
-			var toward := p + Vector3(sin(spin), 0.4 * cos(spin * 0.7), cos(spin))
-			shot_crowd.add(s.style, p, s.r, toward, Vector2.ONE, "", "", s.color)
+			var tumble := Basis(s.axis as Vector3, spin) * Vector3.FORWARD
+			var sq := sin(float(s.t) * float(s.wob)) * 0.08
+			shot_crowd.add(s.style, p, s.r * float(s.size), p + tumble, Vector2(1.0 + sq, 1.0 - sq), "", "", s.color)
 		else:
-			var w := sin(float(s.wob) * 2.3) * 0.07
-			shot_crowd.add("bubble", p, s.r, p + Vector3(sin(spin), 0.0, cos(spin)), Vector2(1.0 + w, 1.0 - w), "", "", s.color)
+			var wob: float = s.wob
+			var w := sin(wob * 2.3) * 0.08 + sin(wob * 3.7 + 1.3) * 0.04
+			# The film's colours slide around as it turns.
+			var base: Color = s.color
+			var film := Color.from_hsv(fposmod(float(s.hue) + float(s.t) * 0.35 + sin(wob) * 0.08, 1.0), 0.3, 1.0)
+			shot_crowd.add("bubble", p, s.r, p + Vector3(sin(spin), 0.0, cos(spin)), Vector2(1.0 + w, 1.0 - w), "", "", base.lerp(film, 0.6))
 	shot_crowd.end()
 	_crowd_drawn = n
 
 
-func _spark(p: Vector3, v: Vector3, life: float, color: Color, size: float, flash := false) -> void:
+func _spark(p: Vector3, v: Vector3, life: float, color: Color, size: float, flash := false, flake := false) -> void:
 	if sparks.size() >= SPARKS_MAX:
 		return
-	sparks.append({"p": p, "v": v, "t": 0.0, "max": life, "flash": flash, "color": color, "size": size, "k": blast_k()})
+	sparks.append({"p": p, "v": v, "t": 0.0, "max": life, "flash": flash, "color": color, "size": size, "k": blast_k(),
+		"flake": flake, "axis": Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() if flake else Vector3.UP, "rot": rnd() * TAU})
 
 
-## A little spray of sparks where a shot lands.
+## A little spray of sparks where a shot lands, with a quick flash.
 func impact(p: Vector3, n: Vector3, color := Color("ffd27a")) -> void:
 	var k := blast_k()
+	_spark(p, Vector3.ZERO, 0.08, Color("fffaf2"), 0.05 * k, true)
 	for i in 8:
 		var d := Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized()
 		d = (d + n * 1.2).normalized() * ((1.0 + rnd() * 1.5) * k)
 		_spark(p, d, 0.25 + rnd() * 0.2, color if i % 2 else Color("fffaf2"), (0.008 + rnd() * 0.008) * k)
 
 
-## A firework's bloom: coloured sparks every way.
+## A firework's bloom: a flash, a round shell of sparks in two colours and white glitter.
 func bloom(p: Vector3) -> void:
 	var k := blast_k()
-	for i in 26:
-		var d := Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() * ((1.6 + rnd() * 1.6) * k)
-		_spark(p, d, 0.5 + rnd() * 0.35, Color(FIRE_COLS[i % FIRE_COLS.size()]), (0.01 + rnd() * 0.01) * k)
+	var c1 := Color(FIRE_COLS[_rng.randi() % (FIRE_COLS.size() - 1)])
+	var c2 := Color(FIRE_COLS[_rng.randi() % FIRE_COLS.size()])
+	_spark(p, Vector3.ZERO, 0.1, Color("fffaf2"), 0.07 * k, true)
+	for i in 36:
+		var d := Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() * ((2.2 + rnd() * 0.5) * k)
+		_spark(p, d, 0.65 + rnd() * 0.3, c1 if i % 2 else c2, (0.011 + rnd() * 0.006) * k)
+	for _i in 12:
+		var d := Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() * ((0.6 + rnd() * 1.2) * k)
+		_spark(p, d, 0.8 + rnd() * 0.4, Color("fffaf2"), 0.007 * k)
 	host.sfx("firework_burst", 1.0, p)
+
+
+## A rocket's blast: a flash, fire and smoke.
+func explosion(p: Vector3) -> void:
+	var k := blast_k()
+	_spark(p, Vector3.ZERO, 0.12, Color("fff4d6"), 0.09 * k, true)
+	for i in 26:
+		var d := Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() * ((1.0 + rnd() * 2.4) * k)
+		_spark(p, d, 0.35 + rnd() * 0.35, Color("ff7a2e") if i % 3 else Color("ffd34d"), (0.016 + rnd() * 0.014) * k)
+	for _i in 10:
+		var d := Vector3(rnd() - 0.5, rnd() * 0.8, rnd() - 0.5) * 1.2 * k
+		_spark(p, d, 0.7 + rnd() * 0.4, Color("8a8580"), (0.03 + rnd() * 0.02) * k, true)
+	host.sfx("boom", 1.0, p)
+
+
+## The jelly glob's splat: green drops every way.
+func splat(p: Vector3, n: Vector3) -> void:
+	var k := blast_k()
+	for i in 16:
+		var d := (Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() + n).normalized() * ((1.0 + rnd() * 2.0) * k)
+		_spark(p, d, 0.4 + rnd() * 0.3, Color("7ee05a") if i % 3 else Color("d4ff9e"), (0.012 + rnd() * 0.014) * k)
+	host.sfx("splash", 0.75, p)
+	host.sfx("squeak", 0.7, p)
 
 
 func sky_pop(p: Vector3) -> void:
@@ -586,19 +827,637 @@ func burst(p: Vector3, style: String, by_player := true) -> void:
 		host.runtime.ch_add("pop20")
 
 
+## Challenge credit for the blaster (GameRuntime): n targets hit by a `kind` shot.
+func _credit(kind: String, n: int) -> void:
+	var rt = host.get("runtime")
+	if n > 0 and rt != null and rt.has_method("shot_hits"):
+		rt.shot_hits(kind, n)
+
+
+## A challenge's progress set to `value` (GameRuntime.ch_progress keeps the best).
+func _ch(id: String, value: int) -> void:
+	var rt = host.get("runtime")
+	if rt != null and rt.has_method("ch_progress"):
+		rt.ch_progress(id, value)
+
+
+# --- what the homing and chaining shots go for -----------------------------------------
+
+## Everything a rocket or a lightning arc can go for: [{kind, ref, p}] — leftovers ("r"),
+## earlier throws ("v"), the throw in flight ("b") and the stage's hidden hit spheres ("s":
+## the layers = 0 MeshInstance3Ds the blaster's ray finds).
+func targets() -> Array:
+	var out: Array = []
+	for r in rests:
+		out.append({"kind": "r", "ref": r, "p": r.p})
+	for v in ball.volley:
+		out.append({"kind": "v", "ref": v, "p": v.pos})
+	if ball.shot and not ball.held:
+		out.append({"kind": "b", "ref": null, "p": ball.pos})
+	var st: Node3D = host.stage
+	if st and st.is_visible_in_tree() and st.has_method("shoot"):
+		for mi in st.find_children("*", "MeshInstance3D", true, false):
+			var m := mi as MeshInstance3D
+			if m.layers == 0 and m.mesh != null and m.is_visible_in_tree():
+				out.append({"kind": "s", "ref": m, "p": _proxy_center(m)})
+	return out
+
+
+func _proxy_center(m: MeshInstance3D) -> Vector3:
+	return global_transform.affine_inverse() * m.global_transform * m.mesh.get_aabb().get_center()
+
+
+static func _index_of(list: Array, ref) -> int:
+	for i in list.size():
+		if is_same(list[i], ref):
+			return i
+	return -1
+
+
+## Where a target is now, or null once it is gone.
+func target_at(t: Dictionary) -> Variant:
+	if t.is_empty():
+		return null
+	match String(t.kind):
+		"r":
+			var i := _index_of(rests, t.ref)
+			return rests[i].p if i >= 0 else null
+		"v":
+			var i := _index_of(ball.volley, t.ref)
+			return ball.volley[i].pos if i >= 0 else null
+		"b":
+			return ball.pos if ball.shot and not ball.held else null
+		"s":
+			var m = t.ref
+			if is_instance_valid(m) and (m as MeshInstance3D).is_visible_in_tree():
+				return _proxy_center(m)
+	return null
+
+
+## Hits a target: a Dahrooj pops, a stage target takes the shot. True when it counted.
+func hit_target(t: Dictionary, dir: Vector3) -> bool:
+	match String(t.kind):
+		"r":
+			var i := _index_of(rests, t.ref)
+			if i < 0:
+				return false
+			burst(rests[i].p, rests[i].style)
+			_drop_rest(i)
+			return true
+		"v":
+			var i := _index_of(ball.volley, t.ref)
+			if i < 0:
+				return false
+			burst(ball.volley[i].pos, Save.style)
+			ball.volley.remove_at(i)
+			return true
+		"b":
+			if not (ball.shot and not ball.held):
+				return false
+			burst(ball.pos, Save.style)
+			host.ball_popped()
+			return true
+		"s":
+			var m = t.ref
+			var st: Node3D = host.stage
+			if not is_instance_valid(m) or st == null or not st.has_method("shoot"):
+				return false
+			var at := _proxy_center(m)
+			var took: bool = st.shoot(m, at, dir if dir.length_squared() > 0.0 else Vector3.FORWARD)
+			impact(at, -dir, Color("ffd27a") if took else Color("fffaf2"))
+			return took
+	return false
+
+
+## Pops what is within RR of c (Dahroojs, earlier throws, the opening's rain and the
+## stage's targets). Returns how many.
+func pop_radius(c: Vector3, RR: float) -> int:
+	var n := 0
+	var BR := Ball.BR
+	var hk: float = host.scale_now
+	var intro = host.get("intro")
+	if intro and intro.active:
+		intro.pop_near(to_global(c), RR / hk)
+	for j in range(rests.size() - 1, -1, -1):
+		if (rests[j].p as Vector3).distance_to(c) < RR + BR:
+			burst(rests[j].p, rests[j].style)
+			_drop_rest(j)
+			n += 1
+	for j in range(ball.volley.size() - 1, -1, -1):
+		if (ball.volley[j].pos as Vector3).distance_to(c) < RR + BR:
+			burst(ball.volley[j].pos, Save.style)
+			ball.volley.remove_at(j)
+			n += 1
+	for t in targets():
+		if t.kind == "s" and (t.p as Vector3).distance_to(c) < RR + _proxy_radius(t.ref):
+			var d: Vector3 = (t.p as Vector3) - c
+			if hit_target(t, d.normalized() if d.length_squared() > 1e-8 else Vector3.FORWARD):
+				n += 1
+	return n
+
+
+func _proxy_radius(m: MeshInstance3D) -> float:
+	var xf := global_transform.affine_inverse() * m.global_transform
+	return m.mesh.get_aabb().size.length() * 0.35 * xf.basis.get_scale().x
+
+
+## The nearest target ahead of a rocket (within `far`, in front of it), or {}.
+func _seek(p: Vector3, fwd: Vector3, far: float) -> Dictionary:
+	var best := {}
+	var best_score := INF
+	for t in targets():
+		var to: Vector3 = (t.p as Vector3) - p
+		var d := to.length()
+		if d < 1e-4 or d > far:
+			continue
+		var facing := fwd.dot(to / d)
+		if facing < 0.3:
+			continue
+		var score := d * (1.6 - facing)
+		if score < best_score:
+			best_score = score
+			best = t
+	return best
+
+
+func _floor_y() -> float:
+	var intro = host.get("intro")
+	if intro and intro.active:
+		return to_local(host.rig.global_position).y
+	return 0.0
+
+
+# --- the instant shots: laser and lightning ---------------------------------------------
+
+## How far a beam from p along dir goes before the floor or a wall of the room.
+func _beam_reach(p: Vector3, dir: Vector3, far: float, R: float) -> float:
+	var end := far
+	var fy := _floor_y()
+	if dir.y < -1e-4 and p.y > fy:
+		end = minf(end, (fy - p.y) / dir.y)
+	if host.has_method("room_hit") and host.room_active():
+		var step := 0.5 * blast_k()
+		var d := 0.0
+		while d < end:
+			var nd := minf(end, d + step)
+			var rh: Dictionary = host.room_hit(p + dir * nd, dir * 40.0 * blast_k(), p + dir * d, R)
+			if float(rh.hit) > 0.0:
+				return maxf(0.0, ((rh.p as Vector3) - p).dot(dir))
+			d = nd
+	return end
+
+
+## The laser: an instant beam that pops (or hits) up to `pierce` targets along the way,
+## stopping at a wall; a glowing line that fades.
+func _laser(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
+	var R: float = P.r * k
+	var BR := Ball.BR
+	var end := _beam_reach(p, dir, P.range * k, R)
+	var cur := 0.0
+	var hits := 0
+	var seen: Array = []
+	var st: Node3D = host.stage
+	var blocked := false
+	var col := Color("ff3b6b")
+	while hits < int(P.pierce):
+		# The nearest Dahrooj along the beam...
+		var best := {}
+		var best_d := end
+		for t in targets():
+			if t.kind == "s":
+				continue
+			var along := ((t.p as Vector3) - p).dot(dir)
+			if along < cur or along > best_d:
+				continue
+			if (p + dir * along).distance_to(t.p) < BR + R:
+				best_d = along
+				best = t
+		# ... or the first thing of the stage before it.
+		var sh := {}
+		if st and st.is_visible_in_tree() and best_d > cur:
+			sh = ray_stage(st, p + dir * cur, dir, best_d - cur, seen)
+		if not sh.is_empty():
+			var d := ((sh.point as Vector3) - p).dot(dir)
+			seen.append(sh.node)
+			var took: bool = st.has_method("shoot") and st.shoot(sh.node, sh.point, dir)
+			impact(sh.point, sh.normal, col if took else Color("fffaf2"))
+			if took:
+				hits += 1
+				cur = d
+				continue
+			end = d
+			blocked = true
+			host.sfx("thump", 0.25, sh.point)
+			break
+		if best.is_empty():
+			break
+		hit_target(best, dir)
+		hits += 1
+		cur = best_d
+	_credit("laser", hits)
+	if hits >= int(P.pierce):
+		end = cur  # the beam stops in the last one
+	elif not blocked and end < P.range * k - 1e-3:
+		impact(p + dir * end, -dir, col)
+	var intro = host.get("intro")
+	if intro and intro.active:
+		intro.pop_along(to_global(p), to_global(p + dir * end), R / float(host.scale_now))
+	_arc(p, p + dir * maxf(end, 0.05 * k), 1, 0.0, 0.022 * k, col, P.life)
+
+
+## Lightning: an arc to the target nearest the aim, then on to the nearest one within a
+## hop of it, up to `chain` targets, along jagged flickering arcs.
+func _lightning(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
+	var col := Color("5aa8ff")
+	var all := targets()
+	var first := {}
+	var best := INF
+	var far: float = P.range * k
+	for t in all:
+		var to: Vector3 = (t.p as Vector3) - p
+		var d := to.length()
+		if d < 1e-4 or d > far:
+			continue
+		var ang := dir.angle_to(to)
+		if ang > float(P.cone):
+			continue
+		var score := ang * 4.0 + d / far
+		if score < best:
+			best = score
+			first = t
+	if first.is_empty():
+		# Nothing to go for: a crackle straight ahead, to whatever is there.
+		var end := _beam_reach(p, dir, far * 0.5, P.r * k)
+		var st: Node3D = host.stage
+		if st and st.is_visible_in_tree():
+			var sh := ray_stage(st, p, dir, end)
+			if not sh.is_empty():
+				end = ((sh.point as Vector3) - p).dot(dir)
+				var took: bool = st.has_method("shoot") and st.shoot(sh.node, sh.point, dir)
+				impact(sh.point, sh.normal, col if took else Color("cfe8ff"))
+		_arc(p, p + dir * end, maxi(4, int(end / (0.35 * k))), 0.1, 0.02 * k, col, P.life)
+		return
+	var from := p
+	var cur := first
+	var chain := 0
+	var zapped := 0
+	var done: Array = []
+	while not cur.is_empty():
+		var at: Vector3 = cur.p
+		_arc(from, at, clampi(int(from.distance_to(at) / (0.3 * k)), 4, 12), 0.12, 0.016 * k, col, P.life)
+		done.append(cur.ref)
+		var d := (at - from).normalized() if at.distance_to(from) > 1e-5 else dir
+		if hit_target(cur, d):
+			zapped += 1
+		_spark(at, Vector3.ZERO, 0.1, Color("e8f4ff"), 0.04 * k, true)
+		chain += 1
+		if chain > 1:
+			host.sfx("bricks_tink", 1.0, at)
+		if chain >= int(P.chain):
+			break
+		from = at
+		var nxt := {}
+		var nd: float = P.hop * k
+		for t in all:
+			if done.any(func(x): return is_same(x, t.ref)):
+				continue
+			if t.kind == "s" and not (t.ref as MeshInstance3D).is_visible_in_tree():
+				continue
+			if t.kind != "s" and target_at(t) == null:
+				continue
+			var dd := (t.p as Vector3).distance_to(from)
+			if dd < nd:
+				nd = dd
+				nxt = t
+		cur = nxt
+	_ch("chain4", zapped)
+	var intro = host.get("intro")
+	if intro and intro.active:
+		intro.pop_along(to_global(p), to_global(p + dir * far * 0.5), P.r * k / float(host.scale_now))
+
+
+func _arc(a: Vector3, b: Vector3, n: int, jit: float, w: float, color: Color, life: float) -> void:
+	if arcs.size() >= ARCS_MAX:
+		arcs.pop_front()
+	arcs.append({"a": a, "b": b, "n": maxi(1, n), "jit": jit, "w": w, "color": color, "t": 0.0, "max": life,
+		"k": blast_k(), "pts": PackedVector3Array(), "tick": -1})
+
+
+func _arc_points(arc: Dictionary) -> PackedVector3Array:
+	var a: Vector3 = arc.a
+	var b: Vector3 = arc.b
+	var n: int = arc.n
+	var pts := PackedVector3Array()
+	var d := b - a
+	var L := d.length()
+	var u := d.cross(Vector3.UP)
+	if u.length_squared() < 1e-8:
+		u = d.cross(Vector3.RIGHT)
+	u = u.normalized()
+	var w := d.cross(u).normalized()
+	for i in n + 1:
+		var f := i / float(n)
+		var q := a + d * f
+		if i > 0 and i < n and float(arc.jit) > 0.0:
+			var amp: float = float(arc.jit) * L / sqrt(float(n)) * sin(PI * f)
+			q += (u * (rnd() - 0.5) + w * (rnd() - 0.5)) * 2.0 * amp
+		pts.append(q)
+	return pts
+
+
+func _draw_arcs(dt: float, k: float) -> void:
+	var n := 0
+	for i in range(arcs.size() - 1, -1, -1):
+		var arc: Dictionary = arcs[i]
+		arc.t += dt
+		if arc.t >= arc.max:
+			arcs.remove_at(i)
+	for arc in arcs:
+		if absf(float(arc.k) - k) > 1e-6:
+			arc.w *= k / float(arc.k)
+			arc.k = k
+		# Lightning flickers: a new jag 30 times a second.
+		var tick := int(float(arc.t) * 30.0)
+		if tick != int(arc.tick) or (arc.pts as PackedVector3Array).is_empty():
+			arc.tick = tick
+			arc.pts = _arc_points(arc)
+		var f: float = 1.0 - float(arc.t) / float(arc.max)
+		var pts: PackedVector3Array = arc.pts
+		for j in pts.size() - 1:
+			for layer in 2:
+				if n >= BEAM_SEGS_MAX:
+					break
+				var w: float = float(arc.w) * (1.0 if layer == 0 else 0.28) * (0.4 + 0.6 * f)
+				# A coloured glow round a pale core of the same hue.
+				var c: Color = arc.color if layer == 0 else (arc.color as Color).lerp(Color.WHITE, 0.55)
+				_beam_mm.set_instance_transform(n, _seg_xf(pts[j], pts[j + 1], w))
+				_beam_mm.set_instance_color(n, Color(c, (0.6 if layer == 0 else 1.0) * f))
+				n += 1
+	_beam_mm.visible_instance_count = n
+
+
+static func _seg_xf(a: Vector3, b: Vector3, w: float) -> Transform3D:
+	var d := b - a
+	var L := d.length()
+	if L < 1e-6:
+		return Transform3D(Basis.from_scale(Vector3.ONE * w), a)
+	var bz := Basis.looking_at(d / L, Vector3.UP if absf(d.y / L) < 0.999 else Vector3.RIGHT)
+	return Transform3D(Basis(bz.x * w, bz.y * w, bz.z * L), (a + b) * 0.5)
+
+
+# --- jelly puddles ---------------------------------------------------------------------
+
+func _add_puddle(p: Vector3, n: Vector3, k: float) -> void:
+	if puddles.size() >= PUDDLES_MAX:
+		var old: Dictionary = puddles.pop_front()
+		old.node.queue_free()
+	var node := _mesh_mi(_cyl(1.0, 1.0, 1.0, 20), _mat("puddle"))
+	add_child(node)
+	var r: float = SHOT_STYLE.glob.splat * k * 0.85
+	puddles.append({"p": p + n * 0.004 * k, "n": n, "t": 0.0, "max": float(SHOT_STYLE.glob.puddle), "r": r, "k": k, "node": node})
+
+
+## The puddles pop the Dahroojs that roll into them, then dry up.
+func _step_puddles(dt: float) -> void:
+	var BR := Ball.BR
+	for i in range(puddles.size() - 1, -1, -1):
+		var pd: Dictionary = puddles[i]
+		pd.t += dt
+		if pd.t >= pd.max:
+			pd.node.queue_free()
+			puddles.remove_at(i)
+			continue
+		var p: Vector3 = pd.p
+		var n: Vector3 = pd.n
+		var r: float = pd.r
+		var touch := func(q: Vector3) -> bool:
+			var off := q - p
+			var h := off.dot(n)
+			return absf(h) < BR * 1.4 and (off - n * h).length() < r + BR * 0.5
+		for j in range(rests.size() - 1, -1, -1):
+			if touch.call(rests[j].p):
+				burst(rests[j].p, rests[j].style)
+				_drop_rest(j)
+		for j in range(ball.volley.size() - 1, -1, -1):
+			if touch.call(ball.volley[j].pos):
+				burst(ball.volley[j].pos, Save.style)
+				ball.volley.remove_at(j)
+		var grow := minf(1.0, float(pd.t) / 0.15) * minf(1.0, (float(pd.max) - float(pd.t)) / 0.5)
+		var wob := 1.0 + sin(float(pd.t) * 9.0) * 0.04
+		var y := n
+		var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
+		var z := x.cross(y)
+		(pd.node as Node3D).transform = Transform3D(Basis(x * r * grow * wob, y * 0.006 * float(pd.k), z * r * grow / wob), p)
+		if rnd() < 0.08:
+			_spark(p + x * (rnd() - 0.5) * r + z * (rnd() - 0.5) * r, n * 0.4 * float(pd.k), 0.3, Color("d4ff9e"), 0.008 * float(pd.k))
+
+
+# --- the shots in flight -----------------------------------------------------------------
+
+## How a shot moves this step (before it meets anything).
+func _move(s: Dictionary, P: Dictionary, dt: float, k: float) -> void:
+	var G := REAL_G * k
+	match String(s.kind):
+		"rocket":
+			s.seek_t -= dt
+			var tp = target_at(s.target)
+			if tp == null and s.seek_t <= 0.0:
+				s.seek_t = 0.1
+				var fwd0: Vector3 = (s.v as Vector3).normalized() if (s.v as Vector3).length_squared() > 1e-10 else s.dir
+				s.target = _seek(s.p, fwd0, P.seek * k)
+				tp = target_at(s.target)
+			var fwd: Vector3 = (s.v as Vector3).normalized() if (s.v as Vector3).length_squared() > 1e-10 else s.dir
+			# It locks on after a moment and turns toward its target.
+			if tp != null and s.t > 0.1:
+				var want: Vector3 = ((tp as Vector3) - (s.p as Vector3)).normalized()
+				var ang := fwd.angle_to(want)
+				if ang > 1e-4:
+					fwd = fwd.slerp(want, minf(1.0, float(P.turn) * dt / ang)).normalized()
+			var sp: float = lerpf(0.15, 1.0, smoothstep(0.0, 0.5, float(s.t))) * P.speed * k
+			s.v = fwd * sp
+			s.p += s.v * dt
+		"boomerang":
+			var T: float = P.life
+			if not s.ret:
+				var u := clampf(float(s.t) / T, 0.0, 1.0)
+				var back: Vector3 = _hand_at(s) - (s.o as Vector3)
+				var want: Vector3 = (s.o as Vector3) + (s.dir as Vector3) * (P.reach * k * sin(PI * u)) \
+					+ (s.side as Vector3) * (P.swing * k * sin(TAU * u)) + Vector3.UP * (0.25 * k * sin(PI * u)) + back * u
+				s.v = (want - (s.p as Vector3)) / dt if dt > 0.0 else Vector3.ZERO
+				s.p = want
+				if u >= 1.0:
+					s.caught = true
+			else:
+				# Knocked back: straight home to the hand.
+				var to: Vector3 = _hand_at(s) - (s.p as Vector3)
+				if to.length() < float(s.r) * 3.0 or s.t > T + 2.0:
+					s.caught = true
+				s.v = to.normalized() * P.speed * k
+				s.p += s.v * minf(dt, to.length() / maxf(1e-6, P.speed * k))
+		_:
+			s.v.y -= G * P.grav * dt
+			if s.kind == "bubble":
+				s.wob += dt * 3.0
+				s.v.x += sin(s.wob) * 0.25 * k * dt
+				s.v.z += cos(s.wob * 0.8) * 0.25 * k * dt
+			s.p += s.v * dt
+
+
+## Where a boomerang comes back to: the hand that threw it, else where it left.
+func _hand_at(s: Dictionary) -> Vector3:
+	var rig = host.get("rig")
+	var gr = host.get("game_root")
+	if s.hand != "" and rig and gr and rig.has_method("aim_transform") and host.get("xr") == true:
+		var a: Transform3D = rig.aim_transform(s.hand)
+		return (gr as Node3D).global_transform.affine_inverse() * a.origin
+	return s.o
+
+
+## The trail a shot leaves.
+func _trail(s: Dictionary, k: float, dt: float) -> void:
+	var p: Vector3 = s.p
+	var v: Vector3 = s.v
+	match String(s.kind):
+		"bolt":
+			if rnd() < 0.5:
+				_spark(p, -v * 0.02 + Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5) * 0.2 * k, 0.16, Color("ffe9a8"), 0.006 * k, true)
+		"firework":
+			# Gold glitter and orange embers.
+			for i in 2:
+				var c := Color("ffd76a") if i == 0 else Color("ff8a3c")
+				_spark(p, -v * 0.06 + Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5) * 0.4 * k, 0.3 + rnd() * 0.2,
+					c if rnd() < 0.85 else Color("fffaf2"), (0.005 + rnd() * 0.004) * k)
+		"confetti":
+			if rnd() < 0.7:
+				_spark(p, -v * 0.03 + Vector3(rnd() - 0.5, rnd() * 0.3, rnd() - 0.5) * 0.4 * k, 0.6 + rnd() * 0.3,
+					Color(CONFETTI_COLS[_rng.randi() % CONFETTI_COLS.size()]), (0.01 + rnd() * 0.006) * k, false, true)
+		"rocket":
+			_spark(p - v.normalized() * 0.07 * k, -v * 0.05, 0.12, Color("ffcf6a"), 0.02 * k, true)
+			if rnd() < 0.7:
+				_spark(p - v.normalized() * 0.08 * k, Vector3(rnd() - 0.5, rnd() * 0.5, rnd() - 0.5) * 0.25 * k, 0.6 + rnd() * 0.3,
+					Color("bdb8b0"), (0.012 + rnd() * 0.01) * k, true)
+		"glob":
+			if rnd() < 0.25:
+				_spark(p, v * 0.2, 0.4, Color("7ee05a"), 0.008 * k)
+		"boomerang":
+			if rnd() < 0.35:
+				_spark(p, Vector3.ZERO, 0.22, Color(1, 1, 1, 0.6), 0.008 * k, true)
+		"dallah":
+			# It sprays coffee beans as it spins, with a wisp of steam.
+			s.spray_t -= dt
+			if s.spray_t <= 0.0:
+				s.spray_t = SHOT_STYLE.dallah.spray
+				var d := cone_dir(((s.side as Vector3).rotated(Vector3.UP, float(s.spin)) * 0.6 + v.normalized()).normalized(), 0.5, rnd() * TAU)
+				var b := _add_shot("bean", SHOT_STYLE.bean, p, d, k, 0)
+				if not b.is_empty():
+					b.v += v * 0.5
+			if rnd() < 0.3:
+				_spark(p + Vector3.UP * 0.06 * k, Vector3(0, 0.4, 0) * k, 0.5, Color(1, 1, 1, 0.5), 0.012 * k, true)
+
+
+## A shot popped `n` Dahroojs along its way: does it stop?
+func _on_pop(s: Dictionary, P: Dictionary, n: int) -> bool:
+	match String(s.kind):
+		"mini":
+			s.v *= 0.6
+			return false
+		"bouncy":
+			s.pops += n
+			s.v *= 0.85
+			_ch("bouncy3", int(s.pops))
+			return s.pops >= int(P.pops)
+		"boomerang":
+			s.pops += n
+			return false
+		"dallah":
+			return false
+	return true
+
+
+## A shot meets something solid (took: a stage target took it): does it stop?
+func _on_solid(s: Dictionary, P: Dictionary, point: Vector3, n: Vector3, took: bool) -> bool:
+	var R: float = s.r
+	match String(s.kind):
+		"mini":
+			if took:
+				return true
+			s.p = point + n * R
+			var vn: float = (s.v as Vector3).dot(n)
+			if vn < 0.0:
+				s.v -= n * 1.5 * vn
+			return false
+		"bouncy":
+			s.p = point + n * R
+			var vn: float = (s.v as Vector3).dot(n)
+			if vn < 0.0:
+				s.v -= n * 1.8 * vn
+			s.bounces += 1
+			if took:
+				s.pops += 1
+				_ch("bouncy3", int(s.pops))
+			host.sfx("bricks_tink", clampf((s.v as Vector3).length() / (15.0 * float(s.k)), 0.0, 1.0), s.p)
+			return s.bounces > int(P.bounces) or s.pops >= int(P.pops)
+		"boomerang":
+			if not took:
+				s.ret = true
+				s.p = point + n * R
+			return false
+	s.p = point
+	s.n = n
+	return true
+
+
+## Ends a shot: a firework blooms, a rocket blows up, a glob splats, a dallah spills.
+func _finish(s: Dictionary, P: Dictionary, k: float) -> void:
+	if s.wet:
+		return
+	match String(s.kind):
+		"firework":
+			_credit("firework", pop_radius(s.p, P.burst * k))
+			bloom(s.p)
+		"rocket":
+			_credit("rocket", pop_radius(s.p, P.burst * k))
+			explosion(s.p)
+		"glob":
+			var n: Vector3 = s.n
+			pop_radius(s.p, P.splat * k)
+			splat(s.p, n)
+			_add_puddle(s.p, n, k)
+		"dallah":
+			for i in 6:
+				var d := cone_dir(Vector3.UP, 1.1, i * TAU / 6.0)
+				_add_shot("bean", SHOT_STYLE.bean, s.p, d, k, i)
+			impact(s.p, Vector3.UP, Color("dcaa48"))
+			host.sfx("fair_ding", 0.5, s.p)
+		"boomerang":
+			if s.caught:
+				host.sfx("thump", 0.25, s.p)
+				host.buzz(String(s.hand), 0.35, 30)
+				# Back in the hand after hitting something: toward boomerang3.
+				var rt = host.get("runtime")
+				if (int(s.pops) > 0 or not (s.hits as Dictionary).is_empty()) and rt != null and rt.has_method("ch_add"):
+					rt.ch_add("boomerang3")
+
+
 func step_blast(dt: float) -> void:
 	clock += dt
-	if shots.is_empty() and sparks.is_empty():
+	var k := blast_k()
+	_step_puddles(dt)
+	if shots.is_empty() and sparks.is_empty() and arcs.is_empty():
 		_spark_mm.visible_instance_count = 0
+		_beam_mm.visible_instance_count = 0
 		_draw_shots()
 		return
-	var k := blast_k()
 	var hk: float = host.scale_now
 	var G := REAL_G * k
 	var BR := Ball.BR
 	var park = host.park
 	var stage: Node3D = host.stage
-	for i in range(shots.size() - 1, -1, -1):
+	var i := shots.size() - 1
+	while i >= 0:
+		if i >= shots.size():
+			i = shots.size() - 1
+			continue
 		var s: Dictionary = shots[i]
 		var P: Dictionary = SHOT_STYLE[s.kind]
 		# The court was zoomed since the last step: the shot keeps its size and speed on the court.
@@ -611,52 +1470,50 @@ func step_blast(dt: float) -> void:
 				(s.node as Node3D).scale *= ratio
 		var R: float = s.r
 		s.t += dt
-		s.spin += dt * (9.0 if s.kind == "mini" else 1.2)
+		s.spin += dt * (9.0 if s.kind == "mini" else (14.0 if s.kind in ["boomerang", "dallah"] else 1.2))
 		var a: Vector3 = s.p
-		s.v.y -= G * P.grav * dt
-		if s.kind == "bubble":
-			s.wob += dt * 3.0
-			s.v.x += sin(s.wob) * 0.25 * k * dt
-			s.v.z += cos(s.wob * 0.8) * 0.25 * k * dt
-		s.p += s.v * dt
+		_move(s, P, dt, k)
 		var seg: Vector3 = s.p - a
 		var len := seg.length()
 		var dir_n := seg / len if len > 0.0 else seg
 		var near_seg := func(p: Vector3, rr: float) -> bool:
 			var t := clampf((p - a).dot(seg) / (len * len if len > 0.0 else 1.0), 0.0, 1.0)
 			return (a + seg * t).distance_to(p) < rr + R
-		var done := false
-		var was_popped := false
+		var done: bool = s.caught
+		var popped_n := 0
 		# Dahroojs it reaches pop.
 		for j in range(rests.size() - 1, -1, -1):
 			if near_seg.call(rests[j].p, BR):
 				burst(rests[j].p, rests[j].style)
 				_drop_rest(j)
-				was_popped = true
+				popped_n += 1
 		for j in range(ball.volley.size() - 1, -1, -1):
 			if near_seg.call(ball.volley[j].pos, BR):
 				burst(ball.volley[j].pos, Save.style)
 				ball.volley.remove_at(j)
-				was_popped = true
+				popped_n += 1
 		var intro = host.get("intro")
 		if intro and intro.active and intro.pop_along(to_global(a), to_global(s.p), R / hk):
-			was_popped = true
+			popped_n += 1
 		if ball.shot and not ball.held and near_seg.call(ball.pos, BR):
 			burst(ball.pos, Save.style)
 			host.ball_popped()
-			was_popped = true
-		# A mini Dahrooj carries on, slowed; anything else stops (a firework bursts).
-		if was_popped:
-			if s.kind == "mini":
-				s.v *= 0.6
-			else:
+			popped_n += 1
+		# A rocket goes off right by its target.
+		if s.kind == "rocket" and not done:
+			var tp = target_at(s.target)
+			if tp != null and (tp as Vector3).distance_to(s.p) < R + BR * 0.8:
 				done = true
-		# The pond: a bolt plunges in, a mini skips off the surface while fast and low,
-		# else sinks; a bubble settles on the water and pops; a firework fizzles.
-		if not done and host.nature_on() and s.p.y < R * 1.05 and a.y >= R * 0.5 and park.depth(s.p.x, s.p.z) > 0.0:
+		if popped_n > 0:
+			_credit(String(s.kind), popped_n)
+		if popped_n > 0 and not done:
+			done = _on_pop(s, P, popped_n)
+		# The pond: a bolt plunges in, a mini or bouncy ball skips off the surface while fast
+		# and low, else sinks; a bubble settles on the water and pops; a firework fizzles.
+		if not done and s.kind != "boomerang" and host.nature_on() and s.p.y < R * 1.05 and a.y >= R * 0.5 and park.depth(s.p.x, s.p.z) > 0.0:
 			var hs := Vector2(s.v.x, s.v.z).length()
 			var vs: float = -s.v.y
-			if s.kind == "mini" and hs > 2.2 * k and vs < hs * 0.7 and s.skips < 4:
+			if (s.kind == "mini" or s.kind == "bouncy") and hs > 2.2 * k and vs < hs * 0.7 and s.skips < 4:
 				s.skips += 1
 				s.p.y = R
 				s.v.y = maxf(0.6 * k, vs * 0.55)
@@ -669,8 +1526,9 @@ func step_blast(dt: float) -> void:
 				s.v = Vector3.ZERO
 				s.float = maxf(0.0, s.float)
 			else:
-				_park_splash(s.p, 0.6 if s.kind == "firework" else (0.35 if s.kind == "mini" else 0.25))
-				host.sfx("splash", 0.5 if s.kind == "firework" else 0.25, s.p)
+				var big: bool = s.kind in ["firework", "rocket", "glob", "dallah"]
+				_park_splash(s.p, 0.6 if big else (0.35 if s.kind == "mini" else 0.25))
+				host.sfx("splash", 0.5 if big else 0.25, s.p)
 				if s.kind == "firework":
 					impact(s.p, Vector3.UP, Color("fffaf2"))
 				done = true
@@ -686,104 +1544,152 @@ func step_blast(dt: float) -> void:
 				done = true
 		# The mode itself: the first visible thing along the way.
 		if not done and stage and stage.is_visible_in_tree() and len > 0.0:
-			var hit := ray_stage(stage, a, dir_n, len + R)
+			# A boomerang going through a target hits it once on the way out and once back.
+			var skip: Array = []
+			for node in (s.hits as Dictionary).keys():
+				if is_instance_valid(node) and float(s.t) - float(s.hits[node]) < 0.3:
+					skip.append(node)
+			var hit := ray_stage(stage, a, dir_n, len + R, skip)
 			if not hit.is_empty():
 				var n: Vector3 = hit.normal
 				var took: bool = stage.has_method("shoot") and stage.shoot(hit.node, hit.point, dir_n)
 				impact(hit.point, n, Color("ffd27a") if took else Color("fffaf2"))
-				if not took:
+				if took:
+					s.hits[hit.node] = s.t
+					_credit(String(s.kind), 1)
+				elif s.kind != "bouncy":
 					host.sfx("thump", 0.25, hit.point)
-				if s.kind == "mini" and not took:
-					s.p = hit.point + n * R
-					var vn: float = s.v.dot(n)
-					if vn < 0.0:
-						s.v -= n * 1.5 * vn
-				else:
-					done = true
+				done = _on_solid(s, P, hit.point, n, took)
 		# The world's props (crates go off), the walls of your room, and the floor.
 		if not done and host.nature_on() and park.has_method("collide"):
 			var res: Dictionary = park.collide(s.p, s.v, R)
 			if res.hit:
-				s.p = res.p
-				if s.kind == "mini":
+				if s.kind == "mini" or s.kind == "bouncy":
+					s.p = res.p
 					s.v = res.v
+					if s.kind == "bouncy":
+						s.bounces += 1
+						host.sfx("bricks_tink", 0.75, s.p)
+						done = s.bounces > int(P.bounces)
+				elif s.kind == "boomerang":
+					s.ret = true
 				else:
-					impact(s.p, -dir_n)
-					done = true
+					impact(res.p, -dir_n)
+					done = _on_solid(s, P, res.p, -dir_n, false)
 		# Mixed reality: the real walls and furniture (main.gd room_hit, game units; xr-runtime.js).
 		if not done and host.has_method("room_hit") and host.room_active():
 			var rh: Dictionary = host.room_hit(s.p, s.v, a, R)
 			if float(rh.hit) > 0.0:
-				if s.kind == "mini":
+				if s.kind == "mini" or s.kind == "bouncy":
 					s.p = rh.p
-					s.v = rh.v
+					s.v = rh.v * (1.25 if s.kind == "bouncy" else 1.0)
 					if float(rh.hit) > 1.5 * hk and s.t - s.tap > 0.15:
 						s.tap = s.t
-						host.sfx("thump", 0.15, s.p)
+						host.sfx("bricks_tink" if s.kind == "bouncy" else "thump", 0.15 if s.kind == "mini" else 0.75, s.p)
+						if s.kind == "bouncy":
+							s.bounces += 1
+							done = s.bounces > int(P.bounces)
+				elif s.kind == "boomerang":
+					s.ret = true
 				else:
 					impact(s.p, -dir_n)
-					done = true
+					var wn: Vector3 = ((rh.p as Vector3) - s.p).normalized() if (rh.p as Vector3).distance_to(s.p) > 1e-6 else -dir_n
+					done = _on_solid(s, P, rh.p, wn, false)
 		# The floor: the room's floor during the opening and the rain, the court's ground otherwise.
-		var floor_y := 0.0
-		var intro3 = host.get("intro")
-		if intro3 and intro3.active:
-			floor_y = to_local(host.rig.global_position).y
+		var floor_y := _floor_y()
 		if not done and s.p.y < floor_y + R:
-			if s.kind == "mini":
-				s.p.y = floor_y + R
-				if s.v.y < -0.8 * k:
-					s.v.y *= -0.45
-				else:
-					s.v.y = 0.0
-				var f := pow(0.55, dt)
-				s.v.x *= f
-				s.v.z *= f
-			else:
-				s.p.y = floor_y
-				impact(s.p, Vector3.UP)
-				done = true
-		if s.kind == "firework" and not s.wet and (done or s.t > P.life):
-			# The burst pops every Dahrooj near it.
-			var RR: float = P.burst * k
-			var intro2 = host.get("intro")
-			if intro2 and intro2.active:
-				intro2.pop_near(to_global(s.p), RR / hk)
-			for j in range(rests.size() - 1, -1, -1):
-				if (rests[j].p as Vector3).distance_to(s.p) < RR + BR:
-					burst(rests[j].p, rests[j].style)
-					_drop_rest(j)
-			bloom(s.p)
-			done = true
-		if s.kind == "firework" and not done and rnd() < 0.6:
-			_spark(s.p, Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5) * 0.3 * k, 0.25, Color("ffc070"), 0.006 * k)
+			match String(s.kind):
+				"mini", "bouncy":
+					s.p.y = floor_y + R
+					if s.v.y < -0.8 * k:
+						s.v.y *= -0.45 if s.kind == "mini" else -0.8
+						if s.kind == "bouncy":
+							s.bounces += 1
+							host.sfx("bricks_tink", clampf(-s.v.y / (8.0 * k), 0.0, 1.0), s.p)
+					else:
+						s.v.y = 0.0
+					var f := pow(0.55 if s.kind == "mini" else 0.8, dt)
+					s.v.x *= f
+					s.v.z *= f
+				"boomerang":
+					s.p.y = floor_y + R
+					s.ret = true
+				_:
+					s.p.y = floor_y
+					s.n = Vector3.UP
+					impact(s.p, Vector3.UP)
+					done = true
+		if not done:
+			_trail(s, k, dt)
 		if s.node:
-			s.node.position = s.p
-		if done or (s.t > P.life and s.float < 0.0):
-			if s.node:
-				s.node.queue_free()
+			var nd: Node3D = s.node
+			nd.position = s.p
+			match String(s.kind):
+				"rocket":
+					var v: Vector3 = s.v
+					if v.length_squared() > 1e-10:
+						nd.basis = Basis.looking_at(v.normalized(), Vector3.UP if absf(v.normalized().y) < 0.999 else Vector3.RIGHT).scaled(nd.basis.get_scale())
+					var fl := nd.get_node_or_null("Flame") as Node3D
+					if fl:
+						fl.scale = Vector3.ONE * (0.8 + rnd() * 0.5)
+				"boomerang", "dallah":
+					var sp := nd.get_node_or_null("Spin") as Node3D
+					if sp:
+						sp.rotation = Vector3(0.35, float(s.spin), 0.0) if s.kind == "boomerang" else Vector3(float(s.spin) * 0.6, 0.4, float(s.spin) * 0.25)
+				"glob":
+					var bl := nd.get_node_or_null("Blob") as Node3D
+					if bl:
+						var w := sin(float(s.t) * 18.0) * 0.12
+						bl.scale = Vector3(1.0 + w, 1.0 - w, 1.0 + w * 0.5)
+		var life: float = P.life + (2.0 if s.ret else 0.0)
+		var expired: bool = s.t > life and s.float < 0.0
+		if done or expired:
+			if s.kind in ["firework", "rocket", "glob", "dallah"] or s.caught:
+				_finish(s, P, k)
 			if s.kind == "bubble" and not done:
 				host.sfx("start_pop", 1.0, s.p)
-			shots.remove_at(i)
+			if s.node:
+				s.node.queue_free()
+			var at := _index_of(shots, s)
+			if at >= 0:
+				shots.remove_at(at)
+		i -= 1
 	_draw_shots()
 	var n := 0
-	for i in range(sparks.size() - 1, -1, -1):
-		var s: Dictionary = sparks[i]
+	for j in range(sparks.size() - 1, -1, -1):
+		var s: Dictionary = sparks[j]
 		if absf(float(s.k) - k) > 1e-6:
 			var ratio: float = k / float(s.k)
 			s.v *= ratio
 			s.size *= ratio
 			s.k = k
 		s.t += dt
-		if not s.flash:
+		if s.flake:
+			# Confetti flutters down slowly.
+			s.v.y -= G * 0.25 * dt
+			s.v *= pow(0.25, dt)
+		elif not s.flash:
 			s.v.y -= G * 0.5 * dt
 		s.p += s.v * dt
 		if s.t >= s.max:
-			sparks.remove_at(i)
+			sparks.remove_at(j)
 	for s in sparks:
-		_spark_mm.set_instance_transform(n, Transform3D(Basis().scaled(Vector3.ONE * s.size), s.p))
-		_spark_mm.set_instance_color(n, Color(s.color, 1.0 - s.t / s.max))
+		var b := Basis().scaled(Vector3.ONE * s.size)
+		if s.flake:
+			b = Basis(s.axis as Vector3, float(s.rot) + float(s.t) * 9.0) * Basis.from_scale(Vector3(s.size, s.size * 0.18, s.size * 0.7))
+		_spark_mm.set_instance_transform(n, Transform3D(b, s.p))
+		_spark_mm.set_instance_color(n, Color(s.color, (s.color as Color).a * (1.0 - s.t / s.max)))
+		n += 1
+	# The round shots, drawn with the sparks: a highlight on each.
+	for s in shots:
+		if s.node != null or s.style != "" or n >= SPARKS_MAX + SHOTS_MAX:
+			continue
+		var c: Color = s.color
+		_spark_mm.set_instance_transform(n, Transform3D(Basis().scaled(Vector3.ONE * float(s.r)), s.p))
+		_spark_mm.set_instance_color(n, c)
 		n += 1
 	_spark_mm.visible_instance_count = n
+	_draw_arcs(dt, k)
 
 
 func _park_splash(p: Vector3, k: float) -> void:
@@ -797,19 +1703,25 @@ func clear_blast() -> void:
 			s.node.queue_free()
 	shots.clear()
 	sparks.clear()
+	arcs.clear()
+	for pd in puddles:
+		pd.node.queue_free()
+	puddles.clear()
 	_spark_mm.visible_instance_count = 0
+	_beam_mm.visible_instance_count = 0
 	_draw_shots()
 
 
 ## The first solid stage mesh along a ray (game units): {node, point, normal} or {}.
-## The stages' guide lines on the ground and the nets don't stop a shot.
-func ray_stage(stage: Node3D, from: Vector3, dir: Vector3, far: float) -> Dictionary:
+## The stages' guide lines on the ground and the nets don't stop a shot; nor do the
+## meshes in `exclude` (a beam already went through them).
+func ray_stage(stage: Node3D, from: Vector3, dir: Vector3, far: float, exclude: Array = []) -> Dictionary:
 	var best := {}
 	var best_d := far
 	var to_root: Transform3D = global_transform.affine_inverse()
 	for mi in stage.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
-		if m.mesh == null or not m.is_visible_in_tree():
+		if m.mesh == null or not m.is_visible_in_tree() or exclude.has(m):
 			continue
 		var mat := m.material_override
 		if mat == StageArt.line_mat() or mat == StageArt.net_mat() or m.mesh is ImmediateMesh:
@@ -818,7 +1730,6 @@ func ray_stage(stage: Node3D, from: Vector3, dir: Vector3, far: float) -> Dictio
 		var xf: Transform3D = to_root * m.global_transform
 		var inv := xf.affine_inverse()
 		var lo := inv * from
-		var ld := inv.basis * dir
 		var lend := inv * (from + dir * best_d)
 		if not m.mesh.get_aabb().grow(0.001).intersects_segment(lo, lend):
 			continue
