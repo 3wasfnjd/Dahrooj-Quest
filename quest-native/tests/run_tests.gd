@@ -228,6 +228,8 @@ func _world(main: Node) -> void:
 	main._choose_mode("climb")
 	main._step_summit(1.0 / 72.0)
 	check(main.summit_on and main.summit.visible and not main.stage.visible, "the climb card starts the Summit")
+	main._choose_mode("meteor")
+	check(main.stage is MeteorStage and main.stage.get("planes_provider").is_valid(), "the meteor mode starts with the room provider")
 	main._choose_mode("slime")
 	check(main.stage is SlimeStage, "the slime card starts Slime")
 	main._choose_mode("goal")

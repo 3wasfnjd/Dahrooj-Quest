@@ -466,6 +466,7 @@ func set_mode(m: String) -> void:
 		_setup_mole()
 		_setup_invasion()
 		_setup_slime()
+		_setup_new_mode()
 
 
 func time_k() -> float:
@@ -650,6 +651,11 @@ func _game_step(delta: float) -> void:
 		(stage as MoleStage).viewer = eye_game()
 	if stage is SlimeStage:
 		(stage as SlimeStage).viewer = eye_game()
+	if stage != null and not (stage is MoleStage or stage is InvasionStage or stage is SlimeStage):
+		if "viewer" in stage:
+			stage.set("viewer", eye_game())
+		if "paused" in stage:
+			stage.set("paused", state != "play" or placing)
 	var inv := stage as InvasionStage
 	var slow := 1.0
 	if inv != null:
@@ -1586,6 +1592,35 @@ func _setup_slime() -> void:
 		return out
 
 
+## The scanned room in game units (the format the newer stages take: SlimeStage's).
+func room_planes_game() -> Array:
+	var out := []
+	if mode != "mr":
+		return out
+	var to_game := game_root.global_transform.affine_inverse()
+	for pl in surfaces.planes():
+		var x: Transform3D = pl.xform
+		var sz: Vector2 = pl.size
+		var ax: Vector3 = to_game.basis * (x.basis.x.normalized() * sz.x * 0.5)
+		var ay: Vector3 = to_game.basis * (x.basis.y.normalized() * sz.y * 0.5)
+		out.append({"pos": to_game * x.origin, "normal": (to_game.basis * (pl.normal as Vector3)).normalized(),
+			"ax": ax.normalized(), "ay": ay.normalized(), "half": Vector2(ax.length(), ay.length()), "label": pl.label})
+	return out
+
+
+## The action modes (meteor, castle, giant, gallery, frenzy) share one setup: size in
+## mixed reality, haptics, and the scanned room when the stage takes it.
+func _setup_new_mode() -> void:
+	if stage == null or not stage.get_script() or stage is MoleStage or stage is InvasionStage or stage is SlimeStage:
+		return
+	if "size" in stage and ("planes_provider" in stage or "spots_provider" in stage):
+		stage.set("size", 2.0 if mode == "mr" else 1.0)
+	if "buzz" in stage:
+		stage.set("buzz", buzz)
+	if "planes_provider" in stage:
+		stage.set("planes_provider", room_planes_game)
+
+
 ## A mode card (xr-runtime.js choosePlaza).
 func _choose_mode(id: String) -> void:
 	var sound_pos := to_game(menu.global_position)
@@ -1625,6 +1660,7 @@ func _choose_mode(id: String) -> void:
 		_setup_mole()
 		_setup_invasion()
 		_setup_slime()
+		_setup_new_mode()
 	sfx("whoosh", 0.5, sound_pos)
 	buzz("left", 0.45, 70)
 	buzz("right", 0.45, 70)

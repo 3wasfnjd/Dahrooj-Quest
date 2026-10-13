@@ -25,6 +25,7 @@ const CHALLENGES := [
 	["mole20", "اضرب ٢٠ دحروج", "Whack 20 Dahroojs", 20],
 	["invasion10", "اصمد ١٠ موجات", "Survive 10 waves", 10],
 	["slime5", "برج سلايم من ٥", "A slime tower of 5", 5],
+	["meteor50", "فجّر ٥٠ نيزك", "Blast 50 meteors", 50],
 	# Tabletops (challenges.ts; tabletop_progress.gd records them).
 	["balance1", "أكمل مرحلة توازن", "Complete a balance round", 1],
 	["balance5", "مراحل التوازن الخمس", "All five balance rounds", 5],
@@ -36,14 +37,14 @@ const CHALLENGES := [
 	["maze5", "المتاهات الخمس", "All five mazes", 5],
 	["mazeClean", "اجمع النجوم وأكمل المتاهة دون إعادة", "Collect the stars and finish without retrying", 1],
 ]
-const MODES := ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime"]
+const MODES := ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime", "meteor"]
 
 var ball: Ball
 var ctx := GameCtx.new()
 var parent: Node3D  # where stages live (game units)
 var mode := ""
 var stage: Node3D
-var counts := {"goal": 0, "hoop": 0, "window": 0, "cans": 0, "bowling": 0, "bricks": 0, "fair": 0, "mole": 0, "invasion": 0, "slime": 0, "climb": 0}
+var counts := {"goal": 0, "hoop": 0, "window": 0, "cans": 0, "bowling": 0, "bricks": 0, "fair": 0, "mole": 0, "invasion": 0, "slime": 0, "meteor": 0, "climb": 0}
 var hoop_streak := 0
 var cache := {}
 ## chime(): a challenge was completed (the runtime plays the chime).
