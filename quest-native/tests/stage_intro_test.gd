@@ -20,6 +20,26 @@ static func run(check: Callable) -> void:
 	_opening(check)
 	_start(check)
 	_rain(check)
+	_every_look(check)
+
+
+## The opening and the rain show every look: all the styles, all the accessories (built up front).
+static func _every_look(check: Callable) -> void:
+	for rain_mode in [false, true]:
+		var ir := _make()
+		ir.begin(rain_mode, false)
+		var styles := {}
+		var accs := {}
+		for k in 400:
+			ir.drop_ball(0.0)
+		for b in ir.balls:
+			styles[b.style] = true
+			accs[b.accessory] = true
+		var all_acc := DahroojLooks.ACCESSORIES.size() - 1
+		check.call(styles.size() == DahroojLooks.STYLES.size() and accs.size() == all_acc and not accs.has(""),
+			"%s: every style (%d/%d) and every accessory (%d/%d)" % ["rain" if rain_mode else "opening", styles.size(), DahroojLooks.STYLES.size(), accs.size(), all_acc])
+		check.call(ir.crowd.parts.has("acc_shemagh") and ir.crowd.parts.has("glass_astronaut"), "%s: the accessories are built before play" % ("rain" if rain_mode else "opening"))
+		ir.free()
 
 
 static func _crowd(check: Callable) -> void:

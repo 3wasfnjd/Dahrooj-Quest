@@ -17,8 +17,8 @@ extends Node3D
 signal cleared
 
 const INTRO_R := 0.11
-const INTRO_STYLES := ["jelly", "fur", "bubble"]
-const RAIN_ACCESSORIES := ["party", "glasses", "cap", "flower", "crown", "headphones", "scarf"]
+## The opening and the rain show every look: all the styles, all the accessories.
+const INTRO_STYLES := DahroojLooks.STYLES
 const CROWD_MAX := 120
 const REAL_G := 9.8
 const SPARKS_MAX := 80
@@ -73,6 +73,7 @@ var use_wall_clock := true
 var rng := RandomNumberGenerator.new()
 
 var crowd: Crowd
+var _accessories: Array[String] = []  # every accessory, for the crowd to wear
 var start_panel: Node3D
 var active := false  # the original's `intro != null`
 var rain := false
@@ -108,6 +109,10 @@ func _init() -> void:
 	name = "IntroRain"
 	rng.randomize()
 	crowd = Crowd.new(CROWD_MAX, true)
+	for id: String in DahroojLooks.ACCESSORIES:
+		if id != "":
+			_accessories.append(id)
+			crowd.prepare(id)
 	crowd.name = "Crowd"
 	add_child(crowd)
 	var mmi := MultiMeshInstance3D.new()
@@ -168,12 +173,12 @@ func drop_ball(delay: float) -> void:
 	var dir_a := rng.randf() * TAU
 	var b := Drop.new()
 	# Pick once per spawn; cosmetics never change the player's unlocks or add physics bodies.
-	b.accessory = RAIN_ACCESSORIES[int(rng.randf() * RAIN_ACCESSORIES.size())] if rain else ""
+	b.accessory = _accessories[int(rng.randf() * _accessories.size())]
 	_ids += 1
 	b.id = _ids
 	b.style = INTRO_STYLES[int(rng.randf() * INTRO_STYLES.size())]
 	b.R = rad
-	b.color = JELLY_COLORS[_ids % JELLY_COLORS.size()] if rain else null
+	b.color = JELLY_COLORS[_ids % JELLY_COLORS.size()] if b.style in DahroojLooks.TINTED and (rain or rng.randf() < 0.5) else null
 	b.p = Vector3(c.x + sin(a) * dist, c.y + 0.6 + rng.randf() * 1.8, c.z - cos(a) * dist)
 	b.pending = rain
 	b.born = t + delay

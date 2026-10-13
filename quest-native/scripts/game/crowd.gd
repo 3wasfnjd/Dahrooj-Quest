@@ -52,6 +52,16 @@ func _init(max_count := 120, accessories := false, faces := false) -> void:
 			_part("face_" + f, DahroojView._cap_mesh(1.006), DahroojLooks.face_material(f), max_n)
 
 
+## Builds an accessory's parts now (lite, with its glass), so a crowd that wears them all
+## does not build them mid-play.
+func prepare(accessory: String) -> void:
+	if not with_accessories or accessory == "" or parts.has("acc_" + accessory) or accessory not in DahroojLooks.ACCESSORIES:
+		return
+	_part("acc_" + accessory, _accessory_mesh(accessory), _deco_mat(), max_n)
+	if accessory in DahroojLooks.GLASS:
+		_part("glass_" + accessory, DahroojLooks.accessory_glass(accessory, true), DahroojLooks.glass_material(), max_n)
+
+
 func _part(id: String, mesh: Mesh, mat: Material, cap: int, colors := false, priority := 0) -> void:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -109,11 +119,9 @@ func add(style: String, pos: Vector3, radius: float, toward, squash := Vector2.O
 	_put(body, m, tint.srgb_to_linear())
 	if style == "jelly":
 		_put("bandage", m)
-	if with_accessories and accessory != "" and not parts.has("acc_" + accessory) and accessory in DahroojLooks.ACCESSORIES:
+	if with_accessories and accessory != "":
 		# The other accessories are built the first time a ball wears one.
-		_part("acc_" + accessory, _accessory_mesh(accessory), _deco_mat(), max_n)
-		if accessory in DahroojLooks.GLASS:
-			_part("glass_" + accessory, DahroojLooks.accessory_glass(accessory, true), DahroojLooks.glass_material(), max_n)
+		prepare(accessory)
 	if parts.has("acc_" + accessory):
 		var am := m * Transform3D(Basis.from_scale(Vector3.ONE * 1.08), Vector3.ZERO) if style == "fur" else m
 		_put("acc_" + accessory, am)
