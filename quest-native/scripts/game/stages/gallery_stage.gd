@@ -163,6 +163,11 @@ var ctx: GameCtx
 
 ## Room planes (mixed reality), as SlimeStage.planes_provider; [] or invalid: the court's booth.
 var planes_provider: Callable
+## Spots all around the player (mixed reality, RoomSpots; as MoleStage.spots_provider, called
+## with the kinds wanted): cardboard targets, tosses, peekers and swingers then pick a side the
+## player has not been looking at. Without a scan (ring spots) the cardboard targets flip up and
+## the tosses jump all around the player, the rest stays at the booth.
+var spots_provider: Callable
 ## Size of the targets and their effects (mixed reality wants 2).
 var size := 1.0
 ## The player's eye (game units): targets face it. Main keeps it current.
@@ -999,8 +1004,33 @@ func _room(sort: String) -> Array:
 	return out
 
 
+## A spot all around the player (RoomSpots) of a sort, with the plane it lies on (the room's,
+## or a small stand-in for a ring spot): {pos, plane} or {}.
+func _spot_point(sort: String) -> Dictionary:
+	var sps := RoomSpots.ask(spots_provider, [sort])
+	for sp: Dictionary in sps:
+		if str(sp.get("kind", "")) != sort:
+			continue
+		var p: Vector3 = sp.pos
+		if not _free_at(p, 2.2 * R * size):
+			continue
+		var pl := RoomSpots.plane_of(sp, _planes, 0.3 * size)
+		if pl.is_empty():
+			if room():
+				continue
+			var n: Vector3 = sp.get("normal", Vector3.UP)
+			var b := MoleStage.basis_up(n)
+			pl = {"pos": p, "normal": n, "ax": b.x, "ay": b.z, "half": Vector2.ONE * 1.5 * size, "label": "ring"}
+		return {"pos": p, "plane": pl}
+	return {}
+
+
 ## A random point on a plane of a sort, far enough from the viewer: {} when there is none.
 func _room_point(sort: String, margin := 0.75) -> Dictionary:
+	if sort != "ceiling":
+		var at := _spot_point(sort)
+		if not at.is_empty():
+			return at
 	var list := _room(sort)
 	if list.is_empty():
 		return {}
@@ -1139,6 +1169,9 @@ func spawn(mover: String, kind := "", at := {}) -> int:
 			ok = _setup_toss(T, at)
 	if not ok:
 		return -1
+	# All around the room: a little longer to turn and find it.
+	if room() and mover != "rail":
+		T.life *= 1.4
 	_dress(T)
 	T.on = true
 	if T.phase == "":
@@ -1153,6 +1186,7 @@ func _setup_card(T: Dictionary, at: Dictionary) -> bool:
 	var pos: Vector3
 	var wall := false
 	var face := Vector3.ZERO
+	var placed := at.has("pos") or room()
 	if at.has("pos"):
 		pos = at.pos
 		wall = at.get("wall", false)
@@ -1172,6 +1206,12 @@ func _setup_card(T: Dictionary, at: Dictionary) -> bool:
 			face = pick.plane.normal
 			pos += (face as Vector3) * 0.1 * size
 	else:
+		# Mixed reality without a scan: mostly on the floor all around the player.
+		var ring := _spot_point("floor")
+		if not ring.is_empty() and _rng.randf() < 0.7:
+			pos = ring.pos
+			placed = true
+	if not placed:
 		var free := []
 		for s in CARD_SPOTS_VR:
 			if _free_at(s, 1.6):
@@ -1234,8 +1274,12 @@ func _setup_peek(T: Dictionary, at: Dictionary) -> bool:
 		if tops.is_empty() and walls.is_empty():
 			return false
 		var use_top := not tops.is_empty() and (walls.is_empty() or _rng.randf() < 0.6)
+		# All around the room: the piece of furniture or wall of a side not looked at lately.
+		var pref := _spot_point("top" if use_top else "wall")
 		if use_top:
 			var pl: Dictionary = tops[_rng.randi() % tops.size()]
+			if not pref.is_empty() and (pref.plane as Dictionary) in tops:
+				pl = pref.plane
 			var p: Vector3 = pl.pos
 			var d := Vector3(p.x - viewer.x, 0, p.z - viewer.z)
 			if d.length() < 3.0 * size:
@@ -1247,6 +1291,8 @@ func _setup_peek(T: Dictionary, at: Dictionary) -> bool:
 			T.out_p = e + Vector3.UP * r * 0.95
 		else:
 			var pl: Dictionary = walls[_rng.randi() % walls.size()]
+			if not pref.is_empty() and (pref.plane as Dictionary) in walls:
+				pl = pref.plane
 			var n: Vector3 = pl.normal
 			n.y = 0.0
 			n = n.normalized()
@@ -1314,7 +1360,9 @@ func _setup_swing(T: Dictionary, at: Dictionary) -> bool:
 		anchor = at.anchor
 		rope = at.get("rope", 4.5 * size)
 	elif room():
-		var pick := _room_point("ceiling", 0.7)
+		var pick := _ceiling_over(_spot_point("floor"))
+		if pick.is_empty():
+			pick = _room_point("ceiling", 0.7)
 		if pick.is_empty():
 			# No ceiling: hang from the top of a wall.
 			var walls := _room("wall")
@@ -1357,6 +1405,24 @@ func _setup_swing(T: Dictionary, at: Dictionary) -> bool:
 	return true
 
 
+## The ceiling right over a spot ({pos, plane} or {}), for a swinger on that side.
+func _ceiling_over(at: Dictionary) -> Dictionary:
+	if at.is_empty():
+		return {}
+	var p: Vector3 = at.pos
+	for pl in _room("ceiling"):
+		var n: Vector3 = pl.normal
+		if absf(n.y) < 0.5:
+			continue
+		var c: Vector3 = pl.pos
+		var q := Vector3(p.x, c.y - ((p.x - c.x) * n.x + (p.z - c.z) * n.z) / n.y, p.z)
+		var d := q - c
+		var h: Vector2 = pl.get("half", Vector2.ONE)
+		if absf(d.dot(pl.get("ax", Vector3.RIGHT))) <= h.x * 0.9 and absf(d.dot(pl.get("ay", Vector3.UP))) <= h.y * 0.9:
+			return {"pos": q, "plane": pl}
+	return {}
+
+
 func _free_at_swing(p: Vector3) -> bool:
 	for T in targets:
 		if T.on and T.mover == "swing" and (T.anchor as Vector3).distance_to(p) < 1.0 * size:
@@ -1384,10 +1450,15 @@ func _setup_toss(T: Dictionary, at: Dictionary) -> bool:
 			from = (pick.pos as Vector3) + Vector3.UP * r
 			land = from.y
 		else:
-			var cv: Dictionary = covers[_rng.randi() % covers.size()]
-			var C: Vector3 = cv.pos
-			var d := Vector3(C.x - VIEW_VR.x, 0, C.z - VIEW_VR.z).normalized()
-			from = C + d * (float(cv.half.z) + r + 0.3) + Vector3.UP * 0.6
+			# Mixed reality without a scan: up from the floor all around the player.
+			var ring := _spot_point("floor")
+			if not ring.is_empty():
+				from = (ring.pos as Vector3) + Vector3.UP * r
+			else:
+				var cv: Dictionary = covers[_rng.randi() % covers.size()]
+				var C: Vector3 = cv.pos
+				var d := Vector3(C.x - VIEW_VR.x, 0, C.z - VIEW_VR.z).normalized()
+				from = C + d * (float(cv.half.z) + r + 0.3) + Vector3.UP * 0.6
 			land = from.y
 		var hgt := _rng.randf_range(3.2, 4.6) * size
 		var vy := sqrt(2.0 * float(T.g) * hgt)

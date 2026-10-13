@@ -73,6 +73,15 @@ var ctx: GameCtx
 
 ## Room planes (mixed reality); see the header. Unset or empty: the goo wall.
 var planes_provider: Callable
+## Mixed reality, all around the room: RoomSpots on the walls (as MoleStage.spots_provider,
+## called with the kinds wanted). The target then stays on its wall until a throw lands in its
+## rings, and hops to another wall around the room (one the player has not looked at lately).
+## Unset or empty: the wall that faces you best.
+var spots_provider: Callable
+## Where the room target stays ({pos, normal} in game units) until it is hit; {} = pick one.
+var target_lock := {}
+## How many times the target hopped to another wall.
+var hops := 0
 ## Where the player's head is (game units): new blobs turn their faces to it.
 var viewer := Vector3(0, 3.2, 9.0)
 ## The colour (DahroojLooks colour id) of the next Dahrooj in the hand: main shows him in it.
@@ -542,10 +551,16 @@ func _refresh_planes() -> void:
 		target = {"pos": Vector3(0, TARGET_Y, WALL_Z), "normal": Vector3.BACK, "ax": Vector3.RIGHT, "ay": Vector3.UP, "on": true}
 		room_target.visible = false
 		return
+	var rt: float = RINGS[RINGS.size() - 1] + 0.1
+	# All around the room: the target keeps its wall until it is hit, then hops.
+	if spots_provider.is_valid():
+		var hold := _room_target_spot(rt)
+		if not hold.is_empty():
+			_put_target(hold.plane, hold.pos, rt)
+			return
 	# The target goes on the wall that faces you best (big enough for it).
 	var best := -INF
 	var pick := {}
-	var rt: float = RINGS[RINGS.size() - 1] + 0.1
 	for pl: Dictionary in planes:
 		var n: Vector3 = pl.normal
 		var half: Vector2 = pl.half
@@ -569,6 +584,42 @@ func _refresh_planes() -> void:
 	var n2: Vector3 = pick.normal
 	var up := (Vector3.UP - n2 * n2.y).normalized()
 	target = {"pos": pos, "normal": n2, "ax": up.cross(n2), "ay": up, "on": true}
+	room_target.transform = Transform3D(Basis(up.cross(n2), up, n2), pos)
+	room_target.visible = true
+
+
+## The room target's wall and spot: where it stays (target_lock), or a new wall spot from
+## spots_provider. {plane, pos} or {}.
+func _room_target_spot(rt: float) -> Dictionary:
+	if not target_lock.is_empty():
+		var pl := RoomSpots.plane_of(target_lock, planes, 0.2)
+		if not pl.is_empty():
+			return {"plane": pl, "pos": target_lock.pos}
+		target_lock = {}
+	for _k in 3:
+		for sp: Dictionary in RoomSpots.ask(spots_provider, ["wall"]):
+			var pl := RoomSpots.plane_of(sp, planes, 0.3)
+			if pl.is_empty():
+				continue
+			var half: Vector2 = pl.half
+			if absf((pl.normal as Vector3).y) > 0.3 or half.x < rt or half.y < rt:
+				continue
+			return {"plane": pl, "pos": sp.pos}
+	return {}
+
+
+## The room target on a wall plane, at p (kept inside the wall), locked there.
+func _put_target(pl: Dictionary, p: Vector3, rt: float) -> void:
+	var c: Vector3 = pl.pos
+	var ax: Vector3 = pl.ax
+	var ay: Vector3 = pl.ay
+	var half: Vector2 = pl.half
+	var n2: Vector3 = (pl.normal as Vector3).normalized()
+	var d := p - c
+	var pos: Vector3 = c + ax * clampf(d.dot(ax), -half.x + rt, half.x - rt) + ay * clampf(d.dot(ay), -half.y + rt, half.y - rt) + n2 * 0.01
+	var up := (Vector3.UP - n2 * n2.y).normalized()
+	target = {"pos": pos, "normal": n2, "ax": up.cross(n2), "ay": up, "on": true}
+	target_lock = {"pos": pos, "normal": n2}
 	room_target.transform = Transform3D(Basis(up.cross(n2), up, n2), pos)
 	room_target.visible = true
 
@@ -768,6 +819,11 @@ func _score(b: Dictionary) -> void:
 	if ctx:
 		ctx.counts["slime"] = int(ctx.counts.get("slime", 0)) + pts
 	JuiceText.spawn(self, "+%d" % pts, (b.anchor as Vector3) + Vector3.UP * R * 1.6, "points", maxf(1.0, (b.anchor as Vector3).distance_to(viewer) / 9.0) * (1.3 if pts >= 10 else 1.0))
+	# All around the room: a hit sends the target to another wall in a moment.
+	if int(b.ring) >= 0 and not target_lock.is_empty():
+		target_lock = {}
+		hops += 1
+		_planes_t = 0.9
 	if int(b.ring) == 0:
 		_sfx("chime", 0.8, b.anchor)
 		_say("في المنتصف!", "Bullseye!", (b.anchor as Vector3) + Vector3.UP * R * 3.2, "banner", 0.55, Color("ffd23f"))
@@ -1204,6 +1260,7 @@ func color_for(shot_id: int) -> String:
 
 
 func deactivate() -> void:
+	target_lock = {}
 	blobs.clear()
 	_by_id.clear()
 	drops.clear()

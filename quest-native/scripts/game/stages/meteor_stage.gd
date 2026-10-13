@@ -202,6 +202,9 @@ var ctx: GameCtx
 
 ## Room planes (mixed reality), as SlimeStage.planes_provider; [] or invalid: the sky.
 var planes_provider: Callable
+## Landing spots (mixed reality): RoomSpots on the open floor all around the player (as
+## MoleStage.spots_provider). Unset or empty: the court ahead (VR).
+var spots_provider: Callable
 ## Size of the meteors and their effects (mixed reality wants 2).
 var size := 1.0
 ## The player's eye (game units). Main keeps it current.
@@ -601,6 +604,9 @@ func start_shower() -> void:
 	F.showers += 1
 	F.shower_t = SHOWER_EVERY * _rng.randf_range(0.9, 1.15) + SHOWER_T
 	var az := _rng.randf_range(-0.9, 0.9)
+	# All around the room (mixed reality): from any side.
+	if not RoomSpots.ask(spots_provider, ["floor"]).is_empty():
+		az = _rng.randf_range(-PI, PI)
 	F.shower_dir = Vector3(sin(az), 0, -cos(az))
 	_banner("زخّة نيازك!" if not _en() else "METEOR SHOWER!", "الذهبية بخمسة أضعاف!" if not _en() else "Golden ones are worth ×5!", Color("ff6b3d"), 2.0)
 	_sfx("firework_launch", 1.0, banner_at())
@@ -645,8 +651,36 @@ static func _on_plane(pl: Dictionary, u: float, v: float) -> Vector3:
 	return (pl.pos as Vector3) + (pl.get("ax", Vector3.RIGHT) as Vector3) * u * half.x + (pl.get("ay", Vector3.BACK) as Vector3) * v * half.y
 
 
+## A landing spot all around the player (RoomSpots), or null.
+func _spot_land(fy: float) -> Variant:
+	var sps := RoomSpots.ask(spots_provider, ["floor"])
+	if sps.is_empty():
+		return null
+	var p: Vector3 = (sps[0] as Dictionary).pos
+	p.y = fy
+	return p
+
+
+## The point of a ceiling right above p (within its extents), or null.
+func _ceiling_above(ceilings: Array, p: Vector3) -> Variant:
+	for pl: Dictionary in ceilings:
+		var n: Vector3 = pl.normal
+		if absf(n.y) < 0.5:
+			continue
+		var c: Vector3 = pl.pos
+		var q := Vector3(p.x, c.y - ((p.x - c.x) * n.x + (p.z - c.z) * n.z) / n.y, p.z)
+		var d := q - c
+		var half: Vector2 = pl.get("half", Vector2.ONE)
+		if absf(d.dot(pl.get("ax", Vector3.RIGHT))) <= half.x + 1e-3 and absf(d.dot(pl.get("ay", Vector3.BACK))) <= half.y + 1e-3:
+			return q
+	return null
+
+
 ## Where one lands in the room: on a scanned floor (not on top of you), else around you.
 func _room_land(fy: float) -> Vector3:
+	var sp: Variant = _spot_land(fy)
+	if sp != null:
+		return sp as Vector3
 	var floors := _planes.filter(func(pl): return _is_floor(pl))
 	var g := goal()
 	for _try in 6:
@@ -700,6 +734,18 @@ func spawn(kind: String, golden := false, spot := {}) -> int:
 		var pl: Dictionary = ceilings[_rng.randi() % ceilings.size()]
 		start_p = _on_plane(pl, _rng.randf_range(-0.8, 0.8), _rng.randf_range(-0.8, 0.8))
 		land = _room_land(fy)
+		# All around the room: through the ceiling close above where it lands.
+		if spots_provider.is_valid():
+			var off := Vector3(_rng.randf_range(-1.0, 1.0), 0, _rng.randf_range(-1.0, 1.0)) * 1.5 * size
+			var above: Variant = _ceiling_above(ceilings, land + off)
+			if above == null:
+				above = _ceiling_above(ceilings, land)
+			if above != null:
+				start_p = above as Vector3
+				for q: Dictionary in ceilings:
+					if absf(((above as Vector3) - (q.pos as Vector3)).dot(q.normal)) < 0.05 * size:
+						pl = q
+						break
 		T = maxf(1.7, 3.0 - 0.08 * lv) * _rng.randf_range(0.9, 1.1)
 		g = 0.6 * size
 		crack = true
@@ -715,7 +761,16 @@ func spawn(kind: String, golden := false, spot := {}) -> int:
 		else:
 			var az := _rng.randf_range(-1.7, 1.7)
 			dir = Vector3(sin(az), 0, -cos(az))
-		if room_on:
+		# All around the player (mixed reality): it lands on a spot of the room and comes in
+		# from beyond it, so it is seen coming from that side.
+		var at: Variant = _spot_land(fy) if not spot.get("shower", false) else null
+		if at != null:
+			land = at as Vector3
+			var out := Vector3(land.x - gl.x, 0, land.z - gl.z)
+			dir = out.normalized() if out.length_squared() > 1e-4 else dir
+			var lift := (viewer.y - fy + 8.0 * size) if room_on else (SKY_H * 0.5 + _rng.randf_range(0.0, 3.0)) * size
+			start_p = land + Vector3.UP * lift + dir * 4.0 * size
+		elif room_on:
 			land = _room_land(fy)
 			start_p = land + Vector3.UP * (viewer.y - fy + 8.0 * size) + dir * 4.0 * size
 		else:

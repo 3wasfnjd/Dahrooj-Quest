@@ -80,7 +80,8 @@ var friction = null
 var shot_time = 4.0
 var ctx: GameCtx
 
-## Room spots (mixed reality), as MoleStage.spots_provider: Array of {pos, normal} in game units.
+## Room spots (mixed reality), as MoleStage.spots_provider: Array of {pos, normal, kind?} in game
+## units (RoomSpots: all around the player). Every wave then comes out of the room.
 var spots_provider: Callable
 ## Size of the Dahroojs, the line and the power-ups (mixed reality wants them bigger).
 var size := 1.0
@@ -475,11 +476,7 @@ func _breach(at: Vector3) -> void:
 # ---- spawning ----
 
 func _spots() -> Array:
-	if spots_provider.is_valid():
-		var s = spots_provider.call()
-		if s is Array and not (s as Array).is_empty():
-			return s
-	return []
+	return RoomSpots.ask(spots_provider)
 
 
 ## Starts an invader; returns its slot or -1. spot: {} (the far end, or a room spot), or
@@ -546,10 +543,17 @@ func spawn(kind: String, spot := {}) -> int:
 			m.style = PLAIN_STYLES[_rng.randi() % PLAIN_STYLES.size()]
 			m.color = COLORS[_rng.randi() % COLORS.size()] if _rng.randf() < 0.75 else Crowd.DAHROOJ_COLORS[m.style]
 			m.acc = ACCS[_rng.randi() % ACCS.size()]
-	var room := _spots()
-	if spot.is_empty() and not room.is_empty() and kind != "boss" and _rng.randf() < 0.8:
+	# Mixed reality: out of the room all around the player (RoomSpots): through a hole in a
+	# wall, the floor or a piece of furniture; a spot in the air (no scan) or the boss drops
+	# from above there instead.
+	var room := _spots() if spot.is_empty() else []
+	if not room.is_empty():
 		var s: Dictionary = room[_rng.randi() % room.size()]
-		spot = {"pos": s.pos, "normal": s.normal, "emerge": true}
+		var sp: Vector3 = s.pos
+		if kind == "boss" or str(s.get("kind", "")) == "air":
+			spot = {"pos": Vector3(sp.x, 0, sp.z), "normal": Vector3.UP, "drop": true}
+		else:
+			spot = {"pos": sp, "normal": s.normal, "emerge": true}
 	if spot.is_empty():
 		var x := _rng.randf_range(-SPAWN_X, SPAWN_X) * (0.3 if kind == "boss" else 1.0)
 		spot = {"pos": Vector3(x, 0, SPAWN_Z + _rng.randf_range(-1.5, 1.5)), "normal": Vector3.UP, "drop": true}

@@ -287,9 +287,71 @@ func _scene() -> void:
 	main._panel_action("vr")
 	check(main.state == "play" and main.mode == "vr", "choosing VR starts the game")
 	await _world(main)
+	_room_play(main)
 	_reward_cards(main)
 	main.queue_free()
 	await get_tree().process_frame
+
+
+## Mixed reality all around the room (main.gd room_play): the arcade modes take RoomSpots
+## around the player (the scan, or a ring without one), room-sized targets, the game's ground on
+## the floor, a chevron toward a new target behind; VR gives them nothing (their old layouts).
+func _room_play(main: Node) -> void:
+	main.set_mode("mr")
+	main._choose_mode("mole")
+	main.state = "play"
+	check(main.room_play() and main.scale_now == 8.0, "MR room play: whack-a-Dahrooj is played all around the room")
+	var sps: Array = RoomSpots.ask(main.stage.spots_provider)
+	check(not sps.is_empty() and sps.all(func(s: Dictionary) -> bool: return not s.room), "MR room play: no scan, a ring around the player")
+	var surf: SceneSurfaces = main.surfaces
+	var h: Vector3 = main.head_transform().origin
+	var c := Vector3(h.x, 0, h.z)
+	surf.add_test_plane(Transform3D(Basis(), c + Vector3(0, 1.25, -3.0)), Vector2(4.0, 2.5), "wall")
+	surf.add_test_plane(Transform3D(Basis(Vector3.UP, PI), c + Vector3(0, 1.25, 2.0)), Vector2(4.0, 2.5), "wall")
+	surf.add_test_plane(Transform3D(Basis(Vector3.UP, PI / 2.0), c + Vector3(-2.0, 1.25, -0.5)), Vector2(5.0, 2.5), "wall")
+	surf.add_test_plane(Transform3D(Basis(Vector3.UP, -PI / 2.0), c + Vector3(2.0, 1.25, -0.5)), Vector2(5.0, 2.5), "wall")
+	surf.add_test_plane(Transform3D(Basis(Vector3.RIGHT, Vector3.FORWARD, Vector3.UP), c + Vector3(0, 0, -0.5)), Vector2(4.0, 5.0), "floor")
+	surf.add_test_box(Transform3D(Basis(), c + Vector3(1.4, 0.37, -2.2)), Vector3(0.9, 0.74, 0.6), "table")
+	main._refresh_room_spots(true)
+	var rs: RoomSpots = main.room_spots
+	sps = RoomSpots.ask(main.stage.spots_provider)
+	var tops := rs.spots.filter(func(s: Dictionary) -> bool: return s.kind == "top")
+	check(rs.has_room() and not tops.is_empty() and not sps.is_empty() and sps.all(func(s: Dictionary) -> bool: return s.room), "MR room play: the scanned walls, floor and the table's top (%d spots)" % rs.spots.size())
+	var secs := {}
+	for k in 40:
+		for s: Dictionary in RoomSpots.ask(main.stage.spots_provider):
+			secs[RoomSpots.sector_of(main.eye_game(), s.pos)] = true
+	check(secs.size() >= 9, "MR room play: from every side of the player (%d sectors)" % secs.size())
+	check(absf(MoleStage.R * float(main.stage.size) / main.scale_now - 0.1) < 1e-3, "MR room play: a mole 20 cm across in the room")
+	main._choose_mode("meteor")
+	check(main.room_play() and absf(0.85 * float(main.stage.size) / main.scale_now - 0.15) < 1e-3 and main.stage.spots_provider.is_valid(), "MR room play: meteors room-sized, from the room's spots")
+	# Pinned on a table: the game's ground stays the floor, at the room scale.
+	main.anchor = main.anchor_from(Vector3(c.x, 0.7, c.z - 1.0), Vector3.UP)
+	main.place()
+	var ground: Vector3 = main.game_root.global_transform * Vector3.ZERO
+	check(main.ar_scale == 16.0 and main.scale_now == 8.0 and absf(ground.y) < 1e-4, "MR room play: pinned on a table, the ground is still the floor (y %.2f)" % ground.y)
+	# A new target behind the player: a chevron at the edge of the view.
+	main._choose_mode("mole")
+	main.state = "play"
+	main._step_room_play(1.0 / 72.0)
+	var head: Transform3D = main.head_transform()
+	var behind: Vector3 = main.to_game(head.origin + head.basis.z * 2.0 + Vector3(0.4, -0.8, 0))
+	var mole := main.stage as MoleStage
+	mole.auto_spawn = false
+	var i := mole.spawn("plain", {"pos": behind, "normal": Vector3.UP})
+	for k in 40:
+		mole.update(main.ball, 1.0 / 72.0)
+		main._step_room_play(1.0 / 72.0)
+	check(i >= 0 and main.room_cue.cues.size() >= 1 and main.room_cue.cues.any(func(q: Dictionary) -> bool: return (q.mi as MeshInstance3D).visible), "MR room play: a chevron points at a new target behind")
+	mole.auto_spawn = true
+	mole.deactivate()
+	# VR: no room spots, the usual sizes.
+	main.set_mode("vr")
+	main._step_room_play(1.0 / 72.0)
+	check(not main.room_play() and RoomSpots.ask(main.stage.spots_provider).is_empty() and float(main.stage.size) == 1.0 and main.room_cue.cues.is_empty(),
+		"VR: no room spots or chevrons, the modes keep their layouts")
+	surf.clear_tests()
+	main._choose_mode("goal")
 
 
 ## The reward watch (main.gd _watch_rewards): a card «فتحت طلقة …!» with the chime and

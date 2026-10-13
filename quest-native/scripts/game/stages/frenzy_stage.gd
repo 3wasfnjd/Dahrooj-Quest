@@ -22,7 +22,9 @@ extends Node3D
 ## MeshInstance3Ds; everything drawn is a MultiMesh or a JuiceText (a handful of draws).
 ##
 ## Mixed reality: `planes_provider` returns the room's planes in game units, as for the slime
-## stage: Array of {pos, normal (into the room), ax, ay (unit axes), half: Vector2, label}.
+## stage: Array of {pos, normal (into the room), ax, ay (unit axes), half: Vector2, label};
+## `spots_provider` (RoomSpots) brings new ones from every side of the player, and without a
+## scan (`around`) the air they float in surrounds the player instead of lying ahead.
 
 const SLOTS := 64
 const KINDS := {
@@ -71,6 +73,12 @@ var ctx: GameCtx
 
 ## Mixed reality: the room's planes (see the header). Unset or empty: the air over the court.
 var planes_provider: Callable
+## Spots all around the player (mixed reality, RoomSpots; as MoleStage.spots_provider): new
+## ones blow out of the walls, furniture and floor there, or appear in the air around you.
+var spots_provider: Callable
+## Mixed reality, all around the player: new ones often come from spots_provider, and without
+## a scan the air they float in surrounds the player (not mostly ahead).
+var around := false
 ## Size of everything (1 = VR). Mixed reality: main's scale / VR scale, so they keep their real size.
 var size := 1.0
 ## The player's eye (game units); main keeps it current.
@@ -289,7 +297,7 @@ func colors_in_play() -> int:
 func field() -> Dictionary:
 	if not _bounds.is_empty():
 		return _bounds
-	var c := Vector3(_follow.x, 0.0, _follow.z - FIELD_AHEAD * size)
+	var c := Vector3(_follow.x, 0.0, _follow.z - (0.0 if around else FIELD_AHEAD * size))
 	var h := FIELD_HALF * size
 	return {"lo": Vector3(c.x - h.x, FIELD_Y.x * size, c.z - h.z), "hi": Vector3(c.x + h.x, FIELD_Y.y * size, c.z + h.z)}
 
@@ -396,6 +404,16 @@ func _pick_spot(r: float) -> Dictionary:
 	var f := field()
 	var lo: Vector3 = f.lo
 	var hi: Vector3 = f.hi
+	# All around the player (mixed reality): out of a wall, a table or the floor, or in the air.
+	if around and _rng.randf() < 0.55:
+		var sps := RoomSpots.ask(spots_provider)
+		if not sps.is_empty():
+			var sp: Dictionary = sps[0]
+			var n: Vector3 = sp.get("normal", Vector3.UP)
+			var at: Vector3 = sp.pos
+			if str(sp.get("kind", "")) == "air":
+				return {"p": at, "v": Vector3.ZERO, "wall": false}
+			return {"p": at + n * r * 1.15, "v": n * 1.3 * size, "wall": true}
 	if not _room.is_empty() and _rng.randf() < 0.45:
 		for k in 6:
 			var pl: Dictionary = _room[_rng.randi() % _room.size()]
@@ -410,7 +428,7 @@ func _pick_spot(r: float) -> Dictionary:
 	for k in 12:
 		var p := Vector3(_rng.randf_range(lo.x, hi.x), _rng.randf_range(lo.y, hi.y), _rng.randf_range(lo.z, hi.z))
 		# Most of them ahead of the player.
-		if _bounds.is_empty() and p.z > viewer.z - 1.0 * size and _rng.randf() < 0.65:
+		if _bounds.is_empty() and not around and p.z > viewer.z - 1.0 * size and _rng.randf() < 0.65:
 			p.z = _rng.randf_range(lo.z, viewer.z - 1.5 * size)
 		var rise := _bounds.is_empty() and _rng.randf() < 0.3
 		if rise:

@@ -31,6 +31,11 @@ const CHARGE_MIN := 3.0
 const CHARGE_MAX := 15.0
 const CHARGE_TIME := 1.1
 const DOTS := 26
+## The modes played all around the room in mixed reality: their targets come from the room's
+## walls, floor and furniture on every side (RoomSpots), and the court stands on the floor.
+const ROOM_MODES := ["mole", "invasion", "slime", "meteor", "giant", "frenzy", "gallery"]
+## Of those, the ones that point at new targets off to the side or behind (RoomCue).
+const CUE_MODES := ["mole", "invasion", "slime", "meteor", "giant", "gallery"]
 # The slingshot, held in the left hand (grip space, metres).
 const TIP_L := Vector3(-0.04, 0.15, -0.045)
 const TIP_R := Vector3(0.04, 0.15, -0.045)
@@ -104,6 +109,14 @@ var world_balls: WorldBalls
 var auto_fire := {}  # hand -> next shot time while the left trigger is held
 var sounds_played: Array = []  # [name, k, pos] (tests; the audio player plays them)
 var splash: Node3D
+var room_spots := RoomSpots.new()  # MR: spawn spots all around the player (game units)
+var room_cue: RoomCue  # MR: chevrons at the edge of view toward new targets
+var _spots_sig := ""
+var _spots_t := 0.0
+var _cue_stage: Node3D = null
+var _cue_proxies: Array = []  # the stage's hidden hit spheres (a target each)
+var _cue_seen := {}  # proxy instance id -> visible last frame
+var _cue_slime := Vector3.INF
 
 
 func _ready() -> void:
@@ -166,6 +179,8 @@ func _ready() -> void:
 	hud.add_child(score_popup)
 	confetti = Confetti.new()
 	game_root.add_child(confetti)
+	room_cue = RoomCue.new()
+	add_child(room_cue)
 	audio = GameAudio.new()
 	audio.name = "GameAudio"
 	add_child(audio)
@@ -463,10 +478,7 @@ func set_mode(m: String) -> void:
 		summit.set_unit(SummitMode.CLIMB_AR if m == "mr" else SummitMode.CLIMB_VR)
 	place()
 	if stage != null:
-		_setup_mole()
-		_setup_invasion()
-		_setup_slime()
-		_setup_new_mode()
+		_setup_stage()
 
 
 func time_k() -> float:
@@ -497,9 +509,15 @@ func place() -> void:
 			dir.y = 0.0
 			dir = dir.normalized() if dir.length_squared() > 0.01 else Vector3.FORWARD
 			anchor = {"p": Vector3(head.origin.x, 0, head.origin.z) + dir * 1.6, "theta": atan2(dir.x, -dir.z)}
+		var ap: Vector3 = anchor.p
+		# Played all around the room: the game's ground is the room's floor (even when the court
+		# was pinned on a table), at the usual room scale.
+		if room_play():
+			scale_now = AR_SCALE / ar_zoom
+			ap.y = 0.0
 		var a := Vector3(0, 0, SummitMode.GOAL_AIM_Z if summit_on else float(stage.aim_z))
-		var b := Basis(Vector3.UP, -anchor.theta).scaled(Vector3.ONE / ar_scale)
-		game_root.transform = Transform3D(b, anchor.p - b * a)
+		var b := Basis(Vector3.UP, -anchor.theta).scaled(Vector3.ONE / scale_now)
+		game_root.transform = Transform3D(b, ap - b * a)
 	hud.position = (game_root.transform * Vector3(0, 0, stage.aim_z)) + Vector3(0, 0.0, 0)
 	if mode == "mr":
 		hud.position.y = maxf(anchor.p.y + 0.75, 1.55)
@@ -647,6 +665,7 @@ func _game_step(delta: float) -> void:
 			auto_fire[h] = _clock + 0.13
 			_blast_from(h)
 	world_balls.step_blast(dt)
+	_step_room_play(dt)
 	if stage is MoleStage:
 		(stage as MoleStage).viewer = eye_game()
 	if stage is SlimeStage:
@@ -889,6 +908,7 @@ func _press(hand: String, how: String) -> void:
 		if how == "trigger" and not anchor.is_empty():
 			placing = false
 			ball.respawn()
+			_setup_stage()
 		return
 	# The trigger is a blaster in every mode (holding keeps firing).
 	if how == "trigger":
@@ -1383,35 +1403,16 @@ func _menu_action(i: int) -> void:
 				_apply_look()
 
 
-## Whack-a-Dahrooj: in VR from the court's ground; in mixed reality from the scanned
-## walls, floor and furniture (the court's ground when the room has no scan).
+## Whack-a-Dahrooj: in VR from the court's ground; in mixed reality all around the player,
+## out of the room's walls, open floor and furniture tops (RoomSpots; a ring on the floor and in
+## the air when the room has no scan).
 func _setup_mole() -> void:
 	var mole := stage as MoleStage
 	if mole == null:
 		return
 	mole.sink = mode != "mr"
-	mole.size = 2.0 if mode == "mr" else 1.0
-	mole.spots_provider = func() -> Array:
-		var out := []
-		if mode != "mr":
-			return out
-		var to_game := game_root.global_transform.affine_inverse()
-		var head := head_transform().origin
-		for pl in surfaces.planes():
-			if pl.label == "ceiling":
-				continue
-			var x: Transform3D = pl.xform
-			var sz: Vector2 = pl.size
-			if sz.x < 0.35 or sz.y < 0.35:
-				continue
-			for k in 3:
-				var u := (randf() - 0.5) * sz.x * 0.8
-				var v := (randf() - 0.5) * sz.y * 0.8
-				var wp := x.origin + x.basis.x.normalized() * u + x.basis.y.normalized() * v
-				if wp.distance_to(head) < 1.0:
-					continue
-				out.append({"pos": to_game * wp, "normal": (to_game.basis * (pl.normal as Vector3)).normalized()})
-		return out
+	mole.size = RoomSpots.size_for(0.1, MoleStage.R, scale_now) if mode == "mr" else 1.0
+	mole.spots_provider = room_spots_for(2)
 
 
 ## The Summit: Dahrooj climbs the mountain on the goal court (VR) or on the pinned spot.
@@ -1543,35 +1544,15 @@ func _step_table(dt: float) -> void:
 		"color": Save.jelly_color, "accessory": worn(), "eye": head_transform().origin, "english": not Save.arabic()})
 
 
-## Dahrooj Attack: in mixed reality they also burst out of the scanned walls and floor,
-## bigger; haptics through buzz().
+## Dahrooj Attack: in mixed reality they burst out of the room's walls, floor and furniture
+## all around the player (RoomSpots), room-sized; haptics through buzz().
 func _setup_invasion() -> void:
 	var inv := stage as InvasionStage
 	if inv == null:
 		return
-	inv.size = 2.0 if mode == "mr" else 1.0
+	inv.size = RoomSpots.size_for(0.11, 0.45, scale_now) if mode == "mr" else 1.0
 	inv.buzz = buzz
-	inv.spots_provider = func() -> Array:
-		var out := []
-		if mode != "mr":
-			return out
-		var to_game := game_root.global_transform.affine_inverse()
-		var head := head_transform().origin
-		for pl in surfaces.planes():
-			if pl.label == "ceiling":
-				continue
-			var x: Transform3D = pl.xform
-			var sz: Vector2 = pl.size
-			if sz.x < 0.35 or sz.y < 0.35:
-				continue
-			for k in 3:
-				var u := (randf() - 0.5) * sz.x * 0.8
-				var v := (randf() - 0.5) * sz.y * 0.8
-				var wp := x.origin + x.basis.x.normalized() * u + x.basis.y.normalized() * v
-				if wp.distance_to(head) < 1.5:
-					continue
-				out.append({"pos": to_game * wp, "normal": (to_game.basis * (pl.normal as Vector3)).normalized()})
-		return out
+	inv.spots_provider = room_spots_for(1)
 
 
 ## Slime: in mixed reality Dahrooj sticks to the scanned walls, floor and furniture.
@@ -1579,6 +1560,7 @@ func _setup_slime() -> void:
 	var slime := stage as SlimeStage
 	if slime == null:
 		return
+	slime.spots_provider = room_spots_for(2)
 	slime.planes_provider = func() -> Array:
 		var out := []
 		if mode != "mr":
@@ -1623,6 +1605,118 @@ func room_planes_game() -> Array:
 	return out
 
 
+## Every mode's setup for the current world (VR or MR) and scale.
+func _setup_stage() -> void:
+	_setup_mole()
+	_setup_invasion()
+	_setup_slime()
+	_setup_new_mode()
+
+
+## Mixed reality, a mode played all around the room (ROOM_MODES), not the Summit or a tabletop.
+func room_play() -> bool:
+	return mode == "mr" and runtime != null and stage != null and stage.visible and runtime.mode in ROOM_MODES \
+		and not summit_on and table == null
+
+
+## A stage's spots_provider: n spots all around the player (RoomSpots) of the kinds asked, in
+## room play; [] otherwise (VR: the stage keeps its own layout).
+func room_spots_for(n: int) -> Callable:
+	return func(kinds: Array) -> Array:
+		if not room_play():
+			return []
+		_refresh_room_spots(false)
+		return room_spots.pick_many(eye_game(), n, kinds)
+
+
+## The room for RoomSpots, game units: the scanned planes plus the furniture volumes and their
+## tops. [planes, boxes].
+func room_for_spots() -> Array:
+	var planes := room_planes_game()
+	var bxs := []
+	if mode != "mr":
+		return [planes, bxs]
+	var to_game := game_root.global_transform.affine_inverse()
+	for bx in surfaces.boxes():
+		var x: Transform3D = bx.xform
+		var sz: Vector3 = bx.size
+		var e: Array = [x.basis.x.normalized(), x.basis.y.normalized(), x.basis.z.normalized()]
+		var g: Array = []
+		for i in 3:
+			g.append(to_game.basis * ((e[i] as Vector3) * sz[i] * 0.5))
+		bxs.append({"pos": to_game * x.origin, "ax": (g[0] as Vector3).normalized(), "ay": (g[1] as Vector3).normalized(),
+			"az": (g[2] as Vector3).normalized(), "half": Vector3((g[0] as Vector3).length(), (g[1] as Vector3).length(), (g[2] as Vector3).length()), "label": bx.label})
+		# Its top: the face looking up.
+		var up := 0
+		for i in 3:
+			if absf((e[i] as Vector3).y) > absf((e[up] as Vector3).y):
+				up = i
+		var sgn := 1.0 if (e[up] as Vector3).y >= 0.0 else -1.0
+		var n: Vector3 = (e[up] as Vector3) * sgn
+		if n.y < 0.7:
+			continue
+		var u: Vector3 = g[(up + 1) % 3]
+		var v: Vector3 = g[(up + 2) % 3]
+		planes.append({"pos": to_game * (x.origin + n * sz[up] * 0.5), "normal": (to_game.basis * n).normalized(),
+			"ax": u.normalized(), "ay": v.normalized(), "half": Vector2(u.length(), v.length()), "label": bx.label})
+	return [planes, bxs]
+
+
+## Keeps RoomSpots in step with the scan and the court's placement (checked at most once a
+## second unless forced).
+func _refresh_room_spots(force: bool) -> void:
+	if not force and _spots_t > 0.0 and _spots_sig != "":
+		return
+	_spots_t = 1.0
+	var n_planes := surfaces.planes().size()
+	var n_boxes := surfaces.boxes().size()
+	var sig := "%d|%d|%s|%s" % [n_planes, n_boxes, str(game_root.global_transform), surfaces.status]
+	if sig == _spots_sig:
+		return
+	_spots_sig = sig
+	room_spots.unit = scale_now
+	room_spots.floor_y = to_game(Vector3.ZERO).y
+	var r := room_for_spots()
+	room_spots.set_room(r[0], r[1])
+
+
+## Room play, every frame: where the player looks (RoomSpots prefers the other ways), and the
+## chevrons toward new targets off to the side or behind.
+func _step_room_play(dt: float) -> void:
+	if not room_play() or placing:
+		if not room_cue.cues.is_empty():
+			room_cue.clear()
+		_cue_seen.clear()
+		return
+	_spots_t -= dt
+	var head := head_transform()
+	var w2g := game_root.global_transform.affine_inverse()
+	room_spots.look(w2g * head.origin, w2g.basis * -head.basis.z, dt)
+	if state != "play" or not runtime.mode in CUE_MODES:
+		room_cue.step(head, dt)
+		return
+	if _cue_stage != stage:
+		_cue_stage = stage
+		_cue_seen.clear()
+		_cue_proxies = []
+		for mi in stage.find_children("*", "MeshInstance3D", true, false):
+			if (mi as MeshInstance3D).layers == 0:
+				_cue_proxies.append(mi)
+	for mi: MeshInstance3D in _cue_proxies:
+		var id := mi.get_instance_id()
+		var vis := mi.is_visible_in_tree()
+		if vis and not bool(_cue_seen.get(id, false)):
+			room_cue.notify(head, mi)
+		_cue_seen[id] = vis
+	var sl := stage as SlimeStage
+	if sl != null and bool(sl.target.get("on", false)) and sl.room_target.visible:
+		var tp: Vector3 = sl.room_target.global_position
+		if _cue_slime != Vector3.INF and tp.distance_to(_cue_slime) > 0.3:
+			room_cue.notify(head, tp)
+		_cue_slime = tp
+	room_cue.step(head, dt)
+
+
 ## The action modes (meteor, castle, giant, gallery, frenzy) share one setup: size in
 ## mixed reality, haptics, and the scanned room when the stage takes it.
 func _setup_new_mode() -> void:
@@ -1636,6 +1730,18 @@ func _setup_new_mode() -> void:
 		stage.set("planes_provider", room_planes_game)
 	if stage is FrenzyStage:
 		stage.set("size", scale_now / VR_SCALE if mode == "mr" else 1.0)  # bubbles keep their real size
+		stage.set("around", mode == "mr")
+	# Played all around the room: room spots, and targets sized for the room (cm, whatever the
+	# court's scale).
+	if "spots_provider" in stage:
+		stage.set("spots_provider", room_spots_for(2 if stage is GalleryStage else 1))
+	if mode == "mr":
+		if stage is MeteorStage:
+			stage.set("size", RoomSpots.size_for(0.15, 0.85, scale_now))
+		elif stage is GalleryStage:
+			stage.set("size", RoomSpots.size_for(0.15, GalleryStage.R, scale_now))
+		elif stage is GiantStage:
+			stage.set("size", RoomSpots.size_for(0.105, GiantStage.MIN_R, scale_now))
 	if stage is CastleStage:
 		stage.set("size", 1.25 if mode == "mr" else 1.0)  # a small fort on the floor or a table
 
@@ -1677,10 +1783,7 @@ func _choose_mode(id: String) -> void:
 		stage = runtime.stage
 		stage.visible = true
 		place()
-		_setup_mole()
-		_setup_invasion()
-		_setup_slime()
-		_setup_new_mode()
+		_setup_stage()
 	runtime.note_mode(id, worn())
 	sfx("whoosh", 0.5, sound_pos)
 	buzz("left", 0.45, 70)

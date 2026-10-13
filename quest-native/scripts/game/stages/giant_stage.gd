@@ -82,6 +82,11 @@ var ctx: GameCtx
 ## The room's planes (mixed reality), game units: Array of {pos, normal, ax, ay, half, label}
 ## (main's slime provider). Unset or empty: the court.
 var planes_provider: Callable
+## Where to come from (mixed reality): RoomSpots on the walls all around the player (as
+## MoleStage.spots_provider). Each level he breaks in through the wall of the first one, a
+## side the player has not been looking at; without a usable wall he comes down from the sky
+## on that side. Unset or empty: the wall that faces you best (or the court).
+var spots_provider: Callable
 ## Size of the little ones, props and effects (mixed reality wants them bigger; main: 2).
 var size := 1.0
 ## The player's eye (game units). Main keeps it current.
@@ -600,6 +605,12 @@ func _layout() -> void:
 	var r := want_r(F.lv)
 	if room.ceil < INF:
 		r = minf(r, (room.ceil - room.floor) * 0.36)
+	# All around the room: a side the player has not been looking at.
+	var pref := {}
+	var prefs := RoomSpots.ask(spots_provider, ["wall"])
+	if not prefs.is_empty():
+		pref = prefs[0]
+	var pref_wall := RoomSpots.plane_of(pref, pl, 0.5 * size) if not pref.is_empty() else {}
 	var best := -INF
 	for p: Dictionary in pl:
 		var n: Vector3 = p.get("normal", Vector3.UP)
@@ -613,6 +624,8 @@ func _layout() -> void:
 		if d < 6.0 * size or half.x < 2.0 * size:
 			continue
 		var sc := nh.dot(to.normalized()) * 2.0 + minf(d, 40.0) * 0.04 + minf(half.x, 30.0) * 0.02
+		if not pref_wall.is_empty() and p == pref_wall:
+			sc += 100.0
 		if sc > best:
 			best = sc
 			room.wall = p
@@ -627,17 +640,27 @@ func _layout() -> void:
 		var half: Vector2 = w.half
 		r = minf(r, (d - 4.0 * size) / 2.2)
 		r = clampf(r, 1.4 * size, maxf(1.4 * size, half.x * 0.9))
-		var along := clampf(to.dot(tang), -maxf(0.0, half.x - r * 0.7), maxf(0.0, half.x - r * 0.7))
+		var toward: Vector3 = to
+		if not pref_wall.is_empty() and w == pref_wall:
+			toward = (pref.pos as Vector3) - wp
+		var along := clampf(toward.dot(tang), -maxf(0.0, half.x - r * 0.7), maxf(0.0, half.x - r * 0.7))
 		var q := wp + tang * along
 		room.home = Vector3(q.x, room.floor, q.z) + nh * r * 1.12
 		room.side = tang
 		room.lane = clampf(half.x - r * 1.1, 0.0, r * 0.8)
 		breach.p = Vector3(q.x, room.floor + r * 1.25, q.z) + nh * 0.02
 		breach.n = nh
-	elif room.planes:
-		# A scan without a usable wall: ahead of you on the floor.
-		room.home = Vector3(viewer.x, room.floor, viewer.z - r - 9.0 * size)
-		room.side = Vector3.RIGHT
+	elif room.planes or not pref.is_empty():
+		# A scan without a usable wall (or no scan, all around): on the floor ahead of you, or
+		# on the side of the preferred spot.
+		var dir := Vector3.FORWARD
+		if not pref.is_empty():
+			var to_p: Vector3 = (pref.pos as Vector3) - viewer
+			to_p.y = 0.0
+			if to_p.length_squared() > 1e-4:
+				dir = to_p.normalized()
+		room.home = Vector3(viewer.x, room.floor, viewer.z) + dir * (r + 9.0 * size)
+		room.side = Vector3(-dir.z, 0, dir.x)
 		room.lane = r * 0.6
 	else:
 		room.home = Vector3(0, room.floor, HOME_Z)
