@@ -2,9 +2,10 @@ extends RefCounted
 ## Dahrooj Attack (invasion): a throw starts wave 1 (banner), the wave drops in from the far
 ## end and hops toward the player; a shot pops a small one; a tank takes several hits and
 ## splits in two; the boss has hit points, is knocked down by hits in the air and then takes
-## double damage; one that reaches the line costs a heart (flash, buzz); three and the game is
-## over with the best kept; power-ups (triple shot, slow motion, bomb) work; quick pops build
-## the combo multiplier; a cleared wave counts toward invasion10; mixed-reality wall spots.
+## double damage; open play: one that reaches the line just pops (flash, buzz, no hearts, no
+## game over, no board) and the waves go on; the points feed ctx.counts["invasion"] (the jelly
+## score popup); power-ups (triple shot, slow motion, bomb) work; quick pops build the combo
+## multiplier; a cleared wave counts toward invasion10; mixed-reality wall spots.
 
 const DT := 1.0 / 72.0
 
@@ -47,7 +48,6 @@ static func _fresh(st: InvasionStage, b: Ball, wave := 1) -> int:
 
 
 static func run(check: Callable) -> void:
-	InvasionStage.persist_best = false
 	var sfx: Array = []
 	var extra: Array = []
 	var buzzes: Array = []
@@ -63,19 +63,14 @@ static func run(check: Callable) -> void:
 	st.ctx = ctx
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
 	b.set_stage(st, "invasion")
-	st.draw_board()
-	check.call(st.invasion_state().state == "idle" and st.labels.hint.text == "اطلق أو ارمِ وابدأ", "invasion: the board waits for a shot or a throw")
+	check.call(st.invasion_state().state == "idle" and st.get_node_or_null("Board") == null and not ("hearts" in st) and not ("labels" in st), "invasion: no score board and no hearts")
 	check.call("invasion" in GameRuntime.MODES and not GameRuntime.challenge("invasion10").is_empty() and GameRuntime.challenge("invasion10")[3] == 10, "invasion: a mode of the runtime, with the invasion10 challenge")
-	_steps(st, b, 2.0)
-	check.call(st.invaders.any(func(q): return q.on and q.phase == "idle"), "invasion: cheeky ones dance at the far end while waiting")
-
-	# A throw starts wave 1: a banner, then they drop in from the far end and hop at you.
-	b.pos = Vector3(0, 2, 0)
-	b.throw_with(Vector3(0, 4, -12))
-	b.respawn()
+	# Open play: shown, wave 1 starts on its own (no throw to start): a banner, then they drop
+	# in from the far end and hop at you.
+	st.update(b, DT)
 	st.draw()
-	check.call(st.invasion_state().state == "break" and st.invasion_state().wave == 1 and st.banner.visible and st.banner.text == "الموجة ١", "invasion: a throw starts wave 1 with a big banner (%s)" % st.banner.text)
-	check.call(st.invasion_state().lives == 3 and st.invasion_state().queue == 6 and st.invaders.all(func(q): return not q.on or q.phase != "idle"), "invasion: three hearts, six of them queued, the dancers gone")
+	check.call(st.invasion_state().state == "break" and st.invasion_state().wave == 1 and st.banner.visible and st.banner.text == "الموجة ١", "invasion: wave 1 starts on its own with a big banner (%s)" % st.banner.text)
+	check.call(st.invasion_state().queue == 6 and not st.invasion_state().has("lives"), "invasion: six of them queued, no hearts")
 	check.call(_until(st, b, func(): return st.invasion_state().state == "wave", 3.0), "invasion: the break ends and the wave comes")
 	check.call(_until(st, b, func(): return st.invasion_state().alive >= 2, 4.0), "invasion: they spawn (%d alive)" % st.invasion_state().alive)
 	var first: Dictionary = {}
@@ -102,8 +97,10 @@ static func run(check: Callable) -> void:
 	var proxy: MeshInstance3D = m.proxy
 	check.call(m.phase == "march" and proxy.visible and proxy.layers == 0 and InvasionStage.hittable(m), "invasion: an undrawn hit sphere for the blaster")
 	var s0: int = st.invasion_state().score
+	var c0 := int(ctx.counts.get("invasion", 0))
 	sfx.clear()
 	check.call(st.shoot(proxy, m.c, Vector3.FORWARD) and not m.on and st.invasion_state().score == s0 + 15, "invasion: one shot pops a fast little one (+15)")
+	check.call(int(ctx.counts.get("invasion", 0)) == c0 + 15, "invasion: the points go to counts[invasion] for the jelly score (%d)" % int(ctx.counts.get("invasion", 0)))
 	check.call(sfx.any(func(s): return s[0] == "start_pop") and st._sparks.size() > 8 and extra.any(func(e): return e[0] == "ch" and e[1] == "pop20"), "invasion: pop, sparks, and it counts toward pop20")
 	check.call(not st.shoot(proxy, m.c, Vector3.FORWARD), "invasion: a popped one can't be hit again")
 
@@ -169,38 +166,25 @@ static func run(check: Callable) -> void:
 	check.call(_until(st, b, func(): return m.act == "", 2.0) and m.p.z > -15.0, "invasion: unstopped, he slams down nearer (z %.1f)" % m.p.z)
 	check.call(st.invaders.filter(func(q): return q.on and q.kind == "mini").size() == n0 + 2 and st._rings.size() >= 2, "invasion: with a shockwave and two little ones")
 
-	# One that reaches the line costs a heart.
+	# One that reaches the line just pops: a flash and a buzz, nothing lost, the game goes on.
 	_fresh(st, b)
 	buzzes.clear()
 	var g := st.goal()
 	i = st.spawn("plain", _ground(g.x, g.z - st.reach_r() - 0.6))
 	m = st.invaders[i]
-	check.call(_until(st, b, func(): return not m.on, 2.0) and st.invasion_state().lives == 2, "invasion: reaching the line costs a heart (%d)" % st.invasion_state().lives)
+	check.call(_until(st, b, func(): return not m.on, 2.0) and st.invasion_state().breaches == 1, "invasion: reaching the line pops it (%d through)" % st.invasion_state().breaches)
 	st.draw()
 	check.call(st.F.flash_t > 0.0 and (st._mm.flash as MultiMesh).visible_instance_count == 1 and buzzes.size() >= 2, "invasion: a red flash around the head and a buzz in both hands")
-	check.call(st.hearts[2].material_override != st.hearts[0].material_override, "invasion: the board shows the heart lost")
-
-	# Game over after three; the best is kept.
-	InvasionStage.persist_best = true
-	InvasionStage.best_path = "user://dahrooj-invasion-test-best"
-	st.F.score = 777
-	st.F.wave = 4
-	st.F.best_wave = 0
-	st.F.best_score = 0
-	for k in 2:
-		var q := st.spawn("plain", _ground(g.x + k * 1.2 - 0.6, g.z - st.reach_r() - 0.4))
+	# Open-ended: however many get through, no game over; the score is never taken away.
+	var counted := int(ctx.counts.get("invasion", 0))
+	for k in 6:
+		var q := st.spawn("plain", _ground(g.x + (k % 3) * 1.2 - 1.2, g.z - st.reach_r() - 0.4))
 		st.invaders[q].hop_u = 0.5
 	_steps(st, b, 1.5)
-	var f := FileAccess.open(InvasionStage.best_path, FileAccess.READ)
-	var saved := f.get_as_text() if f else ""
-	f = null
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(InvasionStage.best_path))
-	InvasionStage.persist_best = false
-	InvasionStage.best_path = "user://dahrooj-invasion-best"
-	check.call(st.invasion_state().state == "over" and st.invasion_state().lives == 0, "invasion: three hearts lost, game over")
-	check.call(st.invasion_state().best_wave == 4 and st.invasion_state().best_score == 777 and saved == "4 777", "invasion: best wave and score saved (%s)" % saved)
-	check.call(st.banner.text == "انتهت اللعبة" and extra.any(func(e): return e[0] == "toast"), "invasion: a game-over banner and a toast")
-	check.call(_until(st, b, func(): return st.invasion_state().state == "idle", 6.0) and st.invasion_state().alive <= 3, "invasion: back to waiting after a moment")
+	check.call(st.invasion_state().breaches == 7 and st.invasion_state().state == "wave" and st.banner.text != "انتهت اللعبة", "invasion: seven through and still playing (%s)" % st.invasion_state().state)
+	check.call(int(ctx.counts.get("invasion", 0)) == counted, "invasion: nothing comes off the score")
+	_steps(st, b, 5.0)
+	check.call(st.invasion_state().state == "wave" and st.invasion_state().wave == 1, "invasion: no game over later either")
 
 	# Combo: quick pops raise the multiplier.
 	check.call(InvasionStage.multiplier(1) == 1 and InvasionStage.multiplier(3) == 2 and InvasionStage.multiplier(6) == 3 and InvasionStage.multiplier(10) == 4 and InvasionStage.multiplier(15) == 5 and InvasionStage.multiplier(99) == 5, "invasion: the multiplier steps at 3, 6, 10, 15 pops")
@@ -265,8 +249,17 @@ static func run(check: Callable) -> void:
 		if q.on:
 			q.on = false
 	st.update(b, DT)
-	check.call(st.invasion_state().wave == 3 and st.invasion_state().state == "break" and extra.any(func(e): return e[0] == "ch" and e[1] == "invasion10" and e[2] == 2)
-		and extra.any(func(e): return e[0] == "count" and e[1] == "invasion"), "invasion: a cleared wave counts toward invasion10 and the next one begins")
+	check.call(st.invasion_state().wave == 3 and st.invasion_state().state == "break" and extra.any(func(e): return e[0] == "ch" and e[1] == "invasion10" and e[2] == 2),
+		"invasion: a cleared wave counts toward invasion10 and the next one begins")
+	# Waves keep coming forever: run a few through on their own.
+	st.auto_spawn = true
+	var reached := func() -> bool:
+		for q in st.invaders:
+			if q.on and InvasionStage.hittable(q) and q.phase == "march":
+				st.shoot(q.proxy, q.c, Vector3.FORWARD)
+		return st.invasion_state().wave >= 6
+	check.call(_until(st, b, reached, 120.0) and st.invasion_state().state != "idle", "invasion: wave after wave, on and on (wave %d)" % st.invasion_state().wave)
+	st.auto_spawn = false
 	var plan := st.wave_plan(10)
 	check.call(plan[0] == "boss" and st.wave_plan(1).size() == 6 and st.wave_plan(1).all(func(k): return k == "plain") and st.wave_plan(8).size() > st.wave_plan(3).size(), "invasion: every 5th wave a boss; waves grow")
 	check.call(InvasionStage.wave_speed(8) > InvasionStage.wave_speed(1), "invasion: and speed up")

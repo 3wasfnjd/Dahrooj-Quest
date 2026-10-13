@@ -2,8 +2,9 @@ class_name MoleStage
 extends Node3D
 ## Whack-a-Dahrooj («اضرب الدحروج», mode "mole"): little Dahroojs in every style and colour
 ## pop out of holes that crack open in the ground, look around, blink and duck back. Hit them
-## with a thrown Dahrooj or a blaster shot. A 60-second round (a throw or a shot starts it),
-## best score kept, the pace rises through the round. A golden one (crown) is worth 3; a
+## with a thrown Dahrooj or a blaster shot. Open play: no round, no clock, no score board;
+## they keep popping up at a steady, comfortable pace (PACE) and the points go to
+## ctx.counts["mole"], which the jelly score popup shows. A golden one (crown) is worth 3; a
 ## sleepy one (eyes shut, Zzz) costs 2 and breaks the streak. Every 5 in a row: confetti.
 ## Game units, like the other stages.
 ##
@@ -15,7 +16,8 @@ extends Node3D
 ## Blaster: every mole that can be hit has a hidden (layers = 0, never drawn) collision sphere
 ## MeshInstance3D that follows it, so the runtime's ray_stage() finds it and calls shoot().
 
-const ROUND := 60.0
+## The pace of play, 0 (calm) .. 1 (frantic): fixed at what was the middle of the old round.
+const PACE := 0.5
 const R := 0.34  # a mole's radius (game units, before `size`)
 const HOLE_K := 1.32  # hole radius / mole radius
 const SLOTS := 8
@@ -26,11 +28,6 @@ const CLOSE_T := 0.24
 const HIT_T := 0.8
 const POINTS := {"plain": 1, "gold": 3, "sleepy": -2}
 const STREAK := 5
-const BOARD_Z := -15.6
-const BOARD_Y := 3.3
-const BOARD := Vector2(5.0, 1.45)
-const POST_X := 2.1
-const BEST_PATH := "user://dahrooj-mole-best"
 const COLORS := ["ff69b4", "b36bff", "ff9b3d", "6fa8d6", "7bbf8a", "e2603f", "f1ebe1", "cfe8ff", "ffd166", "46aaa9"]
 const ACCS := ["", "", "", "party", "glasses", "cap", "flower", "headphones", "scarf"]
 const GRID_X := [-4.0, -2.0, 0.0, 2.0, 4.0]
@@ -39,8 +36,6 @@ const DEBRIS_MAX := 96
 const STARS_MAX := 40
 const DIRT := ["7d5434", "9b6a42", "6b4429", "b08355", "5a3a24"]
 
-## Tests turn this off so they don't write the best score.
-static var persist_best := true
 static var _meshes := {}
 
 var aim_z := -10.0
@@ -62,13 +57,10 @@ var viewer := Vector3(0, 2.6, 0.5)
 ## New moles come up on their own (tests turn it off and call spawn()).
 var auto_spawn := true
 
-var F := {"time": ROUND, "on": false, "score": 0, "best": 0, "streak": 0, "over": 0.0, "touched": false,
-	"spawn_t": 0.6, "whacked": 0, "shown_key": "", "throw_live": false, "throw_hits": 0}
+var F := {"score": 0, "streak": 0, "touched": false, "spawn_t": 0.6, "whacked": 0, "throw_live": false, "throw_hits": 0}
 var moles: Array = []
 var grid: Array = []
 var crowd: Crowd
-var board: Node3D
-var labels := {}
 var time := 0.0
 var _debris: Array = []
 var _debris_mm: MultiMesh
@@ -126,8 +118,6 @@ func _init() -> void:
 			"spin": 0.0, "hole": hole, "proxy": proxy, "zzz": zzz, "pop": pop, "pop_t": 0.0, "pop_at": Vector3.ZERO})
 	_debris_mm = _multi("Debris", Crowd.merge([[Crowd.sphere(1.0, 5, 3), Transform3D.IDENTITY, Color.WHITE]]), _mat("debris"), DEBRIS_MAX)
 	_stars_mm = _multi("Stars", star_mesh(), _mat("star"), STARS_MAX)
-	_build_board()
-	F.best = _load_best()
 	draw()
 
 
@@ -146,14 +136,6 @@ static func _mat(key: String) -> Material:
 		"star":
 			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		"board":
-			m.vertex_color_use_as_albedo = false
-			m.albedo_color = Color("243133")
-			m.roughness = 0.85
-		"post":
-			m.vertex_color_use_as_albedo = false
-			m.albedo_color = Color("c98f5c")
-			m.roughness = 0.65
 	_meshes["mat_" + key] = m
 	return m
 
@@ -287,66 +269,7 @@ static func star_mesh() -> ArrayMesh:
 	return mesh
 
 
-func _build_board() -> void:
-	board = Node3D.new()
-	board.name = "Board"
-	board.position = Vector3(0, 0, BOARD_Z)
-	add_child(board)
-	var panel := StageArt.rbox(BOARD.x, BOARD.y, 0.18, 0.08, _mat("board"))
-	panel.position = Vector3(0, BOARD_Y, 0)
-	board.add_child(panel)
-	for x in [-POST_X, POST_X]:
-		var post := StageArt.rbox(0.16, BOARD_Y - 0.2, 0.16, 0.06, _mat("post"))
-		post.position = Vector3(x, (BOARD_Y - 0.2) / 2.0, -0.05)
-		board.add_child(post)
-	# time | score | best, a line of words under them
-	for k in [["time", -1.6, 0.12, 100, "ffcb62"], ["score", 0.0, 0.14, 150, "79f5b3"], ["best", 1.6, 0.12, 80, "c9d8b2"],
-			["hint", 0.0, -0.46, 44, "b7dec3"], ["time_l", -1.6, -0.46, 40, "b7dec3"], ["best_l", 1.6, -0.46, 40, "b7dec3"]]:
-		var l := Panel3D.label("", k[3], Color(k[4]))
-		l.pixel_size = 0.0048
-		k[2] = BOARD_Y + float(k[2])
-		l.render_priority = 1
-		l.position = Vector3(k[1], k[2], 0.095)
-		board.add_child(l)
-		labels[k[0]] = l
-	draw_board()
-
-
-func draw_board() -> void:
-	var en := ctx != null and ctx.lang == "en"
-	var key := "%d|%d|%d|%s|%s|%d" % [ceili(F.time), F.score, F.best, F.on, en, F.streak]
-	if key == F.shown_key:
-		return
-	F.shown_key = key
-	var num := func(v: int) -> String: return str(v) if en else GameCtx.ar_digits(v)
-	labels.time.text = num.call(maxi(0, ceili(F.time)))
-	labels.score.text = num.call(F.score)
-	labels.best.text = num.call(F.best)
-	# While waiting the hint takes the whole line.
-	labels.time_l.text = ("TIME" if en else "الوقت") if F.on else ""
-	labels.best_l.text = ("BEST" if en else "الأفضل") if F.on else ""
-	if F.on:
-		labels.hint.text = (("STREAK ×%d" % F.streak) if en else ("سلسلة ×" + GameCtx.ar_digits(F.streak))) if F.streak >= 2 else ("POINTS" if en else "النقاط")
-	else:
-		labels.hint.text = "THROW OR SHOOT TO START" if en else "ارمِ أو اطلق وابدأ"
-
-
-# ---- persistence, ctx ----
-
-static func _load_best() -> int:
-	if not persist_best or not FileAccess.file_exists(BEST_PATH):
-		return 0
-	var f := FileAccess.open(BEST_PATH, FileAccess.READ)
-	return int(f.get_as_text().to_int()) if f else 0
-
-
-static func _save_best(v: int) -> void:
-	if not persist_best:
-		return
-	var f := FileAccess.open(BEST_PATH, FileAccess.WRITE)
-	if f:
-		f.store_string(str(v))
-
+# ---- ctx ----
 
 func _sfx(n: String, k: float, p: Vector3) -> void:
 	if ctx:
@@ -363,42 +286,11 @@ func _celebrate(at: Vector3, k := 1.0) -> void:
 		ctx.confetti.call(at, 1.2 * k, 1.4, maxf(1.0, at.distance_to(viewer) / 7.0))
 
 
-# ---- the round ----
+# ---- the play ----
 
-func _start_round() -> void:
-	F.on = true
-	F.time = ROUND
-	F.score = 0
-	F.streak = 0
-	F.whacked = 0
-	F.spawn_t = minf(F.spawn_t, 0.3)
-	if ctx:
-		ctx.counts["mole"] = 0
-	_sfx("whoosh", 0.4, board.position + Vector3(0, BOARD_Y, 0))
-
-
-func _end_round() -> void:
-	F.on = false
-	F.time = 0.0
-	F.over = 2.5
-	var best: bool = F.score > F.best
-	if best:
-		F.best = F.score
-		_save_best(F.best)
-	_toast("انتهى الوقت! %s نقطة%s" % [GameCtx.ar_digits(F.score), " · أفضل نتيجة" if best else ""],
-		"Time! %d points%s" % [F.score, " — best yet" if best else ""])
-	_sfx("chime", 1.0, board.position + Vector3(0, BOARD_Y, 0))
-	if best and F.score > 0:
-		_celebrate(board.position + Vector3(0, BOARD_Y + 0.6, 0.4), 1.5)
-	# Everyone ducks.
-	for m in moles:
-		if m.on and m.phase in ["open", "rise", "up"]:
-			_phase(m, "duck" if m.phase != "open" else "close")
-
-
-## 0 at the start of a round, 1 at its end: the pace.
+## The pace, 0 .. 1 (steady: open play has no round to speed up through).
 func pace() -> float:
-	return clampf(1.0 - F.time / ROUND, 0.0, 1.0) if F.on else 0.0
+	return PACE
 
 
 func _score(m: Dictionary) -> void:
@@ -408,9 +300,9 @@ func _score(m: Dictionary) -> void:
 	m.pop_at = at
 	(m.pop as Label3D).text = ("+%d" % pts) if pts > 0 else ("%d" % pts)
 	(m.pop as Label3D).modulate = Color("ffc21a") if m.kind == "gold" else (Color("ff4d3d") if pts < 0 else Color("5dff8a"))
-	if not F.on:
-		return
 	F.score = maxi(0, F.score + pts)
+	if ctx:
+		ctx.counts["mole"] = maxi(0, int(ctx.counts.get("mole", 0)) + pts)
 	if pts < 0:
 		F.streak = 0
 		_toast("شش! كان نايم", "Shh! He was asleep")
@@ -419,7 +311,6 @@ func _score(m: Dictionary) -> void:
 	F.streak += 1
 	F.throw_hits += 1
 	if ctx:
-		ctx.add_count.call("mole", false)
 		ctx.ch_progress.call("mole20", int(ctx.ch_state.get("mole20", 0)) + 1)
 	if m.kind == "gold":
 		_toast("دحروج ذهبي! +٣", "Golden Dahrooj! +3")
@@ -490,8 +381,6 @@ func _pick_spot() -> Dictionary:
 
 
 func _pick_kind() -> String:
-	if not F.on:
-		return "plain"
 	var r := _rng.randf()
 	if r < 0.1 and pace() > 0.08:
 		return "gold"
@@ -535,8 +424,6 @@ func spawn(kind := "", spot := {}) -> int:
 			m.acc = ACCS[_rng.randi() % ACCS.size()]
 	var p := pace()
 	m.up_t = lerpf(2.6, 1.4, p) * (0.75 if m.kind == "gold" else (1.25 if m.kind == "sleepy" else 1.0)) * _rng.randf_range(0.85, 1.15)
-	if not F.on:
-		m.up_t = 2.4
 	m.look = 0.0
 	m.look_to = 0.0
 	m.look_t = 0.3
@@ -813,7 +700,6 @@ func draw() -> void:
 		_debris_mm.set_instance_transform(i, Transform3D(Basis(d.ax, d.t * d.w) * Basis.from_scale(Vector3(1.0, 0.75, 1.1) * d.s * maxf(0.01, k)), d.p))
 		_debris_mm.set_instance_color(i, d.c)
 	_debris_mm.visible_instance_count = nd
-	draw_board()
 
 
 # ---- stage interface ----
@@ -833,23 +719,9 @@ func _ball_vs(S: Ball, c: Vector3, r: float) -> bool:
 	return true
 
 
-## The board is solid (a resting thrown ball too). Returns {hit, p, v, n}.
-func collide_body(p: Vector3, v: Vector3, r: float, previous: Vector3) -> Dictionary:
-	return FairStage.collide_solid_box(p, v, r, previous, board.position + Vector3(0, BOARD_Y, 0), Vector3(BOARD.x / 2.0, BOARD.y / 2.0, 0.09))
-
-
 func collide(S: Ball) -> void:
 	if not S.shot:
 		return
-	var incoming := S.vel.length()
-	var res := collide_body(S.pos, S.vel, Ball.BR, S.prev)
-	if res.hit:
-		S.pos = res.p
-		S.vel = res.v
-		S.hit(res.n, incoming, S.pos)
-		S.side = Vector3.ZERO
-	for x in [-POST_X, POST_X]:
-		S.seg_collide(board.position + Vector3(x, 0, -0.05), board.position + Vector3(x, BOARD_Y, -0.05), 0.08, 0.5)
 	for m in moles:
 		if not solid(m):
 			continue
@@ -859,15 +731,11 @@ func collide(S: Ball) -> void:
 		if _ball_vs(S, pose.c, pose.rr):
 			F.touched = true
 			if hittable(m):
-				if not F.on and F.over <= 0.0:
-					_start_round()
 				whack(m, S.vel.normalized() if S.vel.length_squared() > 0.0 else Vector3.FORWARD)
 				_sfx("thump", 0.4, pose.c)
 
 
 func shoot(obj: Node, _point: Vector3, dir: Vector3) -> bool:
-	if not F.on and F.over <= 0.0:
-		_start_round()
 	for m in moles:
 		if obj == m.proxy and hittable(m):
 			whack(m, dir if dir != Vector3.ZERO else Vector3.FORWARD)
@@ -880,8 +748,6 @@ func touched() -> bool:
 
 
 func on_throw() -> void:
-	if not F.on and F.over <= 0.0:
-		_start_round()
 	F.throw_live = true
 	F.throw_hits = 0
 
@@ -889,7 +755,7 @@ func on_throw() -> void:
 func on_respawn() -> void:
 	F.touched = false
 	# A throw that hit nothing breaks the streak.
-	if F.throw_live and F.throw_hits == 0 and F.on:
+	if F.throw_live and F.throw_hits == 0:
 		F.streak = 0
 	F.throw_live = false
 
@@ -899,9 +765,7 @@ func deactivate() -> void:
 		m.on = false
 		m.pop_t = 0.0
 	_debris.clear()
-	F.on = false
-	F.over = 0.0
-	F.time = ROUND
+	F.score = 0
 	F.streak = 0
 	F.touched = false
 	F.throw_live = false
@@ -911,27 +775,19 @@ func deactivate() -> void:
 
 func update(_b: Ball, dt: float) -> void:
 	time += dt
-	if F.on:
-		F.time -= dt
-		if F.time <= 0.0:
-			_end_round()
-	elif F.over > 0.0:
-		F.over -= dt
-		if F.over <= 0.0:
-			F.time = ROUND
-	# New moles: faster and more of them as the round goes on; a slow few while waiting.
-	if F.over <= 0.0 and auto_spawn:
+	# New moles, on and on at a steady pace.
+	if auto_spawn:
 		F.spawn_t -= dt
 		var up := 0
 		for m in moles:
 			if m.on:
 				up += 1
 		var p := pace()
-		var cap := (2 + int(p * 3.5)) if F.on else 2
+		var cap := 2 + int(p * 3.5)
 		if F.spawn_t <= 0.0:
 			if up < cap:
 				spawn()
-			F.spawn_t = (lerpf(1.05, 0.42, p) if F.on else 1.8) * _rng.randf_range(0.7, 1.3)
+			F.spawn_t = lerpf(1.05, 0.42, p) * _rng.randf_range(0.7, 1.3)
 	for m in moles:
 		if m.on:
 			_step_mole(m, dt)
@@ -942,7 +798,7 @@ func update(_b: Ball, dt: float) -> void:
 
 
 func mole_state() -> Dictionary:
-	return {"on": F.on, "time": F.time, "score": F.score, "best": F.best, "streak": F.streak, "whacked": F.whacked}
+	return {"score": F.score, "streak": F.streak, "whacked": F.whacked}
 
 
 func moles_state() -> Array:

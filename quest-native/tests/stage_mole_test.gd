@@ -1,8 +1,9 @@
 extends RefCounted
 ## Whack-a-Dahrooj (mole): moles open a hole, rise, stay and hide on a timer; a thrown ball
 ## scores on a raised mole but not on a hidden one; a blaster shot scores; the golden one is
-## worth more and the sleepy one costs; the round ends and keeps the best; wall spots orient
-## the hole and the mole along the wall's normal.
+## worth more and the sleepy one costs; open play: no round, clock or board, the points go to
+## counts[mole] and they keep coming at a steady pace; wall spots orient the hole and the mole
+## along the wall's normal.
 
 
 static func _until(st: MoleStage, b: Ball, i: int, phase: String, limit: float) -> bool:
@@ -16,7 +17,6 @@ static func _until(st: MoleStage, b: Ball, i: int, phase: String, limit: float) 
 
 
 static func run(check: Callable) -> void:
-	MoleStage.persist_best = false
 	var sfx: Array = []
 	var counts: Array = []
 	var extra: Array = []
@@ -32,7 +32,7 @@ static func run(check: Callable) -> void:
 	ctx.confetti = func(p, _r, _e, _s): extra.append(["confetti", p])
 	st.ctx = ctx
 	b.set_stage(st, "mole")
-	check.call(not st.mole_state().on and st.labels.hint.text == "ارمِ أو اطلق وابدأ", "mole: the board waits for a throw or a shot")
+	check.call(st.get_node_or_null("Board") == null and not ("labels" in st) and not st.mole_state().has("time"), "mole: no score board and no round clock")
 	check.call(st.grid.size() == 20 and st.grid.all(func(s): return s.pos.z < -4.5 and s.pos.z > -14.5 and absf(s.pos.x) < 6.0), "mole: 20 ground spots in the field in front")
 
 	# Up and down on a timer.
@@ -62,14 +62,13 @@ static func run(check: Callable) -> void:
 	b.respawn()
 	b.pos = m.c + Vector3(0, 0.6, 3.0)
 	b.throw_with(Vector3(0, 1.0, -10))
-	check.call(st.mole_state().on and st.mole_state().time == MoleStage.ROUND, "mole: a throw starts the round")
 	for k in 72:
 		b.step(1.0 / 72.0)
 		if m.phase == "hit":
 			break
 	check.call(m.phase == "hit" and st.mole_state().score == 1, "mole: a thrown ball whacks a raised one (score %d)" % st.mole_state().score)
 	check.call(st.touched() and sfx.any(func(s): return s[0] == "start_pop") and sfx.any(func(s): return s[0] == "squeak"), "mole: pop and squeak, and the throw counts as touched")
-	check.call(counts.any(func(c): return c[0] == "mole") and extra.any(func(e): return e[0] == "ch" and e[1] == "mole20"), "mole: the whack is counted toward mole20")
+	check.call(int(ctx.counts.get("mole", 0)) == 1 and counts.is_empty() and extra.any(func(e): return e[0] == "ch" and e[1] == "mole20"), "mole: the whack goes to counts[mole] (the jelly score) and toward mole20")
 	st.draw()
 	check.call(st._stars_mm.visible_instance_count >= 3, "mole: dizzy stars over his head")
 	check.call(not MoleStage.hittable(m), "mole: a whacked one can't be hit again")
@@ -97,7 +96,7 @@ static func run(check: Callable) -> void:
 	check.call(st._eyes(st.moles[z]) == "shut" and st.moles[z].zzz.visible, "mole: the sleepy one dozes (eyes shut, Zzz)")
 	before = st.mole_state().score
 	st.shoot(st.moles[z].proxy, st.moles[z].c, Vector3.FORWARD)
-	check.call(st.mole_state().score == before - 2 and st.mole_state().streak == 0, "mole: waking the sleepy one costs 2 and the streak")
+	check.call(st.mole_state().score == before - 2 and st.mole_state().streak == 0 and int(ctx.counts.get("mole", 0)) == st.mole_state().score, "mole: waking the sleepy one costs 2 and the streak")
 
 	# A streak of five throws confetti.
 	extra.clear()
@@ -107,26 +106,37 @@ static func run(check: Callable) -> void:
 		st.shoot(st.moles[q].proxy, st.moles[q].c, Vector3.FORWARD)
 	check.call(st.mole_state().streak == 5 and extra.any(func(e): return e[0] == "confetti"), "mole: five in a row, confetti")
 
-	# The round runs out, with moles coming up faster on their own.
+	# Open play: they keep coming up on their own at a steady pace, with no time-out.
 	st.auto_spawn = true
-	var spawned := {}
+	var score0: int = st.mole_state().score
+	var spawned := 0
 	var t := 0.0
 	var gaps := {"early": 0, "late": 0}
-	while st.mole_state().on and t < 70.0:
+	var most := 0
+	sfx.clear()
+	extra.clear()
+	while t < 90.0:
 		st.update(b, 1.0 / 72.0)
 		t += 1.0 / 72.0
+		var up := 0
 		for k in st.moles.size():
+			if st.moles[k].on:
+				up += 1
 			if st.moles[k].on and st.moles[k].phase == "open" and st.moles[k].t == 1.0 / 72.0:
-				spawned[t] = k
-				if t < 20.0:
+				spawned += 1
+				if t < 30.0:
 					gaps.early += 1
-				elif t > 40.0:
+				elif t > 60.0:
 					gaps.late += 1
-	var best: int = st.mole_state().best
-	check.call(not st.mole_state().on and best == st.mole_state().score and best > 0, "mole: time runs out and the best is kept (%d)" % best)
-	check.call(extra.any(func(e): return e[0] == "toast" and String(e[1]).begins_with("انتهى الوقت")) and sfx.any(func(s): return s[0] == "chime"), "mole: the round ends with a toast and a chime")
-	check.call(spawned.size() > 25 and gaps.late > gaps.early, "mole: they come up on their own, faster later (%d early, %d late)" % [gaps.early, gaps.late])
-	check.call(st.F.over > 0.0, "mole: a short pause after the round")
+		most = maxi(most, up)
+	check.call(spawned > 60 and gaps.early > 15 and gaps.late > 15 and absi(gaps.late - gaps.early) <= maxi(6, gaps.early / 3), "mole: they keep coming at a steady pace (%d early, %d late)" % [gaps.early, gaps.late])
+	check.call(most <= 3 and st.moles.any(func(x): return x.on), "mole: a comfortable few at a time (%d), still coming after 90 s" % most)
+	check.call(not extra.any(func(e): return e[0] == "toast") and not sfx.any(func(s): return s[0] == "chime") and st.mole_state().score == score0, "mole: no time-out, the score stays (%d)" % st.mole_state().score)
+	var up_t := 0.0
+	for k in st.moles.size():
+		if st.moles[k].on and st.moles[k].kind == "plain":
+			up_t = maxf(up_t, st.moles[k].up_t)
+	check.call(up_t == 0.0 or up_t > 1.6, "mole: they stay up a comfortable while (%.2f s)" % up_t)
 
 	# Room spots: a wall facing -x.
 	st.deactivate()
@@ -147,6 +157,6 @@ static func run(check: Callable) -> void:
 	var gnd := st.spawn()
 	check.call(gnd >= 0 and st.moles[gnd].n == Vector3.UP and st.moles[gnd].sink, "mole: no room spots, the ground field")
 	st.deactivate()
-	check.call(st.moles.all(func(x): return not x.on) and not st.mole_state().on, "mole: deactivate clears the field")
+	check.call(st.moles.all(func(x): return not x.on) and st.mole_state().score == 0 and int(ctx.counts.get("mole", 0)) > 0, "mole: deactivate clears the field (counts[mole] stays)")
 	b.set_stage(null, "")
 	st.free()

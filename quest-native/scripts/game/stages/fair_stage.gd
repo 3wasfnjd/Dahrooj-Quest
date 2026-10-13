@@ -1,27 +1,18 @@
 class_name FairStage
 extends Node3D
-## The fairground stall (src/reference/stages/fair.js): a 60-second round of ducks on a rail
-## (1 point), balloons (2) and a bell (5), points doubled for a curved throw, an LED board
-## with the time and score, and ducks that fly off tumbling when hit. Game units.
+## The fairground stall (src/reference/stages/fair.js): ducks on a rail (1 point), balloons (2)
+## and a bell (5), points doubled for a curved throw, and ducks that fly off tumbling when hit.
+## Open play: no round clock, no LED board, nothing to start; every hit adds its points to
+## ctx.counts["fair"] (the jelly score popup shows it) and they are never reset. fair25 counts
+## the points of this visit to the stall. Game units.
 
 const FZ := -9.5
 const CY := 1.05
-const ROUND := 60.0
 const DUCK_R := 0.22
 const SR := 6.8 / 24.0
 const BAL := ["6fa8d6", "e2603f", "7bbf8a", "c9a2e6", "f2c14e"]
 ## stand-in for confetti.celebrate's camera distance (the player's head near the throw spot)
 const CAMERA := Vector3(0, 1.6, 0)
-const BEST_PATH := "user://dahrooj-fair-best"  # localStorage 'dahrooj-fair-best'
-## The canvas is 1024 x 256 drawn on a 2.5 x 0.625 board.
-const SIGN_W := 2.5
-const SIGN_H := 0.625
-const SEGMENTS := [0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f]
-const BARS := [[7, 0, 44, 9], [52, 8, 9, 43], [52, 59, 9, 43], [7, 101, 44, 9], [0, 59, 9, 43], [0, 8, 9, 43], [7, 51, 44, 9]]
-
-## Tests turn this off so they don't write the best score.
-static var persist_best := true
-
 var aim_z := FZ
 var far_z = FZ - 1.5
 var reach_z = -18.5
@@ -29,17 +20,12 @@ var friction = null
 var shot_time = 4.0
 var ctx: GameCtx
 
-var F := {"time": ROUND, "on": false, "score": 0, "best": 0, "swing": 0.0, "bell_hits": 0, "shown_key": "", "over": 0.0, "touched": false}
+var F := {"score": 0, "swing": 0.0, "bell_hits": 0, "touched": false}
 var ducks: Array = []
 var balloons: Array = []
 var bell: Node3D
 var bell_m: MeshInstance3D
 var stall: Array = []
-var sign_mesh: MeshInstance3D
-var sign_img: Image
-var sign_bg: Image
-var sign_tex: ImageTexture
-var sign_labels := {}
 var time := 0.0
 var _ball: Ball
 var _rng := RandomNumberGenerator.new()
@@ -190,10 +176,6 @@ func _init() -> void:
 		sc.position = Vector3(-3.4 + SR + i * 2 * SR, -0.01, 0.955)
 		sc.scale = Vector3(1, 0.8, 1)
 		awn.add_child(sc)
-	# The sign: time left and points, drawn on a board under the awning.
-	# It stands on top of the awning, like a fairground crest.
-	_add(StageArt.rbox(2.7, 0.76, 0.14, 0.05, mat("243133", 0.85)), 0, 4.05, FZ - 0.35)
-	_build_sign()
 	# Targets. Ducks run along a rail on the counter, balloons float above them, the bell hangs at the side.
 	var duck_mat := mat("f2c14e", 0.4)
 	var eye_mat := mat("1b1c26", 0.2)
@@ -228,7 +210,6 @@ func _init() -> void:
 	clap.position.y = -0.38
 	bell.add_child(clap)
 	_add(_mi(_cyl(0.03, 0.03, 0.5, 8), wood_dark), 2.6, 2.8, FZ - 0.3)
-	F.best = _load_best()
 	# A hit duck flies off its rail, tumbling: it bounces off the stall (back board, counter, posts, awning), the
 	# balloons and the ground and rolls to a stop; then it vanishes and a new duck pops up on the rail.
 	stall = [
@@ -257,94 +238,6 @@ static func _duck(duck_mat: Material, beak_mat: Material, eye_mat: Material) -> 
 	return g
 
 
-static func _load_best() -> int:
-	if not persist_best or not FileAccess.file_exists(BEST_PATH):
-		return 0
-	var f := FileAccess.open(BEST_PATH, FileAccess.READ)
-	if f == null:
-		return 0
-	return int(f.get_as_text().to_int())
-
-
-static func _save_best(v: int) -> void:
-	if not persist_best:
-		return
-	var f := FileAccess.open(BEST_PATH, FileAccess.WRITE)
-	if f:
-		f.store_string(str(v))
-
-
-# ---- the LED board ----
-
-func _sign_xy(cx: float, cy: float) -> Vector3:
-	return Vector3((cx / 1024.0 - 0.5) * SIGN_W, (0.5 - cy / 256.0) * SIGN_H, 0.002)
-
-
-func _build_sign() -> void:
-	sign_img = Image.create(1024, 256, false, Image.FORMAT_RGBA8)
-	# Cached retro LED display: steady light, no flashing scanlines or new textures.
-	sign_bg = Image.create(1024, 256, false, Image.FORMAT_RGBA8)
-	sign_bg.fill(Color("081816"))
-	var dot := Color("112520")
-	for y in range(8, 256, 12):
-		for x in range(8, 1024, 12):
-			sign_bg.fill_rect(Rect2i(x - 1, y - 1, 2, 2), dot)  # arc r 1.1 round (x, y)
-	sign_bg.fill_rect(Rect2i(507, 24, 3, 208), Color("486052"))
-	sign_tex = ImageTexture.create_from_image(sign_bg)
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_texture = sign_tex
-	m.disable_fog = true
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
-	var q := QuadMesh.new()
-	q.size = Vector2(SIGN_W, SIGN_H)
-	sign_mesh = _mi(q, m)
-	sign_mesh.name = "xr-fair-screen"
-	sign_mesh.position = Vector3(0, 4.05, FZ - 0.268)
-	add_child(sign_mesh)
-	# canvas text: '700 31px' headings at y 42, '600 29px' lines at y 229 (alphabetic baselines)
-	for k in [["time", 252, 42, 31, "b7dec3"], ["score", 766, 42, 31, "b7dec3"], ["secs", 252, 229, 29, "c9d8b2"], ["best", 766, 229, 29, "c9d8b2"]]:
-		var l := Panel3D.label("", k[3], Color(k[4]))
-		l.pixel_size = SIGN_W / 1024.0
-		l.render_priority = 1
-		l.position = _sign_xy(k[1], float(k[2]) - float(k[3]) * 0.35)
-		sign_mesh.add_child(l)
-		sign_labels[k[0]] = l
-	draw_sign()
-
-
-func _led(value: int, cx: float, color: Color) -> void:
-	var text := str(value).lpad(2, "0")
-	var scale := minf(1.0, 410.0 / (text.length() * 76))
-	var ox := cx - text.length() * 76 * scale / 2
-	var off := Color("18312a")
-	for i in text.length():
-		for j in 7:
-			var b: Array = BARS[j]
-			var lit: bool = (SEGMENTS[int(text[i])] & (1 << j)) != 0
-			var x0: float = ox + (i * 76 + b[0]) * scale
-			var y0: float = 67.0 + b[1] * scale
-			var x1: float = ox + (i * 76 + b[0] + b[2]) * scale
-			var y1: float = 67.0 + (b[1] + b[3]) * scale
-			sign_img.fill_rect(Rect2i(roundi(x0), roundi(y0), roundi(x1) - roundi(x0), roundi(y1) - roundi(y0)), color if lit else off)
-
-
-func draw_sign() -> void:
-	var en := ctx != null and ctx.lang == "en"
-	var key := "%d|%d|%d|%s|%s" % [ceili(F.time), F.score, F.best, F.on, en]
-	if key == F.shown_key:
-		return
-	F.shown_key = key
-	sign_img.copy_from(sign_bg)
-	_led(maxi(0, ceili(F.time)), 252, Color("ffcb62"))
-	_led(F.score, 766, Color("79f5b3"))
-	sign_tex.update(sign_img)
-	sign_labels.time.text = "TIME" if en else "الوقت"
-	sign_labels.score.text = "SCORE" if en else "النقاط"
-	sign_labels.secs.text = ("SECONDS" if en else "ثانية") if F.on else ("THROW TO START" if en else "ارمِ وابدأ")
-	sign_labels.best.text = ("BEST %d" % F.best) if en else ("أفضل " + GameCtx.ar_digits(F.best))
-
-
 # ---- rules ----
 
 func _S() -> Ball:
@@ -356,11 +249,6 @@ func _S() -> Ball:
 func _sfx(n: String, k: float, p: Vector3) -> void:
 	if ctx:
 		ctx.sfx.call(n, k, p)
-
-
-func _toast(ar: String, en: String) -> void:
-	if ctx:
-		ctx.toast.call(ctx.t(ar, en))
 
 
 func _ch(id: String, v: int) -> void:
@@ -381,9 +269,13 @@ func ding() -> void:
 	_sfx("fair_ding", 1.0, bell.position)
 
 
+func _toast(ar: String, en: String) -> void:
+	if ctx:
+		ctx.toast.call(ctx.t(ar, en))
+
+
+## Points for a hit: into this visit's total (fair25) and, one by one, into ctx.counts["fair"].
 func score(pts: int, curved := false) -> void:
-	if not F.on or F.time <= 0.0:
-		return
 	if curved:
 		pts *= 2
 	F.score += pts
@@ -393,15 +285,6 @@ func score(pts: int, curved := false) -> void:
 	_ch("fair25", F.score)
 	if curved:
 		_toast("ملتفة ×٢: +" + GameCtx.ar_digits(pts), "Curved ×2: +%d" % pts)
-
-
-func _start_round() -> void:
-	F.on = true
-	F.time = ROUND
-	F.score = 0
-	if ctx:
-		ctx.counts["fair"] = 0
-	_ch("fair25", 0)
 
 
 func launch_duck(d: Dictionary, dir: Vector3, speed: float) -> void:
@@ -597,10 +480,6 @@ static func _owns(obj: Node, root: Node) -> bool:
 
 
 func shoot(obj: Node, _point: Vector3, dir: Vector3) -> bool:
-	if not F.on and F.over <= 0.0:
-		_start_round()
-	if not F.on:
-		return false
 	for d in ducks:
 		if d.down <= 0 and _owns(obj, d.g):
 			launch_duck(d, dir if dir != Vector3.ZERO else Vector3(0, 0, -1), 6.5)
@@ -641,8 +520,14 @@ func on_respawn() -> void:
 
 
 func on_throw() -> void:
-	if not F.on and F.over <= 0.0:
-		_start_round()
+	pass
+
+
+## Leaving the stall: this visit's total (fair25) starts again next time; counts["fair"] stays.
+func deactivate() -> void:
+	F.score = 0
+	F.touched = false
+	_ch("fair25", 0)
 
 
 func collide(S: Ball) -> void:
@@ -656,10 +541,6 @@ func collide(S: Ball) -> void:
 		S.vel = res.v
 		S.hit(res.n, incoming, S.pos)
 		S.side = Vector3.ZERO
-	if F.over > 0.0:
-		return
-	if not F.on and F.over <= 0.0:
-		_start_round()
 	for d in ducks:
 		if d.down > 0:
 			continue
@@ -701,24 +582,6 @@ func collide(S: Ball) -> void:
 func update(b: Ball, dt: float) -> void:
 	_ball = b
 	time += dt
-	# The round clock.
-	if F.on:
-		F.time -= dt
-		if F.time <= 0.0:
-			F.on = false
-			F.time = 0.0
-			F.over = 2.5
-			var best: bool = F.score > F.best
-			if best:
-				F.best = F.score
-				_save_best(F.best)
-			_toast("انتهى الوقت! %s نقطة%s" % [GameCtx.ar_digits(F.score), " · أفضل نتيجة" if best else ""],
-				"Time! %d points%s" % [F.score, " — best yet" if best else ""])
-			_sfx("chime", 1.0, sign_mesh.position)
-	elif F.over > 0.0:
-		F.over -= dt
-		if F.over <= 0.0:
-			F.time = ROUND
 	# Ducks glide along the rail and wrap round; a hit one tips back, then pops up again.
 	for d in ducks:
 		d.u = fmod(d.u + dt * 0.06, 1.0)
@@ -740,11 +603,10 @@ func update(b: Ball, dt: float) -> void:
 				m.scale = Vector3(1, 1.15, 1)
 	F.swing = maxf(0.0, F.swing - dt * 0.6)
 	bell.rotation.z = sin(time * 14.0) * 0.35 * F.swing
-	draw_sign()
 
 
 func fair_state() -> Dictionary:
-	return {"on": F.on, "time": F.time, "score": F.score, "best": F.best}
+	return {"score": F.score, "bell_hits": F.bell_hits}
 
 
 func ducks_state() -> Array:

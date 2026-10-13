@@ -13,8 +13,10 @@ extends Node3D
 ## - popped ones may drop a power-up (a floating bubble): shoot or hit it to collect:
 ##   triple shot (shot_fan() = 3), slow motion (time_scale 0.4 for 4 s; main multiplies it into
 ##   the game dt and may lower the audio pitch with audio_pitch()), bomb (pops everything near).
-## - 3 hearts; one that reaches the line costs a heart (a red flash around the head and a buzz).
-##   Wave counter, score, best wave and score kept (user://dahrooj-invasion-best).
+## - open-ended: no hearts, no game over, no score board. One that reaches the line around you
+##   just pops there (a red flash around the head, a buzz, the combo broken; the boss leaps
+##   back instead); the waves keep coming. The points go to ctx.counts["invasion"], which the
+##   jelly score popup shows; it starts on its own when the mode is shown.
 ## Game units, like the other stages. The blaster finds the invaders and power-ups through
 ## hidden (layers = 0) sphere MeshInstance3Ds; every effect is a MultiMesh or a Label3D, so
 ## shots pass through them.
@@ -31,7 +33,6 @@ const KINDS := {
 const BASE_SPEED := 2.1
 const SLOTS := 40
 const PU_SLOTS := 4
-const LIVES := 3
 const SPAWN_Z := -24.0
 const SPAWN_X := 7.0
 const DROP_H := 11.0
@@ -39,7 +40,6 @@ const REACH := 2.4  # the line: this far from the player (× size)
 const GROUND_FR := 0.22  # part of a hop spent on the ground
 const BREAK_T := 2.8
 const FIRST_BREAK_T := 2.4
-const OVER_T := 4.0
 const BANNER_T := 2.4
 const COMBO_T := 1.5
 const COMBO_STEPS := [3, 6, 10, 15]  # combo counts where the multiplier steps up (×2 .. ×5)
@@ -52,10 +52,6 @@ const PU_R := 0.62
 const BOSS_EVERY := 5
 const AIR_HITS := 3
 const BALL_DAMAGE := 2
-const BOARD_Z := -17.0
-const BOARD_Y := 9.4
-const BOARD := Vector2(6.6, 1.75)
-const BOARD_K := 1.35  # the board's scale
 const BANNER_AT := Vector3(0, 4.6, -8.0)  # (VR; it rises with a taller viewer, as in a room)
 const SPARKS_MAX := 260
 const RINGS_MAX := 12
@@ -74,9 +70,6 @@ const PU := {
 }
 const DIRT := ["7d5434", "9b6a42", "6b4429", "b08355"]
 
-## Tests turn this off (or point it elsewhere) so they don't touch the player's best.
-static var persist_best := true
-static var best_path := "user://dahrooj-invasion-best"
 static var _meshes := {}
 
 var aim_z := -10.0
@@ -103,16 +96,13 @@ var time_scale := 1.0
 var paused := false
 var time := 0.0
 
-var F := {"state": "idle", "wave": 0, "lives": LIVES, "score": 0, "best_score": 0, "best_wave": 0,
-	"combo": 0, "combo_t": 0.0, "mult": 1, "queue": [], "spawn_t": 0.0, "break_t": 0.0, "over_t": 0.0,
+var F := {"state": "idle", "wave": 0, "score": 0, "breaches": 0,
+	"combo": 0, "combo_t": 0.0, "mult": 1, "queue": [], "spawn_t": 0.0, "break_t": 0.0,
 	"popped": 0, "touched": false, "triple_t": 0.0, "slow_t": 0.0, "flash_t": 0.0, "banner_t": 0.0, "banner_life": BANNER_T,
-	"combo_show_t": 0.0, "combo_at": Vector3.ZERO, "heart_t": 0.0, "shown_key": "", "idle_t": 0.0, "cleared": 0, "danger": 0.0}
+	"combo_show_t": 0.0, "combo_at": Vector3.ZERO, "cleared": 0, "danger": 0.0}
 var invaders: Array = []
 var powerups: Array = []
 var crowd: Crowd
-var board: Node3D
-var hearts: Array = []
-var labels := {}
 var banner: Label3D
 var banner_sub: Label3D
 var combo_label: Label3D
@@ -177,7 +167,6 @@ func _init() -> void:
 	for k in PU:
 		_mm["icon_" + k] = _multi("Icon_" + k, icon_mesh(k), _mat("flat"), PU_SLOTS)
 	_mm.flash = _multi("Flash", Crowd.merge([[Crowd.sphere(1.0, 16, 10), Transform3D.IDENTITY, Color.WHITE]]), _mat("flash"), 1)
-	_build_board()
 	banner = Panel3D.label("", 210, Color("ffd166"))
 	banner.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	banner.pixel_size = 0.0062
@@ -202,9 +191,6 @@ func _init() -> void:
 	combo_label.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
 	combo_label.visible = false
 	add_child(combo_label)
-	var best := _load_best()
-	F.best_wave = best[0]
-	F.best_score = best[1]
 	draw()
 
 
@@ -266,28 +252,6 @@ static func _mat(key: String) -> Material:
 			m.cull_mode = BaseMaterial3D.CULL_FRONT  # seen from inside
 			m.no_depth_test = true
 			m.render_priority = 10
-		"board":
-			m.vertex_color_use_as_albedo = false
-			m.albedo_color = Color("2a2440")
-			m.roughness = 0.8
-		"trim":
-			m.vertex_color_use_as_albedo = false
-			m.albedo_color = Color("ff7a59")
-			m.roughness = 0.5
-			m.emission_enabled = true
-			m.emission = Color("ff5a3a")
-			m.emission_energy_multiplier = 0.4
-		"heart":
-			m.vertex_color_use_as_albedo = false
-			m.albedo_color = Color("ff3d63")
-			m.roughness = 0.35
-			m.emission_enabled = true
-			m.emission = Color("ff1f4f")
-			m.emission_energy_multiplier = 0.45
-		"heart_off":
-			m.vertex_color_use_as_albedo = false
-			m.albedo_color = Color("4a4458")
-			m.roughness = 0.9
 	_meshes["mat_" + key] = m
 	return m
 
@@ -342,93 +306,6 @@ static func icon_mesh(kind: String) -> ArrayMesh:
 	return mesh
 
 
-## A chunky heart (unit height, facing +Z).
-static func heart_mesh() -> ArrayMesh:
-	if _meshes.has("heart"):
-		return _meshes["heart"]
-	var pts := PackedVector2Array()
-	for i in 48:
-		var t := TAU * i / 48.0
-		var x := 16.0 * pow(sin(t), 3.0)
-		var y := 13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t)
-		pts.append(Vector2(x, y + 2.0) / 32.0)
-	var tris := Geometry2D.triangulate_polygon(pts)
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var d := 0.09
-	for side in [1.0, -1.0]:
-		var nrm := Vector3(0, 0, side)
-		for k in range(0, tris.size(), 3):
-			var a := pts[tris[k]]
-			var b := pts[tris[k + 1]]
-			var c := pts[tris[k + 2]]
-			var tri := [Vector3(a.x, a.y, d * side), Vector3(b.x, b.y, d * side), Vector3(c.x, c.y, d * side)]
-			var order := [0, 1, 2]
-			if ((tri[1] as Vector3) - tri[0]).cross((tri[2] as Vector3) - tri[0]).dot(nrm) > 0.0:
-				order = [0, 2, 1]
-			for o in order:
-				st.set_normal(nrm)
-				st.add_vertex(tri[o])
-	var n := pts.size()
-	for i in n:
-		var a := pts[i]
-		var b := pts[(i + 1) % n]
-		var out := Vector3(b.y - a.y, -(b.x - a.x), 0).normalized()
-		var quad := [Vector3(a.x, a.y, d), Vector3(b.x, b.y, d), Vector3(b.x, b.y, -d), Vector3(a.x, a.y, -d)]
-		for tri in [[0, 1, 2], [0, 2, 3]]:
-			var p0: Vector3 = quad[tri[0]]
-			var p1: Vector3 = quad[tri[1]]
-			var p2: Vector3 = quad[tri[2]]
-			var flip := (p1 - p0).cross(p2 - p0).dot(out) > 0.0
-			for v in ([p0, p2, p1] if flip else [p0, p1, p2]):
-				st.set_normal(out)
-				st.add_vertex(v)
-	var mesh := st.commit()
-	_meshes["heart"] = mesh
-	return mesh
-
-
-func _build_board() -> void:
-	board = Node3D.new()
-	board.name = "Board"
-	board.position = Vector3(0, BOARD_Y, BOARD_Z)
-	board.scale = Vector3.ONE * BOARD_K
-	add_child(board)
-	var panel := StageArt.rbox(BOARD.x, BOARD.y, 0.2, 0.1, _mat("board"))
-	board.add_child(panel)
-	var trim := StageArt.rbox(BOARD.x + 0.16, 0.12, 0.24, 0.05, _mat("trim"))
-	trim.position = Vector3(0, -BOARD.y / 2.0, 0)
-	board.add_child(trim)
-	for i in LIVES:
-		var h := MeshInstance3D.new()
-		h.name = "Heart%d" % i
-		h.mesh = heart_mesh()
-		h.material_override = _mat("heart")
-		h.position = Vector3((i - 1) * 0.72, BOARD.y / 2.0 + 0.48, 0)
-		h.scale = Vector3.ONE * 0.62
-		board.add_child(h)
-		hearts.append(h)
-	# wave | score | best, a line of words under them
-	for k in [["wave", -2.3, 0.16, 130, "ffd166"], ["score", 0.0, 0.18, 150, "79f5b3"], ["best", 2.3, 0.16, 84, "c9c2e6"],
-			["hint", 0.0, -0.5, 60, "ffe7a8"], ["wave_l", -2.3, -0.5, 54, "e8dcff"], ["best_l", 2.3, -0.5, 54, "e8dcff"]]:
-		var l := Panel3D.label("", k[3], Color(k[4]))
-		l.pixel_size = 0.0048
-		l.render_priority = 1
-		l.position = Vector3(k[1], k[2], 0.115)
-		board.add_child(l)
-		labels[k[0]] = l
-	# Combo and power-ups on a line of their own under the board.
-	var status := Panel3D.label("", 84, Color("ffd166"))
-	status.pixel_size = 0.0048
-	status.outline_size = 16
-	status.outline_modulate = Color("1d1a2b")
-	status.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
-	status.position = Vector3(0, -BOARD.y / 2.0 - 0.42, 0.06)
-	board.add_child(status)
-	labels["status"] = status
-	draw_board()
-
-
 func _num(v: int) -> String:
 	return str(v) if _en() else GameCtx.ar_digits(v)
 
@@ -437,74 +314,11 @@ func _en() -> bool:
 	return ctx != null and ctx.lang == "en"
 
 
-func draw_board() -> void:
-	var en := _en()
-	var alt := int(time / 2.5) % 2 if F.state == "idle" and F.best_wave > 0 else 0
-	var key := "%s|%d|%d|%d|%d|%d|%s|%d|%d|%d" % [F.state, F.wave, F.score, F.best_wave, F.best_score, F.lives, en, F.mult, ceili(F.triple_t) * 10 + ceili(F.slow_t), alt]
-	if key == F.shown_key:
-		return
-	F.shown_key = key
-	var playing: bool = F.state != "idle"
-	# Waiting: the mode's name, and the hint taking turns with the best so far.
-	labels.wave.text = _num(maxi(1, F.wave)) if playing else ""
-	labels.score.text = _num(F.score) if playing else ("DAHROOJ ATTACK" if en else "هجوم الدحاريج")
-	labels.score.font_size = 150 if playing else 112
-	labels.score.modulate = Color("79f5b3") if playing else Color("ff8a5c")
-	labels.best.text = _num(F.best_score) if playing else ""
-	labels.wave_l.text = ("WAVE" if en else "الموجة") if playing else ""
-	labels.best_l.text = ("BEST" if en else "الأفضل") if playing else ""
-	var hint := ""
-	if not playing and alt == 1:
-		hint = ("BEST: WAVE %d · %d" % [F.best_wave, F.best_score]) if en else ("الأفضل: الموجة %s · %s" % [GameCtx.ar_digits(F.best_wave), GameCtx.ar_digits(F.best_score)])
-	elif not playing:
-		hint = "SHOOT OR THROW TO START" if en else "اطلق أو ارمِ وابدأ"
-	elif F.state == "over":
-		hint = "GAME OVER" if en else "انتهت اللعبة"
-	else:
-		hint = "POINTS" if en else "النقاط"
-	labels.hint.text = hint
-	var parts: Array = []
-	if playing and F.state != "over":
-		if F.mult > 1:
-			parts.append(("COMBO ×%d" % F.mult) if en else ("كومبو ×" + GameCtx.ar_digits(F.mult)))
-		if F.triple_t > 0.0:
-			parts.append(("TRIPLE SHOT %d" % ceili(F.triple_t)) if en else ("طلقة ثلاثية " + GameCtx.ar_digits(ceili(F.triple_t))))
-		if F.slow_t > 0.0:
-			parts.append("SLOW-MO" if en else "تبطيء")
-	labels.status.text = "  ·  ".join(parts)
-	labels.status.modulate = Color("7fd8ff") if F.slow_t > 0.0 else (Color("ffb347") if F.triple_t > 0.0 else Color("ff8ad8"))
-	for i in hearts.size():
-		(hearts[i] as MeshInstance3D).material_override = _mat("heart" if i < F.lives else "heart_off")
-
-
-# ---- persistence, ctx ----
-
-static func _load_best() -> Array:
-	if not persist_best or not FileAccess.file_exists(best_path):
-		return [0, 0]
-	var f := FileAccess.open(best_path, FileAccess.READ)
-	if f == null:
-		return [0, 0]
-	var parts := f.get_as_text().strip_edges().split(" ")
-	return [int(parts[0].to_int()) if parts.size() > 0 else 0, int(parts[1].to_int()) if parts.size() > 1 else 0]
-
-
-static func _save_best(wave: int, score: int) -> void:
-	if not persist_best:
-		return
-	var f := FileAccess.open(best_path, FileAccess.WRITE)
-	if f:
-		f.store_string("%d %d" % [wave, score])
-
+# ---- ctx ----
 
 func _sfx(n: String, k: float, p: Vector3) -> void:
 	if ctx:
 		ctx.sfx.call(n, k, p)
-
-
-func _toast(ar: String, en: String) -> void:
-	if ctx:
-		ctx.toast.call(ctx.t(ar, en))
 
 
 func _confetti(at: Vector3, k := 1.0) -> void:
@@ -545,8 +359,8 @@ func start() -> void:
 			m.on = false
 	F.state = "break"
 	F.wave = 0
-	F.lives = LIVES
 	F.score = 0
+	F.breaches = 0
 	F.combo = 0
 	F.combo_t = 0.0
 	F.mult = 1
@@ -555,8 +369,6 @@ func start() -> void:
 	F.triple_t = 0.0
 	F.slow_t = 0.0
 	F.queue = []
-	if ctx:
-		ctx.counts["invasion"] = 0
 	_sfx("whoosh", 0.8, banner_at())
 	_next_wave()
 
@@ -637,17 +449,9 @@ func _wave_cap() -> int:
 func _step_waves(dt: float, rdt: float) -> void:
 	match F.state:
 		"idle":
-			# A few cheeky ones dance at the far end, waiting for you.
-			F.idle_t -= dt
-			if auto_spawn and F.idle_t <= 0.0:
-				F.idle_t = 1.2
-				var n := 0
-				for m in invaders:
-					if m.on and m.phase == "idle":
-						n += 1
-				if n < 3:
-					var x := (n - 1) * 2.6 + _rng.randf_range(-0.4, 0.4)
-					spawn("plain", {"pos": Vector3(x, 0, BOARD_Z + 4.0), "normal": Vector3.UP, "idle": true})
+			# Open play: the waves start on their own as soon as the mode is shown.
+			if auto_spawn:
+				start()
 		"break":
 			F.break_t -= rdt
 			if F.break_t <= 0.0:
@@ -668,22 +472,11 @@ func _step_waves(dt: float, rdt: float) -> void:
 					F.spawn_t = maxf(0.32, 1.25 - 0.07 * F.wave) * _rng.randf_range(0.65, 1.3)
 			if (F.queue as Array).is_empty() and _alive() == 0:
 				_wave_cleared()
-		"over":
-			F.over_t -= rdt
-			if F.over_t <= 0.0:
-				for m in invaders:
-					if m.on:
-						_burst(m.c, Color(m.color), 8, 0.7)
-						m.on = false
-				F.state = "idle"
-				F.idle_t = 0.5
-				F.shown_key = ""
 
 
 func _wave_cleared() -> void:
 	F.cleared = F.wave
 	if ctx:
-		ctx.add_count.call("invasion", false)
 		ctx.ch_progress.call("invasion10", F.wave)
 	_sfx("chime", 1.0, banner_at())
 	_sfx("firework_burst", 0.8, banner_at())
@@ -692,12 +485,11 @@ func _wave_cleared() -> void:
 	_next_wave()
 
 
-func _lose(n: int, at: Vector3) -> void:
-	if F.state != "wave" and F.state != "break":
-		return
-	F.lives = maxi(0, F.lives - n)
+## One got through to the line: it pops there with a red flash around the head and a buzz,
+## and the combo breaks. Nothing else is lost; the game goes on.
+func _breach(at: Vector3) -> void:
+	F.breaches += 1
 	F.flash_t = 0.5
-	F.heart_t = 0.7
 	F.combo = 0
 	F.mult = 1
 	F.combo_t = 0.0
@@ -706,37 +498,6 @@ func _lose(n: int, at: Vector3) -> void:
 	_buzz2(1.0, 160)
 	_burst(at + Vector3.UP * 0.5 * size, Color("ff3d63"), 22, 1.4)
 	_ring(Vector3(at.x, 0.05, at.z), 0.3 * size, 3.0 * size, 0.5, Color("ff3d63"))
-	if F.lives <= 0:
-		_game_over()
-
-
-func _game_over() -> void:
-	F.state = "over"
-	F.over_t = OVER_T
-	F.slow_t = 0.0
-	F.triple_t = 0.0
-	var best_w: bool = F.wave > F.best_wave
-	var best_s: bool = F.score > F.best_score
-	F.best_wave = maxi(F.best_wave, F.wave)
-	F.best_score = maxi(F.best_score, F.score)
-	if best_w or best_s:
-		_save_best(F.best_wave, F.best_score)
-	var en := _en()
-	_banner("GAME OVER" if en else "انتهت اللعبة",
-		("Wave %d · %d points" % [F.wave, F.score]) if en else ("الموجة %s · %s نقطة" % [GameCtx.ar_digits(F.wave), GameCtx.ar_digits(F.score)]),
-		Color("ff6b8a"))
-	_banner_for(BANNER_T + 1.2)
-	_toast("هجموا! وصلت للموجة %s%s" % [GameCtx.ar_digits(F.wave), " · رقم قياسي!" if best_w or best_s else ""],
-		"Overrun! You reached wave %d%s" % [F.wave, " — new best!" if best_w or best_s else ""])
-	_sfx("boom", 1.0, banner_at())
-	if best_w or best_s:
-		_sfx("chime", 1.0, banner_at())
-		_confetti(board.position + Vector3(0, 1.2, 0.4), 1.5)
-	# The rest celebrate where they stand.
-	for m in invaders:
-		if m.on:
-			m.act = "cheer"
-			m.act_t = _rng.randf() * 0.4
 
 
 # ---- spawning ----
@@ -916,12 +677,10 @@ func damage(m: Dictionary, n: int, dir: Vector3, by_ball := false) -> bool:
 	if not hittable(m):
 		return false
 	if m.phase == "idle":
+		pop(m, dir, false)
 		if F.state == "idle":
-			pop(m, dir, false)
 			start()
 		return true
-	if F.state == "over":
-		return false
 	var c: Vector3 = m.c
 	m.flash_t = 0.1
 	m.hit_t = 0.28
@@ -977,6 +736,8 @@ func _score(base: int, at: Vector3, count: bool) -> void:
 				_confetti(at, 0.7)
 	var pts: int = base * int(F.mult)
 	F.score += pts
+	if ctx:
+		ctx.counts["invasion"] = int(ctx.counts.get("invasion", 0)) + pts
 	var txt := "+" + _num(pts)
 	_pop_label(at, txt, Color("ffe08a") if F.mult <= 1 else Color("ff8ad8"), 1.0 + 0.12 * (F.mult - 1))
 
@@ -1040,7 +801,7 @@ func pop(m: Dictionary, dir: Vector3, scored := true) -> void:
 func _reach(m: Dictionary) -> void:
 	var c: Vector3 = m.c
 	if m.kind == "boss":
-		_lose(2, c)
+		_breach(c)
 		# He laughs and leaps back to the far end.
 		m.act = "retreat"
 		m.act_t = 0.0
@@ -1049,7 +810,9 @@ func _reach(m: Dictionary) -> void:
 		return
 	m.on = false
 	(m.proxy as MeshInstance3D).visible = false
-	_lose(1, c)
+	_burst(c, Color(m.color), 14, 0.9)
+	_sfx("start_pop", 0.8, c)
+	_breach(c)
 
 
 # ---- power-ups ----
@@ -1131,7 +894,7 @@ func bomb(at: Vector3) -> int:
 
 ## Triple shot: the blaster fires this many shots in a fan.
 func shot_fan() -> int:
-	return 3 if F.triple_t > 0.0 and F.state != "over" else 1
+	return 3 if F.triple_t > 0.0 else 1
 
 
 ## Music and sounds slow down with the game (main may set AudioServer.playback_speed_scale).
@@ -1179,10 +942,6 @@ func _step_invader(m: Dictionary, dt: float) -> void:
 		"march":
 			if m.kind == "boss" and _boss_act(m, dt):
 				pass
-			elif m.act == "cheer":
-				m.act_t -= dt
-				if m.act_t <= 0.0:
-					_hop(m, dt, false)
 			else:
 				_hop(m, dt, true)
 	_place(m)
@@ -1315,8 +1074,6 @@ func _boss_act(m: Dictionary, dt: float) -> bool:
 				m.slam_cd = 4.0
 				_land(m)
 			return true
-		"cheer":
-			return false
 	return false
 
 
@@ -1380,8 +1137,6 @@ func _xf(m: Dictionary) -> Transform3D:
 	var look := Basis.looking_at(to.normalized(), Vector3.UP, true)
 	# A mischievous wobble: tilting side to side as it goes.
 	var tilt := sin(time * 5.0 + float(m.wob)) * (0.16 if m.phase == "march" else 0.1)
-	if m.act == "cheer":
-		tilt = sin(time * 12.0 + float(m.wob)) * 0.3
 	if m.kind == "boss" and m.act == "air":
 		tilt = sin(time * 3.0) * 0.12
 	var fwd := to.normalized()
@@ -1521,7 +1276,6 @@ func draw() -> void:
 	stars.visible_instance_count = nstar
 	_draw_fx()
 	_draw_labels()
-	draw_board()
 
 
 func _put_star(stars: MultiMesh, i: int, p: Vector3, s: float, spin: float, c: Color) -> int:
@@ -1576,7 +1330,7 @@ func _draw_fx() -> void:
 	# The line around you: a ring of dashes that turns and glows red when they're close.
 	var dashes: MultiMesh = _mm.dashes
 	var nd := 0
-	if F.state in ["wave", "break", "over"]:
+	if F.state in ["wave", "break"]:
 		var g := goal()
 		var rr := reach_r()
 		var hot: float = F.danger
@@ -1590,7 +1344,7 @@ func _draw_fx() -> void:
 			dashes.set_instance_color(i, Color(col.srgb_to_linear(), pulse))
 		nd = DASHES
 	dashes.visible_instance_count = nd
-	# Losing a heart: a red flash around your head.
+	# One got through: a red flash around your head.
 	var fl: MultiMesh = _mm.flash
 	if F.flash_t > 0.0:
 		var k: float = F.flash_t / 0.5
@@ -1646,19 +1400,6 @@ func _draw_labels() -> void:
 		combo_label.scale = Vector3.ONE * size * (0.6 + 0.6 * minf(1.0, a * 6.0)) * (1.0 + 0.08 * sin(a * 30.0) * (1.0 - a))
 		combo_label.modulate.a = clampf(ct / 0.3, 0.0, 1.0)
 		combo_label.outline_modulate.a = combo_label.modulate.a
-	# A lost heart jumps and shrinks.
-	for i in hearts.size():
-		var h: MeshInstance3D = hearts[i]
-		var base := Vector3((i - 1) * 0.72, BOARD.y / 2.0 + 0.48, 0)
-		var beat := 1.0 + (0.08 * maxf(0.0, sin(time * 6.0)) if i < F.lives and F.lives == 1 else 0.0)
-		h.position = base
-		h.scale = Vector3.ONE * 0.62 * (beat if i < F.lives else 0.72)
-		h.rotation = Vector3.ZERO
-		if i == F.lives and F.heart_t > 0.0:
-			var k: float = F.heart_t / 0.7
-			h.position = base + Vector3(sin(time * 50.0) * 0.08 * k, 0.4 * k, 0.2 * k)
-			h.scale = Vector3.ONE * 0.62 * (0.72 + 0.6 * k)
-			h.rotation = Vector3(0, 0, sin(time * 40.0) * 0.3 * k)
 
 
 # ---- stage interface ----
@@ -1678,21 +1419,9 @@ func _ball_vs(S: Ball, c: Vector3, r: float) -> bool:
 	return true
 
 
-## The board is solid (a resting ball too). Returns {hit, p, v, n}.
-func collide_body(p: Vector3, v: Vector3, r: float, previous: Vector3) -> Dictionary:
-	return FairStage.collide_solid_box(p, v, r, previous, board.position, Vector3(BOARD.x / 2.0, BOARD.y / 2.0, 0.1) * BOARD_K)
-
-
 func collide(S: Ball) -> void:
 	if not S.shot:
 		return
-	var incoming := S.vel.length()
-	var res := collide_body(S.pos, S.vel, Ball.BR, S.prev)
-	if res.hit:
-		S.pos = res.p
-		S.vel = res.v
-		S.hit(res.n, incoming, S.pos)
-		S.side = Vector3.ZERO
 	for m in invaders:
 		if not hittable(m):
 			continue
@@ -1750,8 +1479,8 @@ func deactivate() -> void:
 	_holes.clear()
 	F.state = "idle"
 	F.wave = 0
-	F.lives = LIVES
 	F.score = 0
+	F.breaches = 0
 	F.combo = 0
 	F.mult = 1
 	F.queue = []
@@ -1760,9 +1489,7 @@ func deactivate() -> void:
 	F.flash_t = 0.0
 	F.banner_t = 0.0
 	F.combo_show_t = 0.0
-	F.idle_t = 0.0
 	F.touched = false
-	F.shown_key = ""
 	time_scale = 1.0
 	draw()
 
@@ -1775,13 +1502,11 @@ func update(_b: Ball, dt: float) -> void:
 	var rdt := dt / maxf(time_scale, 0.05)
 	time += dt
 	_goal_s = _goal_s.lerp(Vector3(viewer.x, 0, viewer.z), 1.0 - exp(-rdt * 3.0))
-	board.position.y = maxf(BOARD_Y, viewer.y + 6.2)
 	F.triple_t = maxf(0.0, F.triple_t - rdt)
 	F.slow_t = maxf(0.0, F.slow_t - rdt)
 	var target := SLOW_SCALE if F.slow_t > 0.0 else 1.0
 	time_scale = move_toward(time_scale, target, rdt * 3.0)
 	F.flash_t = maxf(0.0, F.flash_t - rdt)
-	F.heart_t = maxf(0.0, F.heart_t - rdt)
 	F.banner_t = maxf(0.0, F.banner_t - rdt)
 	F.combo_show_t = maxf(0.0, F.combo_show_t - rdt)
 	if F.combo_t > 0.0:
@@ -1884,6 +1609,5 @@ func _step_powerup(u: Dictionary, dt: float) -> void:
 
 ## For tests and the HUD.
 func invasion_state() -> Dictionary:
-	return {"state": F.state, "wave": F.wave, "lives": F.lives, "score": F.score, "best_wave": F.best_wave,
-		"best_score": F.best_score, "combo": F.combo, "mult": F.mult, "triple": F.triple_t > 0.0, "slow": F.slow_t > 0.0,
+	return {"state": F.state, "wave": F.wave, "score": F.score, "breaches": F.breaches, "combo": F.combo, "mult": F.mult, "triple": F.triple_t > 0.0, "slow": F.slow_t > 0.0,
 		"queue": (F.queue as Array).size(), "alive": _alive(), "popped": F.popped}

@@ -2,12 +2,14 @@ class_name SlimeStage
 extends Node3D
 ## Slime («سلايم», mode "slime"): throw Dahrooj and he SPLATS and STICKS where he lands, on
 ## the goo wall, the ground or another stuck Dahrooj, then slowly melts into a glossy jelly
-## puddle (the body sags, the footprint spreads; on a wall he slides down a little and drips).
+## puddle (the body sags, the footprint spreads; on a wall he slides down a little and drips;
+## on a ceiling he hangs, sagging downward into a drop, and drips fall from him to the floor).
 ## Every Dahrooj is a jelly in a random colour. The impact shows on his face: soft = eyes pop
 ## wide, medium = cross-eyed, hard = squeezed shut with stars, very hard = swirly dizzy eyes;
 ## the jelly wobbles and settles, smeared along the way he came in, then blinks slowly and
 ## melts into a sleepy smile. Later throws pile up on the blobs (sticky towers that wobble):
-## the pile counter and the "tower of 5" challenge. Blaster shots pop blobs (and whatever is
+## the "tower of 5" challenge. No score panel: the points go to ctx.counts["slime"], which the
+## jelly score popup shows (the target's rings stay on the wall). Blaster shots pop blobs (and whatever is
 ## stacked on them) in a burst of goo. At most CAP blobs: the oldest free one dissolves.
 ## Game units, like the other stages.
 ##
@@ -18,8 +20,8 @@ extends Node3D
 ## `planes_provider` returns any, the room's planes instead of the wall (the target goes on
 ## the wall that faces you best): an Array of {pos: Vector3 (centre, game units), normal:
 ## Vector3 (game space, out of the surface), ax: Vector3, ay: Vector3 (unit, in the plane),
-## half: Vector2 (half extents along ax / ay, game units), label: String}. The ground (y = 0)
-## always holds.
+## half: Vector2 (half extents along ax / ay, game units), label: String}; a ceiling ("ceiling",
+## normal pointing down) works too. The ground (y = 0) always holds.
 ##
 ## Drawing: one body MultiMesh whose vertex shader melts a sphere (squash, sag and spread along
 ## the stuck normal; per instance: face direction, melt, wobble in INSTANCE_CUSTOM), the eyes
@@ -35,6 +37,11 @@ const HY_MIN := 0.36  # height of a fully melted blob / a fresh one
 const SKIRT := 0.55
 const SAG := 0.9
 const STACK_MELT := 0.42  # blobs in a pile melt this far (and the pile keeps standing)
+## Hanging (a ceiling, gravity pulling out of the surface): a melted blob stretches to
+## 1 + HANG_K of its height, and its tip runs out TIP_K (× R) further, narrower.
+const HANG_K := 0.55
+const TIP_K := 0.35
+const CEIL_DRIPS := 4  # drops that fall from a blob on a ceiling
 const WALL_Z := -12.0
 const WALL := Vector2(9.0, 7.2)  # the goo wall: width, height
 const WALL_D := 0.3
@@ -71,14 +78,13 @@ var viewer := Vector3(0, 3.2, 9.0)
 ## The colour (DahroojLooks colour id) of the next Dahrooj in the hand: main shows him in it.
 var next_color := "pink"
 
-var F := {"score": 0, "stuck": 0, "popped": 0, "tower": 0, "best_tower": 0, "shown_key": ""}
+var F := {"score": 0, "stuck": 0, "popped": 0, "tower": 0, "best_tower": 0, "dripped": 0}
 var blobs: Array = []  # see _new_blob()
 var drops: Array = []
 var planes: Array = []
 var target := {"pos": Vector3(0, TARGET_Y, WALL_Z), "normal": Vector3.BACK, "ax": Vector3.RIGHT, "ay": Vector3.UP, "on": true}
 var board: Node3D
 var room_target: MeshInstance3D
-var labels := {}
 var time := 0.0
 var _parts := {}  # id -> MultiMesh
 var _proxies: Array = []
@@ -125,15 +131,23 @@ uniform float face_part = 0.0;
 uniform float hy_min = 0.36;
 uniform float skirt = 0.55;
 uniform float sag = 0.9;
+uniform float hang_k = 0.55;
+uniform float tip_k = 0.35;
 vec3 slime_shape(vec3 v, float m, vec3 g, float rip, float tm) {
 	v *= 1.0 + rip * 0.07 * sin(v.x * 4.0 + v.y * 3.0 + v.z * 5.0 + tm * 15.0);
-	float hy = mix(1.0, hy_min, m);
+	// On a ceiling gravity pulls out of the surface (g.y > 0): he hangs and stretches downward
+	// into a drop instead of flattening (hang = 0 on floors and walls).
+	float hang = clamp((g.y - 0.3) / 0.6, 0.0, 1.0);
+	float hy = mix(mix(1.0, hy_min, m), 1.0 + hang_k * m, hang);
 	float l = max(length(v), 1e-4);
 	float u = clamp(-v.y / l, 0.0, 1.0);
 	float y = (1.0 + v.y) * hy;
 	vec2 q = v.xz * inversesqrt(hy);
-	q *= 1.0 + m * skirt * sin(min(u * 2.0, 1.0) * 1.5708);
-	y *= 1.0 - m * 0.94 * smoothstep(0.0, 0.5, u);
+	q *= 1.0 + m * skirt * (1.0 - 0.5 * hang) * sin(min(u * 2.0, 1.0) * 1.5708);
+	y *= 1.0 - m * 0.94 * (1.0 - 0.5 * hang) * smoothstep(0.0, 0.5, u);
+	float tip = hang * m * smoothstep(0.2, 1.0, v.y);
+	q *= 1.0 - 0.35 * tip;
+	y += tip_k * tip;
 	float gl = length(g.xz);
 	if (gl > 0.02) {
 		vec2 gd = g.xz / gl;
@@ -249,9 +263,9 @@ static func _mat(key: String) -> Material:
 	var m: Material
 	match key:
 		"body":
-			m = _shader_mat("sh_body", body_shader_code(), {"tint": Vector3.ONE, "hy_min": HY_MIN, "skirt": SKIRT, "sag": SAG})
+			m = _shader_mat("sh_body", body_shader_code(), {"tint": Vector3.ONE, "hy_min": HY_MIN, "skirt": SKIRT, "sag": SAG, "hang_k": HANG_K, "tip_k": TIP_K})
 		"eyes":
-			m = _shader_mat("sh_eyes", eye_shader_code(), {"face_part": 1.0, "hy_min": HY_MIN, "skirt": SKIRT, "sag": SAG})
+			m = _shader_mat("sh_eyes", eye_shader_code(), {"face_part": 1.0, "hy_min": HY_MIN, "skirt": SKIRT, "sag": SAG, "hang_k": HANG_K, "tip_k": TIP_K})
 		"stain":
 			m = _shader_mat("sh_stain", STAIN_SHADER)
 		"goo":
@@ -288,7 +302,7 @@ static func _mat(key: String) -> Material:
 			if key.begins_with("face_"):
 				var f := key.trim_prefix("face_")
 				var sm := _shader_mat("sh_" + key, FACE_SHADER % [DEFORM_LIB, DEFORM_VERTEX],
-					{"face_part": 1.0, "hy_min": HY_MIN, "skirt": SKIRT, "sag": SAG, "face_tex": load("res://assets/character/face_%s.png" % f)})
+					{"face_part": 1.0, "hy_min": HY_MIN, "skirt": SKIRT, "sag": SAG, "hang_k": HANG_K, "tip_k": TIP_K, "face_tex": load("res://assets/character/face_%s.png" % f)})
 				sm.render_priority = 1
 				m = sm
 	_cache[ck] = m
@@ -494,28 +508,6 @@ func _build_board() -> void:
 		board.add_child(l)
 		if i == 0:
 			l.position.y = TARGET_Y
-	for k in [["score", -3.0, WALL.y - 0.95, 110, "79f5b3"], ["tower", 3.0, WALL.y - 0.95, 110, "ffcb62"],
-			["score_l", -3.0, WALL.y - 1.55, 40, "d9cdf0"], ["tower_l", 3.0, WALL.y - 1.55, 40, "d9cdf0"]]:
-		var l := Panel3D.label("", k[3], Color(k[4]))
-		l.pixel_size = 0.0048
-		l.render_priority = 1
-		l.position = Vector3(k[1], k[2], 0.02)
-		board.add_child(l)
-		labels[k[0]] = l
-	draw_board()
-
-
-func draw_board() -> void:
-	var en := ctx != null and ctx.lang == "en"
-	var key := "%d|%d|%d|%s" % [F.score, F.tower, F.best_tower, en]
-	if key == F.shown_key:
-		return
-	F.shown_key = key
-	var num := func(v: int) -> String: return str(v) if en else GameCtx.ar_digits(v)
-	labels.score.text = num.call(F.score)
-	labels.tower.text = "%s/%s" % [num.call(F.tower), num.call(TOWER)]
-	labels.score_l.text = "POINTS" if en else "النقاط"
-	labels.tower_l.text = ("TOWER · BEST %d" % F.best_tower) if en else ("البرج · الأفضل " + GameCtx.ar_digits(F.best_tower))
 
 
 # ---- ctx ----
@@ -597,8 +589,15 @@ func ring_of(p: Vector3) -> int:
 
 # ---- the blobs ----
 
-static func hy_of(m: float) -> float:
-	return lerpf(1.0, HY_MIN, m)
+## The height of a blob (× its fresh height) at melt m; hang: 0 (floor, wall) .. 1 (hanging
+## from a ceiling), as the shader's slime_shape.
+static func hy_of(m: float, hang := 0.0) -> float:
+	return lerpf(lerpf(1.0, HY_MIN, m), 1.0 + HANG_K * m, hang)
+
+
+## How much a blob stuck along n hangs (gravity pulling out of the surface): the shader's rule.
+static func hang_of(n: Vector3) -> float:
+	return clampf((-n.y - 0.3) / 0.6, 0.0, 1.0)
 
 
 ## A stuck frame: +Y along n, +Z up the wall (or toward `toward` on the ground).
@@ -673,7 +672,8 @@ func stick(p: Vector3, n: Vector3, vin: Vector3, kind: String, parent := {}, col
 		"sway": Vector3.ZERO, "swayv": Vector3.ZERO, "smear_a": atan2(vtl.z, vtl.x), "smear": 1.0 + 0.5 * clampf(vt.length() / 12.0, 0.0, 1.0),
 		"look": look, "speed": speed, "react": _reaction(speed), "react_t": 0.0, "next_react": "",
 		"blink": 0.0, "blink_t": _rng.randf_range(1.5, 3.0), "slide": 0.0, "drips": [],
-		"anchor": p, "H": 2.0 * R, "S": R, "c": p + n * R, "rc": R, "ring": -1, "pts": 0}
+		"anchor": p, "H": 2.0 * R, "S": R, "c": p + n * R, "rc": R, "ring": -1, "pts": 0,
+		"hang": hang_of(n), "ceil": false}
 	_next_id += 1
 	b.react_t = REACT_T[b.react]
 	if b.react == "dizzy":
@@ -705,6 +705,13 @@ func stick(p: Vector3, n: Vector3, vin: Vector3, kind: String, parent := {}, col
 		for i in _rng.randi_range(1, 3):
 			b.drips.append({"u": _rng.randf_range(-0.55, 0.55), "len": 0.0, "max": _rng.randf_range(0.5, 1.7) * R,
 				"v": _rng.randf_range(0.12, 0.3) * R, "w": _rng.randf_range(0.11, 0.17) * R, "delay": _rng.randf_range(0.4, 1.8)})
+	elif n.y < -0.6:
+		# On a ceiling: goo strands grow from the hanging tip and drop off, falling to the floor.
+		b.ceil = true
+		for i in _rng.randi_range(1, 2):
+			b.drips.append({"u": _rng.randf_range(-0.5, 0.5), "len": 0.0, "max": _rng.randf_range(0.35, 0.8) * R,
+				"v": _rng.randf_range(0.35, 0.6) * R, "w": _rng.randf_range(0.1, 0.15) * R, "delay": _rng.randf_range(0.6, 1.6),
+				"left": CEIL_DRIPS})
 	blobs.append(b)
 	_by_id[b.id] = b
 	_pose(b)
@@ -759,7 +766,7 @@ func _score(b: Dictionary) -> void:
 		return
 	F.score += pts
 	if ctx:
-		ctx.counts["slime"] = F.score
+		ctx.counts["slime"] = int(ctx.counts.get("slime", 0)) + pts
 	if int(b.ring) == 0:
 		_sfx("chime", 0.8, b.anchor)
 		_toast("في المنتصف! +١٠", "Bullseye! +10")
@@ -798,7 +805,8 @@ func pop(b: Dictionary) -> void:
 ## Where a blob is now (its parent first): anchor, height H, spread S, the collision sphere.
 func _pose(b: Dictionary) -> void:
 	var m: float = b.m
-	var hy := hy_of(m)
+	var hang: float = b.hang
+	var hy := hy_of(m, hang)
 	var n: Vector3 = b.n
 	var anchor: Vector3
 	var par: Dictionary = _by_id.get(int(b.parent), {}) if b.parent != 0 else {}
@@ -810,8 +818,8 @@ func _pose(b: Dictionary) -> void:
 		anchor = (b.p0 as Vector3) + (g.normalized() * float(b.slide) if g.length_squared() > 1e-4 else Vector3.ZERO)
 	anchor += b.sway
 	var sy := clampf(1.0 - 0.35 * float(b.j), 0.55, 1.4)
-	var H := 2.0 * R * hy * sy
-	var S := R / sqrt(hy) * (1.0 + SKIRT * m * 0.5)
+	var H := R * (2.0 * hy + TIP_K * m * hang) * sy
+	var S := R / sqrt(hy) * (1.0 + SKIRT * m * 0.5 * (1.0 - 0.5 * hang))
 	var rc := maxf(H * 0.5, S * 0.9)
 	b.anchor = anchor
 	b.H = H
@@ -904,6 +912,19 @@ func _step_blob(b: Dictionary, dt: float) -> bool:
 	for d: Dictionary in b.drips:
 		if float(d.delay) > 0.0:
 			d.delay = float(d.delay) - dt
+		elif b.ceil:
+			if int(d.left) <= 0 or b.dying >= 0.0:
+				continue
+			# A strand grows from the hanging tip; when it's long enough its drop falls off.
+			d.len = float(d.len) + float(d.v) * dt
+			if float(d.len) >= float(d.max):
+				var tip := ceil_drip_root(b, d) + n * float(d.len)
+				_drop(tip, n * 0.4 + Vector3(_rng.randf_range(-0.1, 0.1), 0, _rng.randf_range(-0.1, 0.1)), b.tint, float(d.w) * 1.5)
+				F.dripped += 1
+				d.left = int(d.left) - 1
+				d.len = 0.0
+				d.max = _rng.randf_range(0.35, 0.8) * R
+				d.delay = _rng.randf_range(0.8, 2.2)
 		else:
 			d.len = minf(float(d.max), float(d.len) + float(d.v) * dt * (1.0 - float(d.len) / float(d.max) * 0.7))
 	# Faces: the reaction, then slow blinks.
@@ -958,6 +979,12 @@ func _land(d: Dictionary, p: Vector3, n: Vector3) -> void:
 	d.p = p + n * 0.01
 	d.n = n
 	d.t = maxf(0.0, float(d.life) - _rng.randf_range(1.0, 2.0))
+
+
+## Where a ceiling drip hangs from: the blob's tip, a little to the side.
+func ceil_drip_root(b: Dictionary, d: Dictionary) -> Vector3:
+	var rb: Basis = b.basis
+	return (b.anchor as Vector3) + (b.n as Vector3) * float(b.H) * 0.94 + rb.x * float(d.u) * float(b.S) * 0.3
 
 
 ## A point moving from a to b crossing the plane (from its front, within r): {p} or {}.
@@ -1025,7 +1052,17 @@ func draw() -> void:
 			sc.a = 0.5 * fade
 			put.call("stain", st, sc, null)
 		# Drips: a thin trail and a bulb at its end.
-		if alive and not (b.drips as Array).is_empty():
+		if alive and b.ceil:
+			for d: Dictionary in b.drips:
+				var ln: float = d.len
+				if ln <= 0.01:
+					continue
+				var root := ceil_drip_root(b, d)
+				var w: float = d.w
+				var lc := tint.srgb_to_linear()
+				put.call("goo", Transform3D(Basis(rb.x * w, n * (ln * 0.5 + w), rb.z * w * 0.7), root + n * ln * 0.5), lc, null)
+				put.call("goo", Transform3D(rb * Basis.from_scale(Vector3(w * 1.5, w * 1.9, w * 1.5)), root + n * ln), lc, null)
+		elif alive and not (b.drips as Array).is_empty():
 			var down := -rb.z
 			var side := rb.x
 			for d: Dictionary in b.drips:
@@ -1069,7 +1106,6 @@ func draw() -> void:
 			put.call("goo", Transform3D(bb * Basis.from_scale(Vector3(s, s, s * (1.0 + st))), d.p), lc, null)
 	for id in _parts:
 		(_parts[id] as MultiMesh).visible_instance_count = counts[id]
-	draw_board()
 
 
 # ---- stage interface ----
@@ -1204,7 +1240,8 @@ func update(b: Ball, dt: float) -> void:
 # ---- for tests and main ----
 
 func slime_state() -> Dictionary:
-	return {"score": F.score, "stuck": F.stuck, "popped": F.popped, "tower": F.tower, "best_tower": F.best_tower, "live": _live_count()}
+	return {"score": F.score, "stuck": F.stuck, "popped": F.popped, "tower": F.tower, "best_tower": F.best_tower, "live": _live_count(),
+		"dripped": F.dripped}
 
 
 func blob_state(b: Dictionary) -> Dictionary:

@@ -1,8 +1,10 @@
 extends RefCounted
 ## Slime: a thrown Dahrooj sticks to the goo wall and to the ground and melts over time; the
 ## next lands on a blob and stacks; the impact speed changes his face; a shot pops a blob (and
-## what sits on it); the cap dissolves the oldest; the target's rings score; the tower of 5;
-## an earlier throw of a volley sticks too and leaves the volley.
+## what sits on it); the cap dissolves the oldest; the target's rings score into counts[slime]
+## (no score panel on the wall); the tower of 5; an earlier throw of a volley sticks too and
+## leaves the volley; mixed reality: he sticks to a ceiling, hangs and sags downward, drips fall
+## from him, a shot pops him, a throw from below stacks on him.
 
 
 static func _fly(b: Ball, from: Vector3, v: Vector3, limit := 3.0) -> bool:
@@ -37,6 +39,8 @@ static func run(check: Callable) -> void:
 	b.set_stage(st, "slime")
 	st.update(b, 1.0 / 72.0)
 	check.call(st.board.visible and st.blobs.is_empty(), "slime: the goo wall stands, nothing stuck yet")
+	check.call(not ("labels" in st) and st.board.get_node_or_null("Target") != null and st.board.get_children().filter(func(x): return x is Label3D).size() == SlimeStage.RINGS.size(),
+		"slime: no score panel on the wall, only the target with its ring points")
 
 	# The wall: he sticks and melts.
 	var ok := _fly(b, Vector3(0.5, 3.3, -6.0), Vector3(0, 2.5, -13.0))
@@ -53,7 +57,8 @@ static func run(check: Callable) -> void:
 	var ws2 := st.blob_state(w)
 	check.call(float(ws2.m) > m0 + 0.3 and float(ws2.H) < 2.0 * SlimeStage.R * 0.6 and float(ws2.S) > s0 * 1.15, "slime: he melts over time (%.2f -> %.2f), sagging and spreading" % [m0, ws2.m])
 	check.call((ws2.anchor as Vector3).y < (ws.anchor as Vector3).y and not (w.drips as Array).is_empty(), "slime: on a wall he slides down a little and drips")
-	check.call(int(ws.ring) >= 0 and st.slime_state().score == int(SlimeStage.RING_PTS[ws.ring]), "slime: points for the ring he stuck in (ring %d)" % ws.ring)
+	check.call(int(ws.ring) >= 0 and st.slime_state().score == int(SlimeStage.RING_PTS[ws.ring]) and int(ctx.counts.get("slime", 0)) == st.slime_state().score,
+		"slime: points for the ring he stuck in (ring %d), into counts[slime]" % ws.ring)
 
 	# The ground.
 	ok = _fly(b, Vector3(3.0, 2.0, -4.0), Vector3(0, 0, -2.0))
@@ -146,4 +151,59 @@ static func run(check: Callable) -> void:
 	for i in 72 * 2:
 		b.step(1.0 / 72.0)
 	check.call(st.blobs.size() == 2 and b.volley.is_empty() and not b.shot, "slime: both throws of a volley stick (%d blobs, %d in the volley)" % [st.blobs.size(), b.volley.size()])
+
+	# Mixed reality: a ceiling (normal pointing down).
+	st.deactivate()
+	b.respawn()
+	var ceil_y := 5.0
+	st.planes_provider = func() -> Array:
+		return [{"pos": Vector3(0, ceil_y, -4.0), "normal": Vector3.DOWN, "ax": Vector3.RIGHT, "ay": Vector3.BACK,
+			"half": Vector2(4.0, 4.0), "label": "ceiling"}]
+	st._planes_t = 0.0
+	st.update(b, 1.0 / 72.0)
+	check.call(not st.board.visible and st.planes.size() == 1, "slime: in a room the goo wall goes, the ceiling is a plane")
+	var sc1: int = int(ctx.counts.get("slime", 0))
+	ok = _fly(b, Vector3(0.4, 2.0, -4.0), Vector3(0, 11.0, 0))
+	var cb: Dictionary = st.blobs[st.blobs.size() - 1] if not st.blobs.is_empty() else {}
+	check.call(ok and not cb.is_empty() and cb.kind == "room" and (cb.n as Vector3).is_equal_approx(Vector3.DOWN) and absf((cb.anchor as Vector3).y - ceil_y) < 0.05,
+		"slime: a throw up sticks to the ceiling, hanging (y %.2f)" % ((cb.anchor as Vector3).y if not cb.is_empty() else -1.0))
+	check.call(int(ctx.counts.get("slime", 0)) == sc1 and float(cb.hang) == 1.0 and cb.ceil, "slime: no points off the target; he hangs")
+	var c_h0: float = cb.H
+	var c_a0: Vector3 = cb.anchor
+	var c_c0: Vector3 = cb.c
+	_wait(st, b, 3.0)
+	check.call(float(cb.m) > 0.6 and float(cb.H) > c_h0 * 1.2 and (cb.c as Vector3).y < c_c0.y and (cb.anchor as Vector3).distance_to(c_a0) < 0.02,
+		"slime: melting, he sags downward from the ceiling (H %.2f -> %.2f), stuck where he hit" % [c_h0, cb.H])
+	check.call(SlimeStage.hy_of(1.0, 1.0) > 1.0 and SlimeStage.hy_of(1.0, 0.0) < 0.5 and SlimeStage.hang_of(Vector3.UP) == 0.0 and SlimeStage.hang_of(Vector3.BACK) == 0.0,
+		"slime: only a ceiling hangs; floors and walls flatten as before")
+	# Each drip is a drop that falls from his tip and lands on the floor.
+	var landed := false
+	for k in 72 * 4:
+		st.update(b, 1.0 / 72.0)
+		for d: Dictionary in st.drops:
+			if d.stuck and absf((d.p as Vector3).y) < 0.1 and Vector2((d.p as Vector3).x - c_a0.x, (d.p as Vector3).z - c_a0.z).length() < 0.8:
+				landed = true
+	check.call(st.slime_state().dripped >= 2 and landed, "slime: drips fall from him down to the floor below (%d dripped)" % st.slime_state().dripped)
+	st.draw()
+	check.call((st._parts.goo as MultiMesh).visible_instance_count > 0, "slime: goo strands and drops drawn")
+	# A throw from below lands on him and stacks.
+	var under: Vector3 = (cb.c as Vector3) + Vector3.DOWN * 2.5
+	ok = _fly(b, under, Vector3(0, 9.0, 0))
+	var cs: Dictionary = st.blobs[st.blobs.size() - 1]
+	check.call(ok and cs.kind == "blob" and int(cs.parent) == int(cb.id) and int(cs.level) == 2 and (cs.n as Vector3).y < -0.5 and (cs.anchor as Vector3).y < ceil_y - 0.1,
+		"slime: a throw from below stacks on the hanging one (level %d)" % int(cs.level))
+	_wait(st, b, 1.0)
+	check.call((cs.anchor as Vector3).y < ceil_y and (cs.anchor as Vector3).y > ceil_y - 2.0, "slime: the hanging pile holds")
+	# A shot pops him (and what hangs on him).
+	st.draw()
+	var cp: MeshInstance3D = null
+	for q: MeshInstance3D in st._proxies:
+		if q.visible and int(q.get_meta("blob", 0)) == int(cb.id):
+			cp = q
+	check.call(cp != null and cp.position.y < ceil_y, "slime: his hit sphere hangs below the ceiling")
+	var popped0: int = st.slime_state().popped
+	check.call(cp != null and st.shoot(cp, cp.position, Vector3.UP), "slime: a shot at the ceiling blob pops him")
+	_wait(st, b, 0.5)
+	check.call(st.slime_state().popped == popped0 + 2 and st.slime_state().live == 0, "slime: he and the one hanging on him are gone")
+	st.planes_provider = Callable()
 	st.free()

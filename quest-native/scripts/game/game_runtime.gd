@@ -19,7 +19,7 @@ const CHALLENGES := [
 	["curve3", "سجّل ٣ أهداف برمية ملتفة في النظارة", "Score 3 curved goals in the headset", 3],
 	["bricks20", "اكسر ٢٠ طوبة في حائط الطوب", "Break 20 bricks on the brick wall", 20],
 	["wall1", "حطّم حائط الطوب كامل", "Smash the whole brick wall", 1],
-	["fair25", "اجمع ٢٥ نقطة في جولة ملاهي", "Score 25 in one round at the fair", 25],
+	["fair25", "اجمع ٢٥ نقطة في زيارة للملاهي", "Score 25 in one visit to the fair", 25],
 	["bell3", "اضرب جرس الملاهي ٣ مرات", "Ring the fair bell 3 times", 3],
 	["pop20", "فجّر ٢٠ دحروج بالطلقات", "Pop 20 Dahroojs with your shots", 20],
 	["mole20", "اضرب ٢٠ دحروج", "Whack 20 Dahroojs", 20],
