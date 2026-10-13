@@ -1631,6 +1631,8 @@ func _setup_new_mode() -> void:
 		stage.set("planes_provider", room_planes_game)
 	if stage is FrenzyStage:
 		stage.set("size", scale_now / VR_SCALE if mode == "mr" else 1.0)  # bubbles keep their real size
+	if stage is CastleStage:
+		stage.set("size", 1.25 if mode == "mr" else 1.0)  # a small fort on the floor or a table
 
 
 ## A mode card (xr-runtime.js choosePlaza).
