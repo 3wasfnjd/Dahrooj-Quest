@@ -328,6 +328,9 @@ static func paint(vp: SubViewport, txt: String, k: String, color = null) -> Vect
 	for ch in shown:
 		rtl = rtl or _is_arabic(ch.unicode_at(0))
 	line.direction = TextServer.DIRECTION_AUTO if rtl else TextServer.DIRECTION_LTR  # "-2" reads -2 in both languages
+	if rtl:  # inside Arabic, "+2" and "×3" still read as they do in the score popup
+		var re := RegEx.create_from_string("[+\\-×]?[0-9]+")
+		shown = re.sub(shown, "\u2066$0\u2069", true)
 	line.add_string(shown, f, px)
 	var width := line.get_size().x
 	var asc := line.get_line_ascent()

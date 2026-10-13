@@ -269,13 +269,13 @@ func ding() -> void:
 	_sfx("fair_ding", 1.0, bell.position)
 
 
-func _toast(ar: String, en: String) -> void:
-	if ctx:
-		ctx.toast.call(ctx.t(ar, en))
+func _en() -> bool:
+	return ctx != null and ctx.lang == "en"
 
 
 ## Points for a hit: into this visit's total (fair25) and, one by one, into ctx.counts["fair"].
-func score(pts: int, curved := false) -> void:
+## at: where it happened (a festive +N floats up there; a curved hit gets a rainbow ×2).
+func score(pts: int, curved := false, at := Vector3.INF) -> void:
 	if curved:
 		pts *= 2
 	F.score += pts
@@ -283,8 +283,12 @@ func score(pts: int, curved := false) -> void:
 		for i in pts:
 			ctx.add_count.call("fair", false)
 	_ch("fair25", F.score)
+	if at == Vector3.INF:
+		return
 	if curved:
-		_toast("ملتفة ×٢: +" + GameCtx.ar_digits(pts), "Curved ×2: +%d" % pts)
+		JuiceText.spawn(self, ("Curved ×2: +%d" % pts) if _en() else ("ملتفة ×٢: +" + GameCtx.ar_digits(pts)), at + Vector3.UP * 0.9, "combo", 1.7)
+	else:
+		JuiceText.spawn(self, "+%d" % pts, at + Vector3.UP * 0.4, "points", 2.0 + 0.15 * pts)
 
 
 func launch_duck(d: Dictionary, dir: Vector3, speed: float) -> void:
@@ -484,21 +488,21 @@ func shoot(obj: Node, _point: Vector3, dir: Vector3) -> bool:
 		if d.down <= 0 and _owns(obj, d.g):
 			launch_duck(d, dir if dir != Vector3.ZERO else Vector3(0, 0, -1), 6.5)
 			_sfx("squeak", 1.35, d.g.position)
-			score(1)
+			score(1, false, d.g.position)
 			return true
 	for b in balloons:
 		if b.pop_t <= 0.0 and _owns(obj, b.m):
 			b.pop_t = 2.2
 			_sfx("start_pop", 1.0, b.m.position)
 			_celebrate(b.m.position)
-			score(2)
+			score(2, false, b.m.position)
 			return true
 	if _owns(obj, bell) and F.swing < 0.3:
 		F.swing = 1.0
 		ding()
 		F.bell_hits += 1
 		_ch("bell3", int(ctx.ch_state.get("bell3", 0)) + 1 if ctx else 1)
-		score(5)
+		score(5, false, bell.transform * bell_m.position)
 		return true
 	return false
 
@@ -551,7 +555,7 @@ func collide(S: Ball) -> void:
 			F.touched = true
 			_sfx("squeak", 1.35, wp)
 			_sfx("thump", 0.4, wp)
-			score(1, S.throw_curve)
+			score(1, S.throw_curve, wp)
 	for b in balloons:
 		if b.pop_t > 0.0:
 			continue
@@ -560,7 +564,7 @@ func collide(S: Ball) -> void:
 			F.touched = true
 			_sfx("start_pop", 1.0, b.m.position)
 			_celebrate(b.m.position)
-			score(2, S.throw_curve)
+			score(2, S.throw_curve, b.m.position)
 	var bw: Vector3 = bell.transform * bell_m.position
 	if F.swing < 0.3 and sphere_hit(S, bw, 0.3, true):
 		F.swing = 1.0
@@ -568,7 +572,7 @@ func collide(S: Ball) -> void:
 		ding()
 		F.bell_hits += 1
 		_ch("bell3", int(ctx.ch_state.get("bell3", 0)) + 1 if ctx else 1)
-		score(5, S.throw_curve)
+		score(5, S.throw_curve, bw)
 	# The stall: the back panel and the counter bounce him back.
 	var P := S.pos
 	if P.z - Ball.BR < FZ - 0.97 and P.z > FZ - 1.6 and absf(P.x) < 3.2 and P.y < 2.6:

@@ -90,6 +90,7 @@ static func run(check: Callable) -> void:
 	st.shoot(st.moles[g].proxy, st.moles[g].c, Vector3.FORWARD)
 	check.call(st.mole_state().score == before + 3, "mole: the golden one is worth 3")
 	check.call(extra.any(func(e): return e[0] == "confetti"), "mole: the golden one throws confetti")
+	check.call(JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.kind == "banner" and j.text == "دحروج ذهبي!"), "mole: and a festive «دحروج ذهبي!» banner")
 	var z := st.spawn("sleepy", {"pos": Vector3(-4, 0, -12), "normal": Vector3.UP})
 	_until(st, b, z, "up", 0.6)
 	st.draw()

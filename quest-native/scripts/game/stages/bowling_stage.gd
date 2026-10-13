@@ -2,7 +2,7 @@ class_name BowlingStage
 extends Node3D
 ## The bowling lane (src/reference/stages/bowling.js): a slick lane with aiming arrows, ten
 ## pins on a rigid-body solver (impulses with friction, sample points on each pin), two rolls
-## a frame, strike/spare toasts and the strike1 challenge. Game units.
+## a frame, strike/spare banners (JuiceText) and the strike1 challenge. Game units.
 
 const S_PIN := 0.34
 const PH := 2.967 * S_PIN
@@ -543,7 +543,10 @@ func update(b: Ball, dt: float) -> void:
 		b.scored_t = 0.0
 		b.miss_t = 0.0
 		b.success()
+		# A festive banner over the pin deck (a strike is the big one).
+		var en := ctx != null and ctx.lang == "en"
+		var word := ("Strike!" if roll == 0 else "Spare!") if en else ("سترايك!" if roll == 0 else "سبير!")
+		JuiceText.spawn(self, word, Vector3(0, 2.4, HEAD - 1.2), "banner", 2.0 if roll == 0 else 1.6, Color("ffd23f") if roll == 0 else Color("7fd8ff"))
 		if ctx:
-			ctx.toast.call(ctx.t("سترايك!" if roll == 0 else "سبير!", "Strike!" if roll == 0 else "Spare!"))
 			if roll == 0 and attempt.complete():
 				ctx.ch_progress.call("strike1", 1)

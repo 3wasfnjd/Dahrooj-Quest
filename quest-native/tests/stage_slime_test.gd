@@ -126,6 +126,8 @@ static func run(check: Callable) -> void:
 	check.call(int(bull.pts) == 10 and int(rim.pts) == 1 and int(off.pts) == 0 and st.slime_state().score == sc0 + 11 and int(ctx.counts.get("slime", 0)) == st.slime_state().score,
 		"slime: 10 for the bullseye, 1 for the outer ring, nothing off the target")
 	check.call(extra.any(func(x): return x[0] == "confetti"), "slime: a bullseye celebrates")
+	check.call(JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.text == "في المنتصف!") and JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.text == "+10"),
+		"slime: a bullseye floats «في المنتصف!» and +10")
 
 	# A tower of 5.
 	var base := st.stick(Vector3(-2, 0, -7), Vector3.UP, Vector3(0, -6, 0), "floor")
@@ -135,7 +137,7 @@ static func run(check: Callable) -> void:
 		tb = st.stick((tb.anchor as Vector3) + Vector3.UP * float(tb.H), Vector3.UP, Vector3(0, -6, 0), "blob", tb)
 	check.call(int(tb.level) == 5 and st.slime_state().best_tower == 5 and int(ch.get("slime5", 0)) == 5 and int(tb.pts) == 8,
 		"slime: a tower of 5 (the challenge; +8 for the top one)")
-	check.call(extra.any(func(x): return x[0] == "toast" and String(x[1]).contains("٥")), "slime: the tower is announced")
+	check.call(JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.kind == "combo" and j.text.contains("٥")), "slime: the tower is announced (a festive combo text)")
 	check.call(GameRuntime.challenge("slime5").size() == 4 and "slime" in GameRuntime.MODES, "slime: the mode and its challenge are in the runtime")
 	_wait(st, b, 4.0)
 	check.call((tb.anchor as Vector3).y > 4.0 * SlimeStage.R and st.slime_state().tower == 5, "slime: the tower keeps standing as it melts (top at %.2f)" % (tb.anchor as Vector3).y)

@@ -70,7 +70,7 @@ static func run(check: Callable) -> void:
 	extra.clear()
 	st.smash_all()
 	check.call(st.bricks_left() == 0 and extra.any(func(e): return e[0] == "ch" and e[1] == "wall1" and e[2] == 1), "bricks: smashing the whole wall completes wall1")
-	check.call(extra.any(func(e): return e[0] == "confetti") and extra.any(func(e): return e[0] == "toast"), "bricks: the wall celebrates on its own (confetti, toast)")
+	check.call(extra.any(func(e): return e[0] == "confetti") and JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.kind == "banner" and j.text == "حطّمت الحائط!"), "bricks: the wall celebrates on its own (confetti, a festive banner)")
 	for i in 72 * 2:
 		b.step(1.0 / 72.0)
 	check.call(st.level == 1 and st.bricks_left() == 24, "bricks: the next level is laid (level %d, %d bricks)" % [st.level, st.bricks_left()])

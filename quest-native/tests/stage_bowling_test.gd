@@ -45,7 +45,7 @@ static func run(check: Callable) -> void:
 	check.call(sfx.any(func(s): return s[0] == "bowling_clack"), "bowling: the pins clack")
 	check.call(not events.has("miss"), "bowling: a roll that touched the pins is no laughing miss")
 	if knocked_in_flight >= 10:
-		check.call(events.has("success") and extra.any(func(e): return e[0] == "toast"), "bowling: a strike cheers and toasts")
+		check.call(events.has("success") and JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.kind == "banner" and j.text == "سترايك!"), "bowling: a strike cheers with a festive «سترايك!» banner")
 		check.call(st.frame().roll == 0 and _down(st) == 0, "bowling: after a strike a fresh rack stands")
 	else:
 		var gone := st.pins_state().filter(func(p): return p.gone).size()

@@ -517,9 +517,9 @@ func _sfx(n: String, k: float, p: Vector3) -> void:
 		ctx.sfx.call(n, k, p)
 
 
-func _toast(ar: String, en: String) -> void:
-	if ctx:
-		ctx.toast.call(ctx.t(ar, en))
+## A festive floating text (JuiceText) at a point, in the game's language; bigger far away.
+func _say(ar: String, en: String, at: Vector3, kind: String, k := 1.0, col = null) -> void:
+	JuiceText.spawn(self, en if ctx != null and ctx.lang == "en" else ar, at, kind, k * maxf(1.0, at.distance_to(viewer) / 9.0), col)
 
 
 func _celebrate(at: Vector3, k := 1.0) -> void:
@@ -757,7 +757,7 @@ func _score(b: Dictionary) -> void:
 		if int(b.level) > F.best_tower:
 			F.best_tower = int(b.level)
 			if b.level >= 3:
-				_toast("برج سلايم ×%s!" % GameCtx.ar_digits(b.level), "Slime tower ×%d!" % b.level)
+				_say("برج سلايم ×%s!" % GameCtx.ar_digits(b.level), "Slime tower ×%d!" % b.level, (b.anchor as Vector3) + Vector3.UP * R * 2.6, "combo", 0.9)
 		if int(b.level) >= TOWER and int(b.level) == F.best_tower:
 			_sfx("chime", 1.0, b.anchor)
 			_celebrate((b.anchor as Vector3) + Vector3.UP * R * 2.0)
@@ -767,9 +767,10 @@ func _score(b: Dictionary) -> void:
 	F.score += pts
 	if ctx:
 		ctx.counts["slime"] = int(ctx.counts.get("slime", 0)) + pts
+	JuiceText.spawn(self, "+%d" % pts, (b.anchor as Vector3) + Vector3.UP * R * 1.6, "points", maxf(1.0, (b.anchor as Vector3).distance_to(viewer) / 9.0) * (1.3 if pts >= 10 else 1.0))
 	if int(b.ring) == 0:
 		_sfx("chime", 0.8, b.anchor)
-		_toast("في المنتصف! +١٠", "Bullseye! +10")
+		_say("في المنتصف!", "Bullseye!", (b.anchor as Vector3) + Vector3.UP * R * 3.2, "banner", 0.55, Color("ffd23f"))
 		_celebrate(b.anchor, 0.7)
 
 

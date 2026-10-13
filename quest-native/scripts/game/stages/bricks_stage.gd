@@ -563,8 +563,8 @@ func break_brick(b: Dictionary, _n: Vector3, speed: float) -> void:
 		else:
 			_celebrate(Vector3(0, 1.6, FACE + 0.4))
 			_sfx("chime", 1.0, Vector3(0, 1.6, FACE + 0.4))
-		if ctx:
-			ctx.toast.call(ctx.t("حطّمت الحائط!", "You smashed the wall!"))
+		var en := ctx != null and ctx.lang == "en"
+		JuiceText.spawn(self, "You smashed the wall!" if en else "حطّمت الحائط!", Vector3(0, 2.3, FACE + 1.0), "banner", 1.4, Color("ff9b3d"))
 
 
 ## Sphere against an axis-aligned box: push out, bounce, break.

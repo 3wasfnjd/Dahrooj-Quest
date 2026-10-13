@@ -36,6 +36,7 @@ static func run(check: Callable) -> void:
 	check.call(counts.size() == 5 and counts.all(func(c): return c[0] == "fair"), "fair: each point is counted (%d)" % counts.size())
 	check.call(extra.any(func(e): return e[0] == "ch" and e[1] == "fair25" and e[2] == 5), "fair: the points count toward fair25")
 	check.call(st.F.swing > 0.0 and absf(st.bell.rotation.z) >= 0.0, "fair: the bell swings")
+	check.call(JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.kind == "points" and j.text == "+5"), "fair: a festive +5 floats up at the bell")
 	for i in 72 * 5:
 		b.step(1.0 / 72.0)
 		if not b.shot:
@@ -80,4 +81,6 @@ static func run(check: Callable) -> void:
 	# Leaving the stall starts fair25 over, but counts[fair] is never reset.
 	st.deactivate()
 	check.call(st.fair_state().score == 0 and extra.any(func(e): return e[0] == "ch" and e[1] == "fair25" and e[2] == 0) and not counts.any(func(c): return c[1]), "fair: leaving resets fair25, never counts[fair]")
+	st.score(1, true, Vector3(0, 1.5, FairStage.FZ))
+	check.call(JuiceText.showing(st).any(func(j: JuiceText) -> bool: return j.kind == "combo" and j.text == "ملتفة ×٢: +٢"), "fair: a curved hit floats a rainbow «ملتفة ×٢: +٢»")
 	st.free()

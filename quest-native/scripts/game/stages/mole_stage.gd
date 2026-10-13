@@ -268,9 +268,9 @@ func _sfx(n: String, k: float, p: Vector3) -> void:
 		ctx.sfx.call(n, k, p)
 
 
-func _toast(ar: String, en: String) -> void:
-	if ctx:
-		ctx.toast.call(ctx.t(ar, en))
+## A festive floating text (JuiceText) at a point, in the game's language.
+func _say(ar: String, en: String, at: Vector3, kind: String, k := 1.0, col = null) -> void:
+	JuiceText.spawn(self, en if ctx != null and ctx.lang == "en" else ar, at, kind, k * size, col)
 
 
 func _celebrate(at: Vector3, k := 1.0) -> void:
@@ -297,7 +297,7 @@ func _score(m: Dictionary) -> void:
 		ctx.counts["mole"] = maxi(0, int(ctx.counts.get("mole", 0)) + pts)
 	if pts < 0:
 		F.streak = 0
-		_toast("شش! كان نايم", "Shh! He was asleep")
+		_say("شش! كان نايم", "Shh! He was asleep", at + Vector3.UP * 0.6 * size, "miss", 0.9)
 		return
 	F.whacked += 1
 	F.streak += 1
@@ -305,12 +305,12 @@ func _score(m: Dictionary) -> void:
 	if ctx:
 		ctx.ch_progress.call("mole20", int(ctx.ch_state.get("mole20", 0)) + 1)
 	if m.kind == "gold":
-		_toast("دحروج ذهبي! +٣", "Golden Dahrooj! +3")
+		_say("دحروج ذهبي!", "Golden Dahrooj!", at + Vector3.UP * 0.75 * size, "banner", 0.6, Color("ffc21a"))
 		_celebrate(at, 0.8)
 	if F.streak % STREAK == 0:
 		_sfx("chime", 0.8, at)
 		_celebrate(at)
-		_toast("سلسلة ×%s!" % GameCtx.ar_digits(F.streak), "Streak ×%d!" % F.streak)
+		_say("سلسلة ×%s!" % GameCtx.ar_digits(F.streak), "Streak ×%d!" % F.streak, at + Vector3.UP * 1.1 * size, "combo", 0.9)
 
 
 ## A mole is hit (by a ball or a shot) from direction dir.
