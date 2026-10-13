@@ -663,8 +663,18 @@ func _game_step(delta: float) -> void:
 		inv.paused = state != "play" or placing
 		if inv.visible and not summit_on:
 			slow = inv.time_scale
-	# Slow motion (Dahrooj Attack): the game slows, music and sounds drop in pitch.
-	AudioServer.playback_speed_scale = inv.audio_pitch() if inv != null and slow < 1.0 else 1.0
+	var fz := stage as FrenzyStage
+	if fz != null:
+		var hs := {}
+		if xr:
+			for h in ["left", "right"]:
+				if rig.tracked(h):
+					hs[h] = game_root.global_transform.affine_inverse() * rig.grip_transform(h)
+		fz.hands = hs
+		if fz.visible and not summit_on:
+			slow = fz.time_scale
+	# Slow motion (Dahrooj Attack, Pop Frenzy): the game slows, music and sounds drop in pitch.
+	AudioServer.playback_speed_scale = 1.0 - (1.0 - slow) * 0.5
 	if true:
 		var gdt := dt * time_k() * slow
 		runtime.step(gdt)
@@ -1619,6 +1629,8 @@ func _setup_new_mode() -> void:
 		stage.set("buzz", buzz)
 	if "planes_provider" in stage:
 		stage.set("planes_provider", room_planes_game)
+	if stage is FrenzyStage:
+		stage.set("size", scale_now / VR_SCALE if mode == "mr" else 1.0)  # bubbles keep their real size
 
 
 ## A mode card (xr-runtime.js choosePlaza).
