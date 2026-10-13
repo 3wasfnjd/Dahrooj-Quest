@@ -289,6 +289,7 @@ func _scene() -> void:
 	await _world(main)
 	_room_play(main)
 	_reward_cards(main)
+	await _roomscale(main)
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -330,26 +331,11 @@ func _room_play(main: Node) -> void:
 	main.place()
 	var ground: Vector3 = main.game_root.global_transform * Vector3.ZERO
 	check(main.ar_scale == 16.0 and main.scale_now == 8.0 and absf(ground.y) < 1e-4, "MR room play: pinned on a table, the ground is still the floor (y %.2f)" % ground.y)
-	# A new target behind the player: a chevron at the edge of the view.
-	main._choose_mode("mole")
-	main.state = "play"
-	main._step_room_play(1.0 / 72.0)
-	var head: Transform3D = main.head_transform()
-	var behind: Vector3 = main.to_game(head.origin + head.basis.z * 2.0 + Vector3(0.4, -0.8, 0))
-	var mole := main.stage as MoleStage
-	mole.auto_spawn = false
-	var i := mole.spawn("plain", {"pos": behind, "normal": Vector3.UP})
-	for k in 40:
-		mole.update(main.ball, 1.0 / 72.0)
-		main._step_room_play(1.0 / 72.0)
-	check(i >= 0 and main.room_cue.cues.size() >= 1 and main.room_cue.cues.any(func(q: Dictionary) -> bool: return (q.mi as MeshInstance3D).visible), "MR room play: a chevron points at a new target behind")
-	mole.auto_spawn = true
-	mole.deactivate()
 	# VR: no room spots, the usual sizes.
 	main.set_mode("vr")
 	main._step_room_play(1.0 / 72.0)
-	check(not main.room_play() and RoomSpots.ask(main.stage.spots_provider).is_empty() and float(main.stage.size) == 1.0 and main.room_cue.cues.is_empty(),
-		"VR: no room spots or chevrons, the modes keep their layouts")
+	check(not main.room_play() and RoomSpots.ask(main.stage.spots_provider).is_empty() and float(main.stage.size) == 1.0,
+		"VR: no room spots, the modes keep their layouts")
 	surf.clear_tests()
 	main._choose_mode("goal")
 
@@ -381,3 +367,68 @@ func _reward_cards(main: Node) -> void:
 	toast.cards.clear()
 	Save.challenges.clear()
 	Save.challenges.merge(keep)
+
+
+## Roomscale (Stage space): the headset's origin is the middle of the play area, so the VR court
+## is set around wherever the player stands and faces, then stays put while they walk; recenter
+## and a new mode set it again. The desktop camera stands in for the head.
+func _roomscale(main: Node) -> void:
+	main.set_mode("vr")
+	main._choose_mode("goal")
+	main.state = "play"
+	var cam: Camera3D = main.desktop_cam
+	var keep := cam.global_transform
+	# Start of play: the player 1.5 m to the side of the play area's middle, turned 50 degrees.
+	cam.global_transform = Transform3D(Basis(Vector3.UP, 0.87), Vector3(1.5, 1.6, -0.7))
+	var fwd := Vector3(-sin(0.87), 0.0, -cos(0.87))
+	main.set_mode("vr")
+	var head: Vector3 = cam.global_position
+	var floor_head := Vector3(head.x, 0.0, head.z)
+	var gr: Transform3D = main.game_root.global_transform
+	var goal: Vector3 = gr * Vector3(0, 0, main.stage.aim_z)
+	var to_goal := Vector3(goal.x - head.x, 0.0, goal.z - head.z)
+	check(to_goal.normalized().dot(fwd) > 0.999 and to_goal.length() > 9.0 and to_goal.length() < 12.0,
+		"roomscale VR: the court is set around the head off the middle, the goal %.1f m the way it faces" % to_goal.length())
+	var spot: Vector3 = gr * Vector3(0, 0, main._rig_game_z)
+	check(spot.distance_to(floor_head) < 1e-3, "roomscale VR: the throw spot is on the floor under the head (%s)" % spot)
+	var eye: Vector3 = main.eye_game()
+	check(absf(eye.x) < 1e-3 and absf(eye.z - main._rig_game_z) < 1e-3, "roomscale VR: in game units the player stands at the throw spot (%s)" % eye)
+	var park_c: Vector3 = main.park.global_transform * Vector3(0, 0, main.stage.aim_z)
+	check(park_c.distance_to(goal) < 1e-3, "roomscale VR: the park moves with the court")
+	check((main.hud.global_position - head).dot(fwd) > 3.0, "roomscale VR: the score board ahead of the player")
+	check(absf(main.env.sky_rotation.y - 0.87) < 1e-3, "roomscale VR: the sky turns with the park (%.2f)" % main.env.sky_rotation.y)
+	# Walking: the court stays put in the room, the goal comes closer.
+	var fixed: Transform3D = main.game_root.global_transform
+	cam.global_transform = Transform3D(Basis(Vector3.UP, 0.3), head + fwd * 2.0 + Vector3(0.4, 0, 0))
+	for i in 5:
+		await get_tree().process_frame
+	main.place()
+	var walked: Vector3 = cam.global_position
+	var near := Vector2(goal.x - walked.x, goal.z - walked.z).length()
+	check(main.game_root.global_transform.is_equal_approx(fixed) and near < to_goal.length() - 1.5,
+		"roomscale VR: walking toward the goal keeps the court fixed and brings it closer (%.1f m)" % near)
+	# The system recenter: set again around where the player is now, facing their new way.
+	var fwd2 := Vector3(-sin(0.3), 0.0, -cos(0.3))
+	main._on_recenter()
+	goal = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
+	var to_goal2 := Vector3(goal.x - walked.x, 0.0, goal.z - walked.z)
+	check(not main.game_root.global_transform.is_equal_approx(fixed) and to_goal2.normalized().dot(fwd2) > 0.999
+		and absf(to_goal2.length() - to_goal.length()) < 1e-3, "roomscale VR: recenter sets the court in front of the player again")
+	# A new mode: set around the player too; the Summit faces them.
+	cam.global_transform = Transform3D(Basis(Vector3.UP, -1.2), Vector3(-1.0, 1.6, 0.9))
+	var fwd3 := Vector3(-sin(-1.2), 0.0, -cos(-1.2))
+	main._choose_mode("hoop")
+	goal = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
+	check(Vector3(goal.x + 1.0, 0.0, goal.z - 0.9).normalized().dot(fwd3) > 0.999, "roomscale VR: a new mode is set where the player stands")
+	main._choose_mode("climb")
+	var to_sum: Vector3 = main.summit.position - Vector3(-1.0, 0.0, 0.9)
+	check(Vector3(to_sum.x, 0.0, to_sum.z).normalized().dot(fwd3) > 0.999 and absf(main.summit.rotation.y + 1.2) < 1e-3,
+		"roomscale VR: the Summit ahead of the player, facing them")
+	# MR: the court 1.6 m ahead of the head, wherever it is.
+	main.set_mode("mr")
+	var mr_goal: Vector3 = main.anchor.p
+	check(Vector3(mr_goal.x + 1.0, 0.0, mr_goal.z - 0.9).distance_to(fwd3 * 1.6) < 1e-3, "roomscale MR: the court 1.6 m ahead of the player off the middle")
+	main.set_mode("vr")
+	cam.global_transform = keep
+	main.replace_here()
+	main._choose_mode("goal")

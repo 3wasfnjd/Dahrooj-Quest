@@ -3,6 +3,8 @@ extends Node3D
 ##
 ## The game world is in the web game's units (ball radius 0.24, gravity 13, the
 ## goal 11 units ahead) under GameRoot, which maps game units to the room:
+## Roomscale (OpenXR Stage space): the player walks about the room; the world is set
+## around where they stand (place()) and then stays put.
 ## VR: the world at half size around a standing player (the web rig's scale 2),
 ## MR: the court on the floor in front of the player at 1/8 size. Game time runs
 ## sqrt(9.8 * scale / 13) times faster than real time, so falls look natural at
@@ -34,8 +36,6 @@ const DOTS := 26
 ## The modes played all around the room in mixed reality: their targets come from the room's
 ## walls, floor and furniture on every side (RoomSpots), and the court stands on the floor.
 const ROOM_MODES := ["mole", "invasion", "slime", "meteor", "giant", "frenzy", "gallery"]
-## Of those, the ones that point at new targets off to the side or behind (RoomCue).
-const CUE_MODES := ["mole", "invasion", "slime", "meteor", "giant", "gallery"]
 # The slingshot, held in the left hand (grip space, metres).
 const TIP_L := Vector3(-0.04, 0.15, -0.045)
 const TIP_R := Vector3(0.04, 0.15, -0.045)
@@ -83,6 +83,12 @@ var state := "boot"  # boot, splash, start, play, menu
 var scale_now := VR_SCALE
 var mode := "vr"
 var anchor := {}  # MR: {p: Vector3 (real surface point), theta: float}
+## VR: where the player stood when the court was placed: {p: the floor under the head, theta:
+## the way they faced}. The headset's origin is the middle of the play area (the Stage space,
+## roomscale), so the court is set around the player, then stays put in the room while they
+## walk; it moves only on a new mode, VR/MR switch or recenter.
+var vr_anchor := {}
+var _sun_basis := Basis()
 var placing := false  # MR: aim at a surface and the court follows; the trigger pins it
 var ar_scale := AR_SCALE
 var ar_zoom := 1.0
@@ -110,13 +116,8 @@ var auto_fire := {}  # hand -> next shot time while the left trigger is held
 var sounds_played: Array = []  # [name, k, pos] (tests; the audio player plays them)
 var splash: Node3D
 var room_spots := RoomSpots.new()  # MR: spawn spots all around the player (game units)
-var room_cue: RoomCue  # MR: chevrons at the edge of view toward new targets
 var _spots_sig := ""
 var _spots_t := 0.0
-var _cue_stage: Node3D = null
-var _cue_proxies: Array = []  # the stage's hidden hit spheres (a target each)
-var _cue_seen := {}  # proxy instance id -> visible last frame
-var _cue_slime := Vector3.INF
 
 
 func _ready() -> void:
@@ -179,8 +180,6 @@ func _ready() -> void:
 	hud.add_child(score_popup)
 	confetti = Confetti.new()
 	game_root.add_child(confetti)
-	room_cue = RoomCue.new()
-	add_child(room_cue)
 	audio = GameAudio.new()
 	audio.name = "GameAudio"
 	add_child(audio)
@@ -429,6 +428,7 @@ func _apply_day() -> void:
 	G.global_shader_parameter_set("dah_fog_near", 20.0 + d.near * 25.0)
 	G.global_shader_parameter_set("dah_fog_far", 20.0 + d.far * 25.0)
 	sun.look_at_from_position(Vector3(3, 10, -4), Vector3(0, 0, -9), Vector3.UP)
+	_sun_basis = sun.basis
 
 
 ## Shader globals take linear colours (the park shades in linear light, as three.js does).
@@ -476,6 +476,9 @@ func set_mode(m: String) -> void:
 	summit_zoom = 1.0
 	if summit:
 		summit.set_unit(SummitMode.CLIMB_AR if m == "mr" else SummitMode.CLIMB_VR)
+	# VR: the court around wherever the player stands now.
+	vr_anchor = {}
+	table_spot = null
 	place()
 	if stage != null:
 		_setup_stage()
@@ -485,8 +488,33 @@ func time_k() -> float:
 	return sqrt(REAL_G * scale_now / Ball.GRAV)
 
 
+## The floor under the head and the way it faces (yaw), for placing the world around the player.
+func head_anchor() -> Dictionary:
+	var head := head_transform()
+	var dir := -head.basis.z
+	dir.y = 0.0
+	dir = dir.normalized() if dir.length_squared() > 0.01 else Vector3.FORWARD
+	return {"p": Vector3(head.origin.x, 0.0, head.origin.z), "theta": atan2(dir.x, -dir.z)}
+
+
+## VR: the player's spot when the court was placed, as a room transform (floor, facing -Z).
+func vr_frame() -> Transform3D:
+	if vr_anchor.is_empty():
+		return Transform3D()
+	return Transform3D(Basis(Vector3.UP, -float(vr_anchor.theta)), vr_anchor.p as Vector3)
+
+
+## The game world's turn in the room (radians about +Y): the sky and the sun turn with it so
+## the park's sun, sky and shading still agree.
+func _world_yaw() -> float:
+	if mode == "mr":
+		return -float(anchor.get("theta", 0.0))
+	return -float(vr_anchor.get("theta", 0.0))
+
+
 ## VR: every target stands as far as the cans (FAR_Z), the player at the web rig's
-## spot. MR: the target point pinned to a floor spot ahead, the court facing you.
+## spot, set where the player stands (vr_anchor) and then fixed in the room so they can
+## walk up to the targets. MR: the target point pinned to a floor spot ahead, the court facing you.
 func place() -> void:
 	if mode != "mr":
 		scale_now = VR_SCALE
@@ -500,15 +528,17 @@ func place() -> void:
 			back = maxf(0.0, stage.aim_z - (stage.reach_z if stage.reach_z != null else FAR_Z))
 		var p := Vector3(0, 0, 0.5 * VR_SCALE + back)
 		_rig_game_z = p.z
-		game_root.transform = Transform3D(Basis().scaled(Vector3.ONE / VR_SCALE), -p / VR_SCALE)
+		if vr_anchor.is_empty():
+			vr_anchor = head_anchor()
+		# The player's game spot p lands on the floor where they stood, the court ahead of them.
+		var vb := Basis(Vector3.UP, -float(vr_anchor.theta)).scaled(Vector3.ONE / VR_SCALE)
+		game_root.transform = Transform3D(vb, (vr_anchor.p as Vector3) - vb * p)
 	else:
 		scale_now = ar_scale
 		if anchor.is_empty():
-			var head := head_transform()
-			var dir := -head.basis.z
-			dir.y = 0.0
-			dir = dir.normalized() if dir.length_squared() > 0.01 else Vector3.FORWARD
-			anchor = {"p": Vector3(head.origin.x, 0, head.origin.z) + dir * 1.6, "theta": atan2(dir.x, -dir.z)}
+			var ha := head_anchor()
+			var dir := Vector3(sin(float(ha.theta)), 0.0, -cos(float(ha.theta)))
+			anchor = {"p": (ha.p as Vector3) + dir * 1.6, "theta": ha.theta}
 		var ap: Vector3 = anchor.p
 		# Played all around the room: the game's ground is the room's floor (even when the court
 		# was pinned on a table), at the usual room scale.
@@ -524,8 +554,11 @@ func place() -> void:
 		hud.scale = Vector3.ONE * 0.95
 	else:
 		# High over the play area, clear of the line of throw, and a little larger so it reads at a glance.
-		hud.position = Vector3(0, 2.02, -3.4)
+		hud.position = vr_frame() * Vector3(0, 2.02, -3.4)
 		hud.scale = Vector3.ONE * 1.8
+	var yaw := _world_yaw()
+	env.sky_rotation = Vector3(0.0, yaw, 0.0)
+	sun.basis = Basis(Vector3.UP, yaw) * _sun_basis
 	if summit_on:
 		_place_summit()
 
@@ -1365,8 +1398,7 @@ func _menu_action(i: int) -> void:
 				holder = ""
 				placing = true
 			else:
-				anchor = {}
-				place()
+				replace_here()
 		"reset":
 			if reset_arm > 0.0:
 				reset_arm = 0.0
@@ -1445,10 +1477,10 @@ func _place_summit() -> void:
 		summit.set_base(0.0)
 	else:
 		summit.position = SummitMode.vr_spot(game_root.transform)
-		summit.rotation = Vector3.ZERO
+		summit.rotation = Vector3(0, -float(vr_anchor.get("theta", 0.0)), 0)
 		summit.set_base(summit.position.y)
 	var hp := summit.hud_place(mode == "mr")
-	hud.position = hp.position
+	hud.position = hp.position if mode == "mr" else vr_frame() * (hp.position as Vector3)
 	hud.scale = Vector3.ONE * float(hp.scale)
 
 
@@ -1680,41 +1712,14 @@ func _refresh_room_spots(force: bool) -> void:
 	room_spots.set_room(r[0], r[1])
 
 
-## Room play, every frame: where the player looks (RoomSpots prefers the other ways), and the
-## chevrons toward new targets off to the side or behind.
+## Room play, every frame: where the player looks (RoomSpots prefers the other ways).
 func _step_room_play(dt: float) -> void:
 	if not room_play() or placing:
-		if not room_cue.cues.is_empty():
-			room_cue.clear()
-		_cue_seen.clear()
 		return
 	_spots_t -= dt
 	var head := head_transform()
 	var w2g := game_root.global_transform.affine_inverse()
 	room_spots.look(w2g * head.origin, w2g.basis * -head.basis.z, dt)
-	if state != "play" or not runtime.mode in CUE_MODES:
-		room_cue.step(head, dt)
-		return
-	if _cue_stage != stage:
-		_cue_stage = stage
-		_cue_seen.clear()
-		_cue_proxies = []
-		for mi in stage.find_children("*", "MeshInstance3D", true, false):
-			if (mi as MeshInstance3D).layers == 0:
-				_cue_proxies.append(mi)
-	for mi: MeshInstance3D in _cue_proxies:
-		var id := mi.get_instance_id()
-		var vis := mi.is_visible_in_tree()
-		if vis and not bool(_cue_seen.get(id, false)):
-			room_cue.notify(head, mi)
-		_cue_seen[id] = vis
-	var sl := stage as SlimeStage
-	if sl != null and bool(sl.target.get("on", false)) and sl.room_target.visible:
-		var tp: Vector3 = sl.room_target.global_position
-		if _cue_slime != Vector3.INF and tp.distance_to(_cue_slime) > 0.3:
-			room_cue.notify(head, tp)
-		_cue_slime = tp
-	room_cue.step(head, dt)
 
 
 ## The action modes (meteor, castle, giant, gallery, frenzy) share one setup: size in
@@ -1752,6 +1757,8 @@ func _choose_mode(id: String) -> void:
 	if id == "climb":
 		set_menu(false)
 		_set_table("")
+		if mode != "mr":
+			vr_anchor = {}
 		set_summit(true)
 		sfx("whoosh", 0.5, sound_pos)
 		runtime.note_mode(id, worn())
@@ -1764,6 +1771,9 @@ func _choose_mode(id: String) -> void:
 	ball.held = false
 	set_menu(false)
 	_set_table("")
+	# VR: a new mode is set around wherever the player has walked to (MR keeps its pinned spot).
+	if mode != "mr":
+		vr_anchor = {}
 	if summit_on:
 		set_summit(false)
 	if id in ["balance", "ricochet", "maze"]:
@@ -1772,9 +1782,11 @@ func _choose_mode(id: String) -> void:
 			intro.clear()
 		stage.visible = false
 		_set_table(id)
+		place()
 	elif id == "rain":
 		stage.visible = false
 		intro.set_rain(true)
+		place()
 	else:
 		if intro.active:
 			intro.set_rain(false)
@@ -1796,7 +1808,15 @@ func _on_recenter() -> void:
 	if state == "start":
 		panel.place(head_transform(), 0.75, 0.05)
 		return
+	replace_here()
+
+
+## Recenter: the court (VR: and the park), the tabletop and the Summit set again around where
+## the player stands now, facing the way they look.
+func replace_here() -> void:
 	anchor = {}
+	vr_anchor = {}
+	table_spot = null
 	place()
 
 
@@ -1830,8 +1850,7 @@ func _panel_action(id: String) -> void:
 			set_mode(m)
 			_close_menu()
 		"recenter":
-			anchor = {}
-			place()
+			replace_here()
 			_close_menu()
 
 

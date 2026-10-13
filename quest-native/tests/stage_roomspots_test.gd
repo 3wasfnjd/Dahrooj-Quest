@@ -3,7 +3,7 @@ extends RefCounted
 ## the open floor (not under the table or the couch) and furniture tops, inside the room,
 ## at least 0.8 m from the player, spread over all 360°, the directions the player has not
 ## looked at preferred; a ring around the player without a scan; room-relative as the player
-## walks. RoomCue: a chevron at the edge of view for a new target off to the side or behind.
+## walks.
 
 const U := 8.0  # game units per metre (the room scale)
 const DT := 1.0 / 72.0
@@ -198,36 +198,4 @@ static func run(check: Callable) -> void:
 	check.call(RoomSpots.ask(p1, ["wall"]).size() == 1 and seen_kinds[0] == ["wall"] and RoomSpots.ask(p0, ["wall"]).size() == 1 and RoomSpots.ask(Callable()).is_empty(),
 		"room spots: ask() takes providers with or without the kinds")
 
-	_cue(check)
 
-
-## RoomCue: a chevron for a new target behind or beside the player, none for one in view.
-static func _cue(check: Callable) -> void:
-	var cue := RoomCue.new()
-	var head := Transform3D(Basis(), Vector3(0, 1.6, 0))
-	check.call(not cue.notify(head, Vector3(0, 1.4, -2.0)), "cue: nothing for a target in view")
-	check.call(cue.notify(head, Vector3(0.3, 1.0, 2.0)), "cue: a target behind gets a chevron")
-	cue.step(head, DT)
-	var mi: MeshInstance3D = cue.cues[0].mi
-	var local := head.affine_inverse() * mi.transform.origin
-	check.call(mi.visible and local.z < -0.5 and local.x > 0.2 and absf(local.y) < 0.2, "cue: at the right edge of the view, pointing right (%s)" % local)
-	check.call(cue.notify(head, Vector3(0.5, 1.0, 2.2)) and cue.cues.size() == 1, "cue: one per direction")
-	check.call(cue.notify(head, Vector3(-3.0, 1.2, 0.0)) and cue.cues.size() == 2, "cue: another side, another chevron")
-	cue.step(head, DT)
-	var left: MeshInstance3D = cue.cues[1].mi
-	check.call((head.affine_inverse() * left.transform.origin).x < -0.2, "cue: a target on the left points left")
-	# Turning toward it: it fades out.
-	var turned := Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(0, 1.6, 0))
-	for k in 40:
-		cue.step(turned, DT)
-	check.call(cue.cues.size() == 1, "cue: seen, it goes (%d left)" % cue.cues.size())
-	for k in int(RoomCue.LIFE / DT) + 2:
-		cue.step(head, DT)
-	check.call(cue.cues.is_empty() and not mi.visible and not left.visible, "cue: and the rest after a few seconds")
-	var node := Node3D.new()
-	node.position = Vector3(2.0, 1.0, 1.0)
-	check.call(cue.notify(head, node) and cue.cues[0].node == node, "cue: follows a node")
-	cue.clear()
-	check.call(cue.cues.is_empty(), "cue: clear")
-	node.free()
-	cue.free()

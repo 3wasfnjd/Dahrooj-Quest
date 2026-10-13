@@ -171,7 +171,7 @@ static func zoom_unit(u: float, stick_y: float, dt: float) -> float:
 ## VR: on the ground where the goal stands, a few centimetres up (game_root: the game-to-world transform).
 static func vr_spot(game_root: Transform3D) -> Vector3:
 	var p := game_root * Vector3(0, 0, GOAL_AIM_Z)
-	return Vector3(0, 0.04, p.z)
+	return Vector3(p.x, 0.04, p.z)
 
 
 ## MR: the size from the surface's scale and the player's zoom.

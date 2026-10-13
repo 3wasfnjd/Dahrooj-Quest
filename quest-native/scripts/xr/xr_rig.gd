@@ -3,12 +3,22 @@ extends XROrigin3D
 ## OpenXR session, passthrough and controller input. Exposes plain values and
 ## signals; it knows nothing about puzzles or the board.
 ##
-## Controller mapping (Godot default OpenXR action map):
-##   right "primary" stick  -> character movement (read by the game)
-##   left  "primary" stick  -> x: rotate board, y: resize board
-##   "trigger_click"         -> select / interact (either hand)
-##   "grip_click"            -> tap: recenter / re-place, hold: drag the board
-##   left "menu_button"      -> settings panel
+## Roomscale: the project uses the Stage reference space (xr/openxr/reference_space=1), so
+## this origin is the middle of the player's play area on the floor, not their head. The
+## player walks about the room for real; the origin never moves (no artificial locomotion,
+## no snap or smooth turning). The game places its world around head_transform() (main.gd
+## place()) and keeps it fixed in the room until a new mode or a recenter.
+##
+## Controller mapping (Godot default OpenXR action map), as main.gd reads it:
+##   right "primary" stick y -> resize: the MR court while pinning, the Summit's mountain;
+##                              scrolls the open menu
+##   left  "primary" stick x -> the Summit: Dahrooj climbs left / right (the right stick
+##                              when the left controller is away)
+##   No stick moves or turns the player.
+##   "trigger_click"         -> shoot / select (either hand)
+##   "grip_click"            -> hold Dahrooj (the Summit: jump / throw; tabletops: the board)
+##   left "menu_button"      -> the mode menu; the system recenter (pose_recentered)
+##                              re-places the court in front of the player
 
 signal trigger_pressed(hand: String, origin: Vector3, direction: Vector3)
 signal grip_tapped(hand: String)
