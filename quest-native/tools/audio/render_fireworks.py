@@ -142,37 +142,22 @@ def finish(L, R, rms, peak_max=0.8):
 # --- the cues -------------------------------------------------------------------------------
 
 def launch(seed):
+    """A soft, round launch (the owner found the whistle and crackle tail harsh): a low "pfoomp" at
+    the muzzle, a short airy whoosh that rises a little as the rocket leaves, and a light room tail.
+    No whistle, no crackles."""
     rng = np.random.default_rng(seed)
-    dur = 0.62
+    dur = 0.42
     n = int(dur * SR)
     t = np.arange(n) / SR
-    # Muzzle: a soft low thump and a little puff.
-    thump = np.sin(2 * np.pi * (95 + 60 * np.exp(-t * 40)) * t) * env(t, 0.002, 0.03) * 0.55
-    puff = biquad(rng.standard_normal(n), "lp", 1800, 0.7) * env(t, 0.001, 0.025) * 0.35
-    # The whistle: rising (exponential glide), breathy, with a slight wobble; fades as it climbs away.
-    wl = 0.42 + rng.uniform(-0.03, 0.03)
-    f0 = rng.uniform(820, 980)
-    f1 = rng.uniform(2500, 2900)
-    p = np.clip(t / wl, 0, 1)
-    f = f0 * (f1 / f0) ** (p ** 0.8) * (1 + 0.012 * np.sin(2 * np.pi * 23 * t))
-    ph = 2 * np.cumsum(np.pi * f / SR)
-    w_env = np.minimum(1, t / 0.03) * np.clip((wl + 0.05 - t) / 0.1, 0, 1) * (1 - 0.45 * p)
-    tone = (np.sin(ph) + 0.18 * np.sin(2 * ph + 0.4)) * w_env
-    breath = biquad(rng.standard_normal(n), "bp", f, 14.0) * w_env * 3.2
-    whistle = tone * 0.32 + breath * 0.5
-    # The air rushing past: band-passed noise rising with the whistle, a little wider.
-    air = biquad(rng.standard_normal(n), "bp", 500 + 1800 * p, 1.1) * w_env * 0.28
-    L = thump + puff + whistle + air
-    R = L.copy()  # the flight stays centred (mono-safe); the crackles and the reverb bring the width
-    # Crackle tail: sparse snaps from mid-flight on, thinning out.
-    times = np.sort(rng.uniform(0.16, dur - 0.03, 46) ** 1.0)
-    times = times[rng.uniform(0, 1, len(times)) < np.exp(-(times - 0.16) * 3.2)]
-    amp = rng.uniform(0.15, 0.55, len(times)) * np.exp(-(times - 0.16) * 2.5)
-    cl, cr = crackles(rng, n, times, amp)
-    L += cl * 0.8
-    R += cr * 0.8
-    L, R = reverb(rng, L, R, 0.6, 0.45, 0.22)
-    return finish(L, R, 0.045)
+    thump = np.sin(2 * np.pi * (70 + 70 * np.exp(-t * 30)) * t) * env(t, 0.003, 0.06) * 0.7
+    puff = biquad(rng.standard_normal(n), "lp", 700, 0.7) * env(t, 0.002, 0.05) * 0.45
+    p = np.clip(t / 0.3, 0, 1)
+    w_env = np.minimum(1, t / 0.04) * np.clip((0.34 - t) / 0.16, 0, 1)
+    whoosh = biquad(rng.standard_normal(n), "bp", 380 + 520 * p, 0.9) * w_env * 0.32
+    L = thump + puff + whoosh
+    R = L.copy()
+    L, R = reverb(rng, L, R, 0.35, 0.25, 0.12, lp=3000.0)
+    return finish(L, R, 0.03)
 
 
 def burst(seed):
@@ -222,7 +207,8 @@ def write_wav(path, x):
 
 def main():
     for i in range(3):
-        for name, fn, seed in (("firework_launch", launch, 101 + i * 7919), ("firework_burst", burst, 211 + i * 7919)):
+        # The burst stays the web original (render_audio.mjs); only the launch is ours.
+        for name, fn, seed in (("firework_launch", launch, 101 + i * 7919),):
             x = fn(seed)
             path = os.path.join(OUT, "%s_%d.wav" % (name, i + 1))
             write_wav(path, x)
