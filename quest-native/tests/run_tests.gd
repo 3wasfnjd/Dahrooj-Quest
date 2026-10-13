@@ -236,6 +236,8 @@ func _world(main: Node) -> void:
 	check(main.stage is FrenzyStage and main.stage.get("planes_provider").is_valid(), "the frenzy mode starts with the room provider")
 	main._choose_mode("castle")
 	check(main.stage is CastleStage and main.stage.get("planes_provider").is_valid(), "the castle mode starts with the room provider")
+	main._choose_mode("gallery")
+	check(main.stage is GalleryStage and main.stage.get("planes_provider").is_valid(), "the gallery mode starts with the room provider")
 	main._choose_mode("slime")
 	check(main.stage is SlimeStage, "the slime card starts Slime")
 	main._choose_mode("goal")
