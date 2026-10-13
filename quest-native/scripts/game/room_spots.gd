@@ -1,36 +1,39 @@
 class_name RoomSpots
 extends RefCounted
-## Spawn spots all around the player in the real room (mixed reality, game units): on the
-## walls at a reachable height, on the open floor (not under furniture) and on furniture tops
-## (tables, sofas, beds). The arcade modes take them through their `spots_provider` so the
-## targets come from every side, behind you too, and you walk and turn to chase them.
+## Spawn spots in the real room (mixed reality, game units): on the walls at a reachable
+## height, on the open floor (not under furniture) and on furniture tops (tables, sofas,
+## beds). The arcade modes take them through their `spots_provider`. Every spot is in FRONT of
+## the player: within ARC either side of the play direction (`forward`: the court's forward
+## from the pinned anchor, game -Z; main falls back to the head's yaw without an anchor) and
+## at least MIN_DIST away, never behind them and never close; things may come at the player
+## afterwards, but they always start out there, far ahead.
 ##
 ## - set_room(planes, boxes): the scanned room in game units. planes as main's
 ##   room_planes_game(): {pos, normal (into the room), ax, ay (unit, in the plane), half:
 ##   Vector2, label}; boxes (furniture volumes): {pos, ax, ay, az (unit axes), half: Vector3,
 ##   label}. Spots are sampled once per room, so they stay put in the room as you walk.
-## - look(eye, fwd, dt) every frame: which way the player has been looking lately.
-## - pick(eye, kinds) / pick_many(eye, n, kinds): spots at least MIN_DIST from the player,
-##   inside the room, spread by angle around them (a sector they were just given counts
-##   against it), preferring the directions they have not looked at lately.
-## - No scan (or nothing of the kinds asked): a virtual ring around the player, RING metres
-##   out, on the floor and in the air at mixed heights.
+## - pick(eye, kinds) / pick_many(eye, n, kinds): room spots inside the forward arc, at least
+##   MIN_DIST from the player (the farther ones preferred), spread across the arc (a sector
+##   just given counts against it).
+## - No scan, or a room too small to have any (of the kinds asked) out there: a virtual arc
+##   ahead of the player, RING metres out, on the floor and in the air at mixed heights.
+## - ahead() / into_arc(): the same rule for the stages' own layouts (VR, no scan).
 ## A spot: {pos, normal, kind: "wall" | "floor" | "top" | "air", label, room: bool, sector}.
 ## `pos` sits LIFT off the surface along its normal (never inside a wall or furniture).
 
 const SECTORS := 12
-const MIN_DIST := 0.8  # metres from the player (across the floor)
-const MAX_DIST := 4.5
+const ARC := 1.2217305  # radians either side of the play direction (70°)
+const MIN_DIST := 2.0  # metres from the player (across the floor)
+const MAX_DIST := 6.0
 const WALL_Y := Vector2(0.6, 2.0)  # metres over the floor where wall spots go
 const TOP_Y := Vector2(0.2, 1.4)  # furniture tops between these heights
-const RING := Vector2(1.5, 3.0)  # the virtual ring (no scan), metres
+const RING := Vector2(2.2, 3.5)  # the virtual arc ahead (no scan), metres
+const RING_SLOTS := 8  # across the arc
 const AIR_Y := Vector2(0.6, 1.8)
 const STEP := 0.45  # metres between samples on a surface
 const EDGE := 0.12  # metres kept from a surface's edges
 const LIFT := 0.02  # metres off the surface
 const CLEAR := 0.12  # metres kept from furniture (floor and wall spots)
-const LOOK_HALF := 0.9  # radians either side of the gaze that count as seen
-const LOOK_DECAY := 6.0  # seconds for the seen-heat to fade
 const USED_DECAY := 7.0
 const SKIP := ["door_frame", "window_frame", "ceiling"]
 
@@ -40,19 +43,18 @@ var unit := 8.0
 var floor_y := 0.0
 ## The room's spots (game units), as sampled by set_room().
 var spots: Array = []
+## The play direction (game units, horizontal): main keeps it on the court's forward.
+var forward := Vector3.FORWARD
 ## The room's floor outline as an XZ box {lo: Vector2, hi: Vector2} (game units), or {}.
 var bounds := {}
 var walls: Array = []  # the wall planes (for the inside test)
 var boxes: Array = []
-## Seconds looked at lately, per sector (fixed in the room).
-var heat := PackedFloat32Array()
 ## Spots given lately, per sector.
 var used := PackedFloat32Array()
 var rng := RandomNumberGenerator.new()
 
 
 func _init() -> void:
-	heat.resize(SECTORS)
 	used.resize(SECTORS)
 	rng.seed = 9137
 
@@ -75,6 +77,41 @@ static func sector_at(angle: float) -> int:
 
 static func sector_angle(s: int) -> float:
 	return (float(s) + 0.5) * TAU / SECTORS
+
+
+## The play direction flattened (game -Z when it has none).
+static func flat_dir(fwd: Vector3) -> Vector2:
+	var f := Vector2(fwd.x, fwd.z)
+	return f.normalized() if f.length_squared() > 1e-8 else Vector2(0, -1)
+
+
+## Whether p (game units) is in front of the eye: within arc either side of fwd and at least
+## min_d away across the floor.
+static func ahead(eye: Vector3, p: Vector3, min_d: float, fwd := Vector3.FORWARD, arc := ARC) -> bool:
+	var d := Vector2(p.x - eye.x, p.z - eye.z)
+	if d.length() < min_d - 1e-3:
+		return false
+	if d.length_squared() < 1e-10:
+		return min_d <= 0.0
+	return absf(flat_dir(fwd).angle_to(d)) <= arc + 1e-4
+
+
+## p moved (across the floor, its height kept) into the arc in front of the eye and at least
+## min_d away: unchanged when it is already there.
+static func into_arc(eye: Vector3, p: Vector3, min_d: float, fwd := Vector3.FORWARD, arc := ARC) -> Vector3:
+	if ahead(eye, p, min_d, fwd, arc):
+		return p
+	var f := flat_dir(fwd)
+	var d := Vector2(p.x - eye.x, p.z - eye.z)
+	var a := clampf(f.angle_to(d), -arc, arc) if d.length_squared() > 1e-10 else 0.0
+	var nd := f.rotated(a) * maxf(d.length(), min_d)
+	return Vector3(eye.x + nd.x, p.y, eye.z + nd.y)
+
+
+## A direction (horizontal, unit) a radians off the play direction.
+static func dir_at(fwd: Vector3, a: float) -> Vector3:
+	var f := flat_dir(fwd).rotated(a)
+	return Vector3(f.x, 0.0, f.y)
 
 
 ## What a stage's spots_provider gives ([] when unset or not an Array). A provider may take
@@ -240,41 +277,34 @@ func _clear(p: Vector3, srt: String, tops: Array, own: Dictionary) -> bool:
 	return true
 
 
-# ---- the player ----
+# ---- spreading ----
 
-## The player looks along fwd (game units, from eye) for dt seconds: those sectors warm up,
-## everything cools down.
-func look(_eye: Vector3, fwd: Vector3, dt: float) -> void:
-	var cool := exp(-dt / LOOK_DECAY)
-	var cool_u := exp(-dt / USED_DECAY)
-	var flat := Vector2(fwd.x, fwd.z)
-	var gaze := atan2(fwd.x, -fwd.z)
-	for s in SECTORS:
-		heat[s] *= cool
-		used[s] *= cool_u
-		if flat.length_squared() > 1e-6 and absf(angle_difference(gaze, sector_angle(s))) <= LOOK_HALF:
-			heat[s] += dt
+## Time passes: the sectors given lately count less and less against them.
+func cool(dt: float) -> void:
+	var k := exp(-dt / USED_DECAY)
+	for sec in SECTORS:
+		used[sec] *= k
 
 
-## How much a sector is wanted now: the less seen and the less given lately, the more (a
-## sector in plain view keeps some weight, so things still come in front now and then).
-func want(s: int) -> float:
-	return (1.0 - 0.55 * clampf(heat[s] / 3.0, 0.0, 1.0)) / (1.0 + used[s])
+## How much a sector is wanted now: the less given lately, the more.
+func want(sec: int) -> float:
+	return 1.0 / (1.0 + used[sec])
 
 
 # ---- picking ----
 
-## The virtual ring around the eye (no scan): per sector one spot on the floor and one in
-## the air, facing the player.
+## The virtual arc ahead of the eye (no scan, or nothing out there): across the forward arc,
+## one spot on the floor and one in the air per slot, RING metres out, facing the player.
 func ring(eye: Vector3) -> Array:
 	var out: Array = []
-	for s in SECTORS:
-		for k in 2:
-			var a := sector_angle(s) + rng.randf_range(-0.4, 0.4) * TAU / SECTORS
-			var d := Vector3(sin(a), 0.0, -cos(a))
+	var w := 2.0 * ARC / RING_SLOTS
+	for k in RING_SLOTS:
+		for j in 2:
+			var a := -ARC + (float(k) + rng.randf_range(0.1, 0.9)) * w
+			var d := dir_at(forward, a)
 			var r := rng.randf_range(RING.x, RING.y) * unit
 			var p := Vector3(eye.x, 0.0, eye.z) + d * r
-			if k == 0:
+			if j == 0:
 				p.y = floor_y + LIFT * unit
 				out.append({"pos": p, "normal": Vector3.UP, "kind": "floor", "label": "ring", "room": false})
 			else:
@@ -283,36 +313,38 @@ func ring(eye: Vector3) -> Array:
 	return out
 
 
+## The candidates for a pick: the room's spots (of the kinds asked) in the forward arc and at
+## least MIN_DIST away (up to MAX_DIST; beyond that only when nothing nearer is there); none
+## out there (no scan, a small room): the virtual arc ahead.
 func _pool(eye: Vector3, kinds: Array) -> Array:
 	var near := MIN_DIST * unit
 	var far := MAX_DIST * unit
-	var src: Array = []
-	for sp: Dictionary in spots:
-		if kinds.is_empty() or sp.kind in kinds:
-			src.append(sp)
-	if src.is_empty():
-		var rg := ring(eye)
-		for sp: Dictionary in rg:
-			if kinds.is_empty() or sp.kind in kinds:
-				src.append(sp)
-		if src.is_empty():
-			src = rg
 	var out: Array = []
 	var spare: Array = []
-	for sp: Dictionary in src:
+	for sp: Dictionary in spots:
+		if not (kinds.is_empty() or sp.kind in kinds):
+			continue
 		var p: Vector3 = sp.pos
-		var hd := Vector2(p.x - eye.x, p.z - eye.z).length()
-		if hd < near:
+		if not ahead(eye, p, near, forward):
 			continue
-		if hd > far:
+		if Vector2(p.x - eye.x, p.z - eye.z).length() > far:
 			spare.append(sp)
-			continue
-		out.append(sp)
-	return out if not out.is_empty() else spare
+		else:
+			out.append(sp)
+	if not out.is_empty():
+		return out
+	if not spare.is_empty():
+		return spare
+	var rg := ring(eye)
+	for sp: Dictionary in rg:
+		if kinds.is_empty() or sp.kind in kinds:
+			out.append(sp)
+	return out if not out.is_empty() else rg
 
 
-## One spot for something new, or {} (nothing far enough from the player). kinds: [] for any
-## of "wall", "floor", "top", "air"; avoid: points (game units) to keep `gap` from.
+## One spot for something new (in front of the player, far enough), or {} (all of them too
+## near `avoid`). kinds: [] for any of "wall", "floor", "top", "air"; avoid: points (game
+## units) to keep `gap` from. Spread across the arc; in a sector, the farther the likelier.
 func pick(eye: Vector3, kinds := [], avoid := [], gap := 0.0) -> Dictionary:
 	var pool := _pool(eye, kinds)
 	if pool.is_empty():
@@ -348,7 +380,17 @@ func pick(eye: Vector3, kinds := [], avoid := [], gap := 0.0) -> Dictionary:
 		if r <= 0.0:
 			break
 	var list: Array = by[pick_s]
-	var sp: Dictionary = (list[rng.randi() % list.size()] as Dictionary).duplicate()
+	var dsum := 0.0
+	for c: Dictionary in list:
+		dsum += Vector2((c.pos as Vector3).x - eye.x, (c.pos as Vector3).z - eye.z).length()
+	var rd := rng.randf() * dsum
+	var chosen: Dictionary = list[list.size() - 1]
+	for c: Dictionary in list:
+		rd -= Vector2((c.pos as Vector3).x - eye.x, (c.pos as Vector3).z - eye.z).length()
+		if rd <= 0.0:
+			chosen = c
+			break
+	var sp: Dictionary = chosen.duplicate()
 	sp.sector = pick_s
 	used[pick_s] += 1.0
 	return sp

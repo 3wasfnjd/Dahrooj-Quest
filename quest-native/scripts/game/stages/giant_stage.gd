@@ -14,10 +14,13 @@ extends Node3D
 ##   ones that merge back later; (4) rage: red glow, faster, more spots.
 ## - Ring empty: a huge knock-out (spin, dizzy stars, he topples over, a confetti storm,
 ##   fireworks), then he comes back bigger, in a new colour and accessory ("Giant Lv.2").
-## - Mixed reality (planes_provider returns the room's planes, game units, as main gives the
-##   slime stage: {pos, normal, ax, ay, half, label}): he knocks and bulges the wall that faces
-##   you best, cracks it open and squeezes in through the hole, then stands in your room scaled
-##   to fit under the scanned ceiling (hops too). No scan: the court layout.
+## - Mixed reality: he stands where the court was pinned (the anchor: game (0, floor, aim_z)),
+##   straight ahead of the player along the court's forward (game -Z), pushed back along it
+##   until his near side is MIN_DIST metres away; a new pin moves him (on_placed()). With a
+##   scan (planes_provider returns the room's planes, game units, as main gives the slime
+##   stage: {pos, normal, ax, ay, half, label}) and a wall right behind that spot, he knocks
+##   and bulges it, cracks it open and squeezes in through the hole; otherwise he drops from
+##   the sky there. He fits under the scanned ceiling (hops too). VR: the court layout.
 ## Every effect is a MultiMesh or a JuiceText, so shots pass through them; the blaster finds the
 ## weak spots and the little ones through hidden (layers = 0) spheres, and the big bodies
 ## through their own meshes. Game units, like the other stages.
@@ -44,6 +47,7 @@ const SEGS := 56
 const ARC := 4.887  # the ring's sweep (280°)
 const MINIONS := 28
 const MIN_R := 0.42
+const NEAR_MIN := 1.2  # metres to his near side at the very least (mixed reality, a small room)
 const REACH := 1.6
 const COMBO_T := 1.8
 const COMBO_STEPS := [3, 6, 10, 15]
@@ -82,11 +86,13 @@ var ctx: GameCtx
 ## The room's planes (mixed reality), game units: Array of {pos, normal, ax, ay, half, label}
 ## (main's slime provider). Unset or empty: the court.
 var planes_provider: Callable
-## Where to come from (mixed reality): RoomSpots on the walls all around the player (as
-## MoleStage.spots_provider). Each level he breaks in through the wall of the first one, a
-## side the player has not been looking at; without a usable wall he comes down from the sky
-## on that side. Unset or empty: the wall that faces you best (or the court).
+## Mixed reality (as MoleStage.spots_provider): main's room spots. He does not take his place
+## from them (he stands at the pinned court, see the header); a provider that gives spots
+## only says the game is played in the room (no scan: the sky drop at the court). Unset or
+## empty, and no planes: the court (VR).
 var spots_provider: Callable
+## Game units per metre (main: the court's scale), for the distance kept from the player.
+var unit := 2.0
 ## Size of the little ones, props and effects (mixed reality wants them bigger; main: 2).
 var size := 1.0
 ## The player's eye (game units). Main keeps it current.
@@ -584,8 +590,13 @@ func want_r(lv: int) -> float:
 	return minf(R_BASE + R_LV * (lv - 1), R_MAX) * size
 
 
-## Where he stands and how big he may be: the court (VR, or no scan), or in front of the
-## room's wall that faces you best, under the ceiling.
+## Where he stands and how big he may be. VR: on the court (HOME_Z). Mixed reality: at the
+## pinned court (the anchor, game (0, floor, aim_z)), along the court's forward (game -Z)
+## from there until his near side is RoomSpots.MIN_DIST from the player and he is in the
+## forward arc; in front of a scanned wall right behind that spot (he breaks in through it),
+## else he drops from the sky there. Never outside the room: when the wall along that line is
+## nearer, he stands inside it with clearance, smaller, and if need be nearer than 2 m (never
+## under NEAR_MIN to his near side). Under the ceiling.
 func _layout() -> void:
 	var pl := _planes()
 	var fl := INF
@@ -605,69 +616,102 @@ func _layout() -> void:
 	var r := want_r(F.lv)
 	if room.ceil < INF:
 		r = minf(r, (room.ceil - room.floor) * 0.36)
-	# All around the room: a side the player has not been looking at.
-	var pref := {}
-	var prefs := RoomSpots.ask(spots_provider, ["wall"])
-	if not prefs.is_empty():
-		pref = prefs[0]
-	var pref_wall := RoomSpots.plane_of(pref, pl, 0.5 * size) if not pref.is_empty() else {}
-	var best := -INF
-	for p: Dictionary in pl:
-		var n: Vector3 = p.get("normal", Vector3.UP)
-		if absf(n.y) > 0.3 or not p.has("half"):
-			continue
-		var nh := Vector3(n.x, 0, n.z).normalized()
-		var to: Vector3 = viewer - (p.pos as Vector3)
-		to.y = 0.0
-		var d := to.dot(nh)
-		var half: Vector2 = p.half
-		if d < 6.0 * size or half.x < 2.0 * size:
-			continue
-		var sc := nh.dot(to.normalized()) * 2.0 + minf(d, 40.0) * 0.04 + minf(half.x, 30.0) * 0.02
-		if not pref_wall.is_empty() and p == pref_wall:
-			sc += 100.0
-		if sc > best:
-			best = sc
-			room.wall = p
-	if not room.wall.is_empty():
-		var w: Dictionary = room.wall
-		var n: Vector3 = w.normal
-		var nh := Vector3(n.x, 0, n.z).normalized()
-		var tang := Vector3.UP.cross(nh).normalized()
-		var wp: Vector3 = w.pos
-		var to: Vector3 = viewer - wp
-		var d := Vector3(to.x, 0, to.z).dot(nh)
-		var half: Vector2 = w.half
-		r = minf(r, (d - 4.0 * size) / 2.2)
-		r = clampf(r, 1.4 * size, maxf(1.4 * size, half.x * 0.9))
-		var toward: Vector3 = to
-		if not pref_wall.is_empty() and w == pref_wall:
-			toward = (pref.pos as Vector3) - wp
-		var along := clampf(toward.dot(tang), -maxf(0.0, half.x - r * 0.7), maxf(0.0, half.x - r * 0.7))
-		var q := wp + tang * along
-		room.home = Vector3(q.x, room.floor, q.z) + nh * r * 1.12
-		room.side = tang
-		room.lane = clampf(half.x - r * 1.1, 0.0, r * 0.8)
-		breach.p = Vector3(q.x, room.floor + r * 1.25, q.z) + nh * 0.02
-		breach.n = nh
-	elif room.planes or not pref.is_empty():
-		# A scan without a usable wall (or no scan, all around): on the floor ahead of you, or
-		# on the side of the preferred spot.
-		var dir := Vector3.FORWARD
-		if not pref.is_empty():
-			var to_p: Vector3 = (pref.pos as Vector3) - viewer
-			to_p.y = 0.0
-			if to_p.length_squared() > 1e-4:
-				dir = to_p.normalized()
-		room.home = Vector3(viewer.x, room.floor, viewer.z) + dir * (r + 9.0 * size)
-		room.side = Vector3(-dir.z, 0, dir.x)
-		room.lane = r * 0.6
-	else:
+	var mr: bool = room.planes or not RoomSpots.ask(spots_provider, ["wall"]).is_empty()
+	if not mr:
 		room.home = Vector3(0, room.floor, HOME_Z)
 		room.side = Vector3.RIGHT
 		room.lane = r * 0.9
+		room.r = r
+		room.max_h = INF if room.ceil == INF else maxf(0.08 * r, room.ceil - room.floor - 2.45 * r)
+		return
+	var fwd := Vector3.FORWARD
+	var near := RoomSpots.MIN_DIST * unit
+	var anchor := Vector3(0, room.floor, aim_z)
+	var eye := Vector3(viewer.x, room.floor, viewer.z)
+	# The wall straight ahead behind the anchor (facing the player), if the scan has one.
+	var wall := {}
+	var wall_s := INF  # along fwd from the anchor to the wall
+	for p: Dictionary in pl:
+		var n: Vector3 = p.get("normal", Vector3.UP)
+		if absf(n.y) > 0.3 or not p.has("half") or str(p.get("label", "")) in ["door_frame", "window_frame"]:
+			continue
+		var nh := Vector3(n.x, 0, n.z).normalized()
+		if nh.dot(-fwd) < 0.5:
+			continue
+		var den := fwd.dot(nh)
+		var s0 := ((p.pos as Vector3) - anchor).dot(nh) / den
+		var q := anchor + fwd * s0
+		var tang := Vector3.UP.cross(nh).normalized()
+		var half: Vector2 = p.half
+		var hx: float = half.x if absf((p.get("ax", Vector3.RIGHT) as Vector3).y) < 0.5 else half.y
+		if absf((q - (p.pos as Vector3)).dot(tang)) > hx + 0.3 * unit or (eye - q).dot(nh) <= 0.0:
+			continue
+		if s0 < wall_s and s0 > -(anchor - eye).dot(fwd):
+			wall_s = s0
+			wall = p
+	# Back along fwd from the anchor until his near side is far enough and he is in the arc.
+	var s := 0.0
+	while s < 60.0 * unit and not RoomSpots.ahead(eye, anchor + fwd * s, near + r):
+		s += 0.1 * unit
+	var home := anchor + fwd * s
+	if not RoomSpots.ahead(eye, home, near + r):
+		home = eye + fwd * (near + r)
+	if not wall.is_empty():
+		var nh := Vector3((wall.normal as Vector3).x, 0, (wall.normal as Vector3).z).normalized()
+		var q := anchor + fwd * wall_s
+		# How far his spot stands in front of the wall: past it or too near it (he would stick
+		# out of the room), or the wall right behind it: he stands inside the wall, with
+		# clearance, and comes in through it.
+		var clear := (home - q).dot(nh)
+		if clear < r * 3.62:
+			# As big as fits with his near side 2 m away; in a small room smaller, and if even
+			# that does not fit, nearer, but never under NEAR_MIN metres.
+			# Back from the wall along the court's line (on the line through the pin), so that
+			# he clears the wall by fit × 1.12 across it.
+			var back := 1.12 / maxf(0.3, -fwd.dot(nh))
+			var fit := -1.0
+			for lim: float in [near, NEAR_MIN * unit]:
+				var f := r
+				while f > 0.05 * size:
+					if RoomSpots.ahead(eye, q - fwd * f * back, lim + f):
+						fit = f
+						break
+					f *= 0.93
+				if fit > 0.0:
+					break
+			if fit < 0.0:
+				fit = 0.05 * size  # the wall is right in front of the player: as small as can be
+			r = fit
+			home = q - fwd * fit * back
+			room.wall = wall
+			room.side = Vector3.UP.cross(nh).normalized()
+			var half: Vector2 = wall.half
+			room.lane = clampf(half.x - r * 1.1, 0.0, r * 0.8)
+			breach.p = Vector3(q.x, room.floor + r * 1.25, q.z) + nh * 0.02
+			breach.n = nh
+	if room.wall.is_empty():
+		room.side = Vector3(-fwd.z, 0, fwd.x)
+		room.lane = r * 0.6
+	room.home = Vector3(home.x, room.floor, home.z)
 	room.r = r
 	room.max_h = INF if room.ceil == INF else maxf(0.08 * r, room.ceil - room.floor - 2.45 * r)
+
+
+## A new pin (or a mode / world change) moved the court: he goes with it, in again at the new
+## spot (through its wall or from the sky). Mid-fight he keeps his hit points and phase.
+## Knocked out: the next level lays out anyway.
+func on_placed() -> void:
+	if F.state != "enter" and F.state != "fight":
+		return
+	var fighting: bool = F.state == "fight"
+	var hp: float = F.hp
+	var phase: int = F.phase
+	_begin_level()
+	if fighting:
+		F.hp = hp
+		F.phase = phase
+		_shown_hp = hp_frac()
+		_ghost = _shown_hp
 
 
 func fwd_of(p: Vector3) -> Vector3:

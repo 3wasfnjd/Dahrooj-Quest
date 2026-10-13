@@ -73,11 +73,14 @@ var ctx: GameCtx
 
 ## Room planes (mixed reality); see the header. Unset or empty: the goo wall.
 var planes_provider: Callable
-## Mixed reality, all around the room: RoomSpots on the walls (as MoleStage.spots_provider,
+## Mixed reality: RoomSpots on the walls in front of the player (as MoleStage.spots_provider,
 ## called with the kinds wanted). The target then stays on its wall until a throw lands in its
-## rings, and hops to another wall around the room (one the player has not looked at lately).
-## Unset or empty: the wall that faces you best.
+## rings, and hops to another wall spot out in front. Unset or empty: the wall in front of you
+## (RoomSpots.ARC either side of the court's forward, game -Z) that faces you best, a far one
+## first.
 var spots_provider: Callable
+## Game units per metre (main: the court's scale), for the distance kept from the player.
+var unit := 2.0
 ## Where the room target stays ({pos, normal} in game units) until it is hit; {} = pick one.
 var target_lock := {}
 ## How many times the target hopped to another wall.
@@ -558,19 +561,25 @@ func _refresh_planes() -> void:
 		if not hold.is_empty():
 			_put_target(hold.plane, hold.pos, rt)
 			return
-	# The target goes on the wall that faces you best (big enough for it).
+	# The target goes on the wall in front of you that faces you best (big enough for it): one
+	# far enough first, the farthest in the arc in a small room.
 	var best := -INF
 	var pick := {}
-	for pl: Dictionary in planes:
-		var n: Vector3 = pl.normal
-		var half: Vector2 = pl.half
-		if absf(n.y) > 0.3 or half.x < rt or half.y < rt:
-			continue
-		var to: Vector3 = viewer - (pl.pos as Vector3)
-		var sc := n.dot(to.normalized()) - to.length() * 0.01
-		if sc > best:
-			best = sc
-			pick = pl
+	for near: float in [RoomSpots.MIN_DIST * unit, 0.0]:
+		for pl: Dictionary in planes:
+			var n: Vector3 = pl.normal
+			var half: Vector2 = pl.half
+			if absf(n.y) > 0.3 or half.x < rt or half.y < rt:
+				continue
+			if not RoomSpots.ahead(viewer, pl.pos, near):
+				continue
+			var to: Vector3 = viewer - (pl.pos as Vector3)
+			var sc := n.dot(to.normalized()) - to.length() * 0.01
+			if sc > best:
+				best = sc
+				pick = pl
+		if not pick.is_empty():
+			break
 	if pick.is_empty():
 		target.on = false
 		room_target.visible = false

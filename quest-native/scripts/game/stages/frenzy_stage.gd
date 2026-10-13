@@ -23,8 +23,9 @@ extends Node3D
 ##
 ## Mixed reality: `planes_provider` returns the room's planes in game units, as for the slime
 ## stage: Array of {pos, normal (into the room), ax, ay (unit axes), half: Vector2, label};
-## `spots_provider` (RoomSpots) brings new ones from every side of the player, and without a
-## scan (`around`) the air they float in surrounds the player instead of lying ahead.
+## `spots_provider` (RoomSpots) brings new ones out of the room in front of the player, and
+## without a scan (`around`) the air they float in surrounds the player (new ones still appear
+## only in front, never behind or close: _pick_spot()).
 
 const SLOTS := 64
 const KINDS := {
@@ -73,11 +74,11 @@ var ctx: GameCtx
 
 ## Mixed reality: the room's planes (see the header). Unset or empty: the air over the court.
 var planes_provider: Callable
-## Spots all around the player (mixed reality, RoomSpots; as MoleStage.spots_provider): new
-## ones blow out of the walls, furniture and floor there, or appear in the air around you.
+## Spots in front of the player (mixed reality, RoomSpots; as MoleStage.spots_provider): new
+## ones blow out of the walls, furniture and floor there, or appear in the air ahead.
 var spots_provider: Callable
-## Mixed reality, all around the player: new ones often come from spots_provider, and without
-## a scan the air they float in surrounds the player (not mostly ahead).
+## Mixed reality: new ones often come from spots_provider, and without a scan the air they
+## float in surrounds the player (not mostly ahead); they still appear only in front.
 var around := false
 ## Size of everything (1 = VR). Mixed reality: main's scale / VR scale, so they keep their real size.
 var size := 1.0
@@ -398,13 +399,22 @@ func _pick_col() -> int:
 	return _rng.randi() % n
 
 
-## Where a new one appears: {p, v}. In the air (not too near the player), rising from the
-## ground, or (mixed reality) blown out of a wall, the ceiling or a table.
+## How near the player a new one may appear (game units): RoomSpots.MIN_DIST (a metre is
+## 2 game units × size).
+func near_d() -> float:
+	return RoomSpots.MIN_DIST * 2.0 * size
+
+
+## Where a new one appears: {p, v}. In the air, rising from the ground, or (mixed reality)
+## blown out of a wall, the ceiling or a table; always in front of the player (RoomSpots.ARC
+## either side of the court's forward, game -Z) and near_d() away or more. They float about
+## (and may drift round you) afterwards.
 func _pick_spot(r: float) -> Dictionary:
 	var f := field()
 	var lo: Vector3 = f.lo
 	var hi: Vector3 = f.hi
-	# All around the player (mixed reality): out of a wall, a table or the floor, or in the air.
+	var near := near_d()
+	# Mixed reality: out of a wall, a table or the floor in front of the player, or in the air.
 	if around and _rng.randf() < 0.55:
 		var sps := RoomSpots.ask(spots_provider)
 		if not sps.is_empty():
@@ -412,8 +422,8 @@ func _pick_spot(r: float) -> Dictionary:
 			var n: Vector3 = sp.get("normal", Vector3.UP)
 			var at: Vector3 = sp.pos
 			if str(sp.get("kind", "")) == "air":
-				return {"p": at, "v": Vector3.ZERO, "wall": false}
-			return {"p": at + n * r * 1.15, "v": n * 1.3 * size, "wall": true}
+				return {"p": RoomSpots.into_arc(viewer, at, near), "v": Vector3.ZERO, "wall": false}
+			return {"p": RoomSpots.into_arc(viewer, at + n * r * 1.15, near), "v": n * 1.3 * size, "wall": true}
 	if not _room.is_empty() and _rng.randf() < 0.45:
 		for k in 6:
 			var pl: Dictionary = _room[_rng.randi() % _room.size()]
@@ -422,21 +432,21 @@ func _pick_spot(r: float) -> Dictionary:
 				continue
 			var n: Vector3 = pl.normal
 			var p: Vector3 = (pl.pos as Vector3) + (pl.ax as Vector3) * _rng.randf_range(-1, 1) * (hf.x - r) + (pl.ay as Vector3) * _rng.randf_range(-1, 1) * (hf.y - r) + n * r * 1.15
-			if p.distance_to(viewer) < 2.2 * size:
+			if not RoomSpots.ahead(viewer, p, near):
 				continue
 			return {"p": p, "v": n * 1.3 * size, "wall": true}
-	for k in 12:
-		var p := Vector3(_rng.randf_range(lo.x, hi.x), _rng.randf_range(lo.y, hi.y), _rng.randf_range(lo.z, hi.z))
-		# Most of them ahead of the player.
-		if _bounds.is_empty() and not around and p.z > viewer.z - 1.0 * size and _rng.randf() < 0.65:
-			p.z = _rng.randf_range(lo.z, viewer.z - 1.5 * size)
+	for k in 16:
+		var p := Vector3(_rng.randf_range(lo.x, hi.x), _rng.randf_range(lo.y, hi.y), _rng.randf_range(lo.z, minf(hi.z, viewer.z - near * 0.5)))
 		var rise := _bounds.is_empty() and _rng.randf() < 0.3
 		if rise:
 			p.y = lo.y
-		if p.distance_to(viewer) < 3.0 * size:
+		if not RoomSpots.ahead(viewer, p, near):
 			continue
 		return {"p": p, "v": Vector3(0, 0.9 * size, 0) if rise else Vector3.ZERO, "wall": false}
-	return {"p": Vector3(_rng.randf_range(lo.x, hi.x), hi.y, lo.z), "v": Vector3.ZERO, "wall": false}
+	# Nothing out there (a small room): in the air ahead of the player.
+	var q := viewer + RoomSpots.dir_at(Vector3.FORWARD, _rng.randf_range(-RoomSpots.ARC, RoomSpots.ARC)) * near * _rng.randf_range(1.05, 1.5)
+	q.y = clampf(viewer.y + _rng.randf_range(-0.6, 0.6) * size, lo.y, maxf(lo.y, hi.y))
+	return {"p": q, "v": Vector3.ZERO, "wall": false}
 
 
 ## A new one; kind "" = a random one, col -1 = a random colour, at = null: a free spot.

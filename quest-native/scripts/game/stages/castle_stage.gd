@@ -1,8 +1,8 @@
 class_name CastleStage
 extends Node3D
 ## Dahrooj Fort («حصن الدحاريج», mode "castle"): a small cute fort stands in front of you and
-## mischievous Dahroojs climb it from every side you can see. Knock them off with blaster
-## shots and thrown Dahroojs:
+## mischievous Dahroojs climb it from every side you can see (they set out in front of you,
+## never behind you or close by). Knock them off with blaster shots and thrown Dahroojs:
 ##
 ## - ladder carriers walk in with a ladder over their heads, raise it against the wall and
 ##   climb; followers climb a ladder that is already up. Knock a ladder over and everyone on
@@ -104,6 +104,10 @@ var fort_yaw := -PI / 4.0
 var planes_provider: Callable
 ## The player's eye (game units). Main keeps it current.
 var viewer := Vector3(0, 3.2, 1.0)
+## Game units per metre (main: the court's scale). Walkers, catapults and the siege tower
+## start out in front of the player (RoomSpots.ARC either side of the court's forward, game
+## -Z) and RoomSpots.MIN_DIST away or more (see _front()).
+var unit := 2.0
 ## buzz(hand: String, amp: float, ms: float): haptics (main's buzz).
 var buzz: Callable
 ## Waves start on their own (tests turn it off and spawn by hand).
@@ -731,19 +735,40 @@ static func path_to(a: Vector3, b: Vector3, f: int) -> Array:
 	return best
 
 
-## Where walkers come from: the real walls in a room, the far court otherwise.
+## Whether a point (fort units) is in front of the player and far enough (RoomSpots.ahead).
+func is_front(p: Vector3) -> bool:
+	return RoomSpots.ahead(viewer, to_game(p), RoomSpots.MIN_DIST * unit)
+
+
+## A start point (fort units, its height kept) moved, if need be, into the arc in front of the
+## player and RoomSpots.MIN_DIST away from them.
+func _front(p: Vector3) -> Vector3:
+	if is_front(p):
+		return p
+	var q := to_fort(RoomSpots.into_arc(viewer, to_game(p), RoomSpots.MIN_DIST * unit))
+	q.y = p.y
+	return q
+
+
+## Where walkers come from: the real walls in a room, the far court otherwise; always out in
+## front of the player (never behind them or close).
 func _spawn_point(f: int) -> Vector3:
 	var n := face_n(f)
 	var t := face_t(f)
 	var walls: Array = []
 	for s in _room:
-		if s.kind == "wall" and (s.pos as Vector3).dot(n) > W:
+		if s.kind == "wall" and (s.pos as Vector3).dot(n) > W and is_front(s.pos):
 			walls.append(s)
 	if not walls.is_empty():
 		var s: Dictionary = walls[_rng.randi() % walls.size()]
 		_ring(s.pos + Vector3.UP * 0.05, 0.2, 1.4, 0.45, Color("ffcf6b"))
 		return s.pos
-	return n * _rng.randf_range(12.0, 14.0) + t * _rng.randf_range(-6.0, 6.0) * _away(f)
+	var p := Vector3.ZERO
+	for _try in 10:
+		p = n * _rng.randf_range(12.0, 14.0) + t * _rng.randf_range(-6.0, 6.0) * _away(f)
+		if is_front(p):
+			return p
+	return _front(p)
 
 
 ## +1 / -1: along face f's tangent, the way away from the other wall you see (0: both ways).
@@ -1405,7 +1430,7 @@ func spawn_catapult(n: int, f := -1) -> int:
 	var nn := face_n(f)
 	var t := face_t(f)
 	var to := nn * (W + 3.4) + t * _rng.randf_range(-1.2, 1.2)
-	var from := to + nn * 7.0 + t * _away(f) * 6.0
+	var from := _front(to + nn * 7.0 + t * _away(f) * 6.0)
 	c.on = true
 	c.phase = "roll"
 	c.p = from
@@ -1448,7 +1473,7 @@ func spawn_siege() -> bool:
 	siege.face = f
 	siege.b = Basis.looking_at(-n, Vector3.UP)
 	siege.to = n * (W + SIEGE_HALF + 0.12) + t * lane
-	siege.from = (siege.to as Vector3) + t * sgn * 15.0
+	siege.from = _front((siege.to as Vector3) + t * sgn * 15.0)
 	siege.p = siege.from
 	siege.t = 0.0
 	siege.ramp = 0.0

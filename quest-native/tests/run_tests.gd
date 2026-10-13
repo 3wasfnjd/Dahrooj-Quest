@@ -287,23 +287,24 @@ func _scene() -> void:
 	main._panel_action("vr")
 	check(main.state == "play" and main.mode == "vr", "choosing VR starts the game")
 	await _world(main)
-	_room_play(main)
+	await _room_play(main)
 	_reward_cards(main)
 	await _roomscale(main)
 	main.queue_free()
 	await get_tree().process_frame
 
 
-## Mixed reality all around the room (main.gd room_play): the arcade modes take RoomSpots
-## around the player (the scan, or a ring without one), room-sized targets, the game's ground on
-## the floor, a chevron toward a new target behind; VR gives them nothing (their old layouts).
+## Mixed reality out in the room (main.gd room_play): the arcade modes take RoomSpots in front
+## of the player (±70° of the court's forward, 2 m away or more: the scan, or an arc ahead
+## without one), room-sized targets, the game's ground on the floor; the giant stands where the
+## court is pinned and a new pin moves him; VR gives them nothing (their old layouts).
 func _room_play(main: Node) -> void:
 	main.set_mode("mr")
 	main._choose_mode("mole")
 	main.state = "play"
-	check(main.room_play() and main.scale_now == 8.0, "MR room play: whack-a-Dahrooj is played all around the room")
+	check(main.room_play() and main.scale_now == 8.0, "MR room play: whack-a-Dahrooj is played out in the room")
 	var sps: Array = RoomSpots.ask(main.stage.spots_provider)
-	check(not sps.is_empty() and sps.all(func(s: Dictionary) -> bool: return not s.room), "MR room play: no scan, a ring around the player")
+	check(not sps.is_empty() and sps.all(func(s: Dictionary) -> bool: return not s.room), "MR room play: no scan, an arc ahead of the player")
 	var surf: SceneSurfaces = main.surfaces
 	var h: Vector3 = main.head_transform().origin
 	var c := Vector3(h.x, 0, h.z)
@@ -319,10 +320,17 @@ func _room_play(main: Node) -> void:
 	var tops := rs.spots.filter(func(s: Dictionary) -> bool: return s.kind == "top")
 	check(rs.has_room() and not tops.is_empty() and not sps.is_empty() and sps.all(func(s: Dictionary) -> bool: return s.room), "MR room play: the scanned walls, floor and the table's top (%d spots)" % rs.spots.size())
 	var secs := {}
+	var front := true
+	var eg: Vector3 = main.eye_game()
 	for k in 40:
 		for s: Dictionary in RoomSpots.ask(main.stage.spots_provider):
-			secs[RoomSpots.sector_of(main.eye_game(), s.pos)] = true
-	check(secs.size() >= 9, "MR room play: from every side of the player (%d sectors)" % secs.size())
+			secs[RoomSpots.sector_of(eg, s.pos)] = true
+			var d := Vector2((s.pos as Vector3).x - eg.x, (s.pos as Vector3).z - eg.z)
+			if d.length() < RoomSpots.MIN_DIST * main.scale_now - 1e-3 or absf(Vector2(0, -1).angle_to(d)) > deg_to_rad(70.0) + 1e-3:
+				front = false
+	check(front and secs.size() >= 3, "MR room play: only in front of the player, 2 m away or more, never behind (%d sectors)" % secs.size())
+	check((main.play_forward() as Vector3).is_equal_approx(Vector3.FORWARD) and main.room_spots.forward.is_equal_approx(Vector3.FORWARD), "MR room play: the play direction is the court's forward")
+	await _giant_pin(main, c)
 	check(absf(MoleStage.R * float(main.stage.size) / main.scale_now - 0.1) < 1e-3, "MR room play: a mole 20 cm across in the room")
 	main._choose_mode("meteor")
 	check(main.room_play() and absf(0.85 * float(main.stage.size) / main.scale_now - 0.15) < 1e-3 and main.stage.spots_provider.is_valid(), "MR room play: meteors room-sized, from the room's spots")
@@ -338,6 +346,64 @@ func _room_play(main: Node) -> void:
 		"VR: no room spots, the modes keep their layouts")
 	surf.clear_tests()
 	main._choose_mode("goal")
+
+
+## The giant in mixed reality: he stands where the court is pinned (on the line from the
+## player through the reticle's spot, his near side 2 m away or more), and pinning somewhere
+## else moves him there; in VR he stands on the court far ahead.
+func _giant_pin(main: Node, c: Vector3) -> void:
+	main._choose_mode("giant")
+	main.state = "play"
+	main.placing = false
+	var head: Vector3 = main.head_transform().origin
+	var giant_at := func() -> Vector3:
+		return main.game_root.global_transform * (main.stage.room.home as Vector3)
+	# On the line from the player through the pin, inside the scanned room (4 x 5 m around c)
+	# with his whole body, his near side 1.2 m away at the least (2 m when the room allows).
+	var on_ray := func(at: Vector3, pin: Vector3) -> bool:
+		var a := Vector2(at.x - head.x, at.z - head.z)
+		var b := Vector2(pin.x - head.x, pin.z - head.z)
+		var r_m: float = float(main.stage.room.r) / main.scale_now
+		var inside := absf(at.x - c.x) <= 2.0 - r_m + 1e-3 and at.z - c.z >= -3.0 + r_m - 1e-3 and at.z - c.z <= 2.0 - r_m + 1e-3
+		return absf(a.angle_to(b)) < deg_to_rad(3.0) and inside and a.length() - r_m >= GiantStage.NEAR_MIN - 0.02
+	var pins := [c + Vector3(0.3, 0, -1.4), c + Vector3(1.3, 0, -1.1)]
+	var at: Array = []
+	for pin: Vector3 in pins:
+		main.placing = true
+		main.anchor = main.anchor_from(pin, Vector3.UP)
+		main.place()
+		main.placing = false
+		main._setup_stage()
+		main.stage.paused = false
+		for k in 3:
+			main.stage.update(main.ball, 1.0 / 72.0)
+		var g: Vector3 = giant_at.call()
+		at.append(g)
+		check(main.room_play() and on_ray.call(g, pin), "MR giant: pinned at %s, he stands on the line through the pin, ahead, inside the room (%s, r %.2f m)" % [pin, g, float(main.stage.room.r) / main.scale_now])
+	check((at[0] as Vector3).distance_to(at[1]) > 0.5, "MR giant: pinning elsewhere moves him (%.2f m)" % (at[0] as Vector3).distance_to(at[1]))
+	# Mid-fight: a new pin carries him (and his ring) along.
+	main.stage.F.state = "fight"
+	var ring0: Vector3 = main.game_root.global_transform * main.stage._ring_c
+	main.anchor = main.anchor_from(pins[0], Vector3.UP)
+	main.place()
+	main._setup_stage()
+	var g2: Vector3 = main.game_root.global_transform * (main.stage.giant.g as Vector3)
+	var ring1: Vector3 = main.game_root.global_transform * main.stage._ring_c
+	check(on_ray.call(g2, pins[0]) and ring1.distance_to(ring0) > 0.5, "MR giant: re-pinned mid-fight, he and his level ring go to the new spot")
+	main.set_mode("vr")
+	main._choose_mode("giant")
+	main.stage.paused = false
+	for k in 3:
+		main.stage.update(main.ball, 1.0 / 72.0)
+	var vh: Transform3D = main.head_transform()
+	var vf := -vh.basis.z
+	vf.y = 0.0
+	var gv: Vector3 = giant_at.call()
+	check((gv - vh.origin).dot(vf.normalized()) > 6.0, "VR giant: on the court, far ahead of the player (%.1f m)" % (gv - vh.origin).dot(vf.normalized()))
+	main.set_mode("mr")
+	main._choose_mode("mole")
+	main.state = "play"
+	await get_tree().process_frame
 
 
 ## The reward watch (main.gd _watch_rewards): a card «فتحت طلقة …!» with the chime and

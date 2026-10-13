@@ -33,8 +33,9 @@ const CHARGE_MIN := 3.0
 const CHARGE_MAX := 15.0
 const CHARGE_TIME := 1.1
 const DOTS := 26
-## The modes played all around the room in mixed reality: their targets come from the room's
-## walls, floor and furniture on every side (RoomSpots), and the court stands on the floor.
+## The modes played out in the room in mixed reality: their targets come from the room's
+## walls, floor and furniture in front of the player (RoomSpots: the forward arc, far), and
+## the court stands on the floor.
 const ROOM_MODES := ["mole", "invasion", "slime", "meteor", "giant", "frenzy", "gallery"]
 # The slingshot, held in the left hand (grip space, metres).
 const TIP_L := Vector3(-0.04, 0.15, -0.045)
@@ -115,7 +116,7 @@ var world_balls: WorldBalls
 var auto_fire := {}  # hand -> next shot time while the left trigger is held
 var sounds_played: Array = []  # [name, k, pos] (tests; the audio player plays them)
 var splash: Node3D
-var room_spots := RoomSpots.new()  # MR: spawn spots all around the player (game units)
+var room_spots := RoomSpots.new()  # MR: spawn spots in front of the player (game units)
 var _spots_sig := ""
 var _spots_t := 0.0
 
@@ -1454,7 +1455,7 @@ func _menu_action(i: int) -> void:
 				_apply_look()
 
 
-## Whack-a-Dahrooj: in VR from the court's ground; in mixed reality all around the player,
+## Whack-a-Dahrooj: in VR from the court's ground; in mixed reality in front of the player,
 ## out of the room's walls, open floor and furniture tops (RoomSpots; a ring on the floor and in
 ## the air when the room has no scan).
 func _setup_mole() -> void:
@@ -1596,7 +1597,7 @@ func _step_table(dt: float) -> void:
 
 
 ## Dahrooj Attack: in mixed reality they burst out of the room's walls, floor and furniture
-## all around the player (RoomSpots), room-sized; haptics through buzz().
+## in front of the player (RoomSpots), room-sized; haptics through buzz().
 func _setup_invasion() -> void:
 	var inv := stage as InvasionStage
 	if inv == null:
@@ -1662,15 +1663,25 @@ func _setup_stage() -> void:
 	_setup_invasion()
 	_setup_slime()
 	_setup_new_mode()
+	# Every mode spawns in front of the player and some metres away: the stages measure that in
+	# game units per metre. A mode with its own layout (the giant) sets it again for where the
+	# court is now (a new pin moves him with it).
+	if stage != null:
+		if "unit" in stage:
+			stage.set("unit", scale_now)
+		if "viewer" in stage:
+			stage.set("viewer", eye_game())
+		if stage.has_method("on_placed"):
+			stage.call("on_placed")
 
 
-## Mixed reality, a mode played all around the room (ROOM_MODES), not the Summit or a tabletop.
+## Mixed reality, a mode played out in the room (ROOM_MODES), not the Summit or a tabletop.
 func room_play() -> bool:
 	return mode == "mr" and runtime != null and stage != null and stage.visible and runtime.mode in ROOM_MODES \
 		and not summit_on and table == null
 
 
-## A stage's spots_provider: n spots all around the player (RoomSpots) of the kinds asked, in
+## A stage's spots_provider: n spots in front of the player (RoomSpots) of the kinds asked, in
 ## room play; [] otherwise (VR: the stage keeps its own layout).
 func room_spots_for(n: int) -> Callable:
 	return func(kinds: Array) -> Array:
@@ -1716,6 +1727,7 @@ func room_for_spots() -> Array:
 ## Keeps RoomSpots in step with the scan and the court's placement (checked at most once a
 ## second unless forced).
 func _refresh_room_spots(force: bool) -> void:
+	room_spots.forward = play_forward()
 	if not force and _spots_t > 0.0 and _spots_sig != "":
 		return
 	_spots_t = 1.0
@@ -1731,14 +1743,25 @@ func _refresh_room_spots(force: bool) -> void:
 	room_spots.set_room(r[0], r[1])
 
 
-## Room play, every frame: where the player looks (RoomSpots prefers the other ways).
+## Room play, every frame: RoomSpots keeps to the play direction (in front of the player).
 func _step_room_play(dt: float) -> void:
 	if not room_play() or placing:
 		return
 	_spots_t -= dt
-	var head := head_transform()
-	var w2g := game_root.global_transform.affine_inverse()
-	room_spots.look(w2g * head.origin, w2g.basis * -head.basis.z, dt)
+	room_spots.forward = play_forward()
+	room_spots.cool(dt)
+
+
+## The play direction in game units (horizontal): the court's forward, which is game -Z (the
+## pinned anchor in mixed reality, the court's facing in VR); the head's yaw when mixed
+## reality has no anchor yet.
+func play_forward() -> Vector3:
+	if mode == "mr" and anchor.is_empty():
+		var f: Vector3 = game_root.global_transform.affine_inverse().basis * -head_transform().basis.z
+		f.y = 0.0
+		if f.length_squared() > 1e-6:
+			return f.normalized()
+	return Vector3.FORWARD
 
 
 ## The action modes (meteor, castle, giant, gallery, frenzy) share one setup: size in
@@ -1755,7 +1778,7 @@ func _setup_new_mode() -> void:
 	if stage is FrenzyStage:
 		stage.set("size", scale_now / VR_SCALE if mode == "mr" else 1.0)  # bubbles keep their real size
 		stage.set("around", mode == "mr")
-	# Played all around the room: room spots, and targets sized for the room (cm, whatever the
+	# Played out in the room: room spots, and targets sized for the room (cm, whatever the
 	# court's scale).
 	if "spots_provider" in stage:
 		stage.set("spots_provider", room_spots_for(2 if stage is GalleryStage else 1))
@@ -1837,6 +1860,11 @@ func replace_here() -> void:
 	vr_anchor = {}
 	table_spot = null
 	place()
+	# A mode with its own layout (the giant) lays out again for the court's new spot.
+	if stage != null and stage.has_method("on_placed"):
+		if "viewer" in stage:
+			stage.set("viewer", eye_game())
+		stage.call("on_placed")
 
 
 func _panel_action(id: String) -> void:

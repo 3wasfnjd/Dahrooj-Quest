@@ -1,9 +1,10 @@
 extends RefCounted
-## RoomSpots (mixed reality, all around the room): spots on the walls at a reachable height,
-## the open floor (not under the table or the couch) and furniture tops, inside the room,
-## at least 0.8 m from the player, spread over all 360°, the directions the player has not
-## looked at preferred; a ring around the player without a scan; room-relative as the player
-## walks.
+## RoomSpots (mixed reality, out in the room): spots on the walls at a reachable height,
+## the open floor (not under the table or the couch) and furniture tops, inside the room. A
+## pick is always in FRONT of the player: within RoomSpots.ARC (70°) either side of the play
+## direction and at least RoomSpots.MIN_DIST (2 m) away, never behind; spread across the arc;
+## the play direction is `forward` (not where the head looks); a virtual arc ahead without a
+## scan or in a room too small to have spots out there; room-relative as the player walks.
 
 const U := 8.0  # game units per metre (the room scale)
 const DT := 1.0 / 72.0
@@ -46,6 +47,19 @@ static func fresh() -> RoomSpots:
 
 static func _angle(eye: Vector3, p: Vector3) -> float:
 	return atan2(p.x - eye.x, -(p.z - eye.z))
+
+
+## In front: within the arc either side of fwd and at least MIN_DIST away (checked by hand,
+## not with RoomSpots.ahead()).
+static func in_front(eye: Vector3, p: Vector3, fwd := Vector3.FORWARD, unit := U) -> bool:
+	var d := Vector2(p.x - eye.x, p.z - eye.z)
+	var f := Vector2(fwd.x, fwd.z).normalized()
+	return d.length() >= RoomSpots.MIN_DIST * unit - 1e-3 and absf(f.angle_to(d)) <= deg_to_rad(70.0) + 1e-3
+
+
+## Behind: more than 90° off the play direction.
+static func behind(eye: Vector3, p: Vector3, fwd := Vector3.FORWARD) -> bool:
+	return Vector2(p.x - eye.x, p.z - eye.z).dot(Vector2(fwd.x, fwd.z)) < 0.0
 
 
 static func run(check: Callable) -> void:
@@ -95,48 +109,66 @@ static func run(check: Callable) -> void:
 		"room spots: none inside the couch")
 	check.call(rs.inside(_m(0, 1, 0)) and not rs.inside(_m(0, 1, -3.5)) and not rs.inside(_m(2.6, 1, 0)), "room spots: the inside test")
 
-	# 360°, at least 0.8 m away, from a player in the middle of the room.
+	check.call(absf(RoomSpots.ARC - deg_to_rad(70.0)) < 1e-4 and RoomSpots.MIN_DIST == 2.0, "room spots: the forward arc is ±70°, the least distance 2 m")
+
+	# In front only, at least 2 m away, from a player in the middle of the room facing -Z.
 	var eye := _m(0, 1.6, 0)
 	var secs := {}
-	var near_ok := true
-	var behind := 0
+	var front_ok := true
+	var behind_n := 0
+	var room_n := 0
+	var far_n := 0
 	for i in 240:
 		var sp := rs.pick(eye)
 		if sp.is_empty():
-			near_ok = false
+			front_ok = false
 			continue
 		var p: Vector3 = sp.pos
-		if Vector2(p.x - eye.x, p.z - eye.z).length() < RoomSpots.MIN_DIST * U - 1e-3:
-			near_ok = false
+		if not in_front(eye, p):
+			front_ok = false
+		if behind(eye, p):
+			behind_n += 1
+		if sp.room:
+			room_n += 1
+		if Vector2(p.x - eye.x, p.z - eye.z).length() > 2.6 * U:
+			far_n += 1
 		secs[RoomSpots.sector_of(eye, p)] = true
-		if absf(_angle(eye, p)) > deg_to_rad(120.0):
-			behind += 1
-		for s in RoomSpots.SECTORS:
-			rs.used[s] *= 0.9
-	check.call(near_ok, "room spots: never closer than 0.8 m to the player")
-	check.call(secs.size() >= 11, "room spots: from every side (%d of 12 sectors)" % secs.size())
-	check.call(behind > 25, "room spots: some from behind (%d of 240)" % behind)
+		rs.cool(0.3)
+	check.call(front_ok and behind_n == 0, "room spots: every pick within ±70° of the play direction and 2 m away or more (%d behind)" % behind_n)
+	check.call(room_n == 240, "room spots: the room's own spots when it has them out there")
+	check.call(secs.size() >= 4, "room spots: spread across the forward arc (%d sectors)" % secs.size())
+	check.call(far_n > 60, "room spots: mostly from far (%d of 240 over 2.6 m)" % far_n)
+	var all_front := true
+	for sp: Dictionary in rs._pool(eye, []):
+		all_front = all_front and in_front(eye, sp.pos)
+	check.call(all_front, "room spots: the whole pool is out in front")
 
-	# Turn: the ways the player has looked at lately are given less often.
-	var front_share := func(fwd: Vector3) -> float:
-		var r2 := fresh()
-		for k in 72 * 8:
-			r2.look(eye, fwd, DT)
-		var front := 0
-		for k in 300:
-			var sp2 := r2.pick(eye)
-			if absf(angle_difference(_angle(eye, sp2.pos), 0.0)) < deg_to_rad(50.0):
-				front += 1
-			for s in RoomSpots.SECTORS:
-				r2.used[s] *= 0.9
-		return float(front) / 300.0
-	var looked_front: float = front_share.call(Vector3.FORWARD)
-	var looked_back: float = front_share.call(Vector3.BACK)
-	check.call(looked_front < looked_back * 0.75 and looked_front > 0.03, "room spots: fewer where the player keeps looking (%.2f looking there, %.2f looking away)" % [looked_front, looked_back])
-	var hot := RoomSpots.new()
-	for k in 72 * 5:
-		hot.look(eye, Vector3.FORWARD, DT)
-	check.call(hot.want(0) < hot.want(6) and hot.want(0) > 0.3, "room spots: the sector in view keeps some weight (%.2f vs %.2f)" % [hot.want(0), hot.want(6)])
+	# The play direction, not the head: turned to +X, the picks follow it; where the head looks
+	# plays no part (there is no look() any more).
+	var east := fresh()
+	east.forward = Vector3.RIGHT
+	var east_ok := true
+	for i in 120:
+		var sp := east.pick(eye)
+		east_ok = east_ok and not sp.is_empty() and in_front(eye, sp.pos, Vector3.RIGHT) and not behind(eye, sp.pos, Vector3.RIGHT)
+	check.call(east_ok and not east.has_method("look"), "room spots: the arc follows the play direction (+X), never the gaze")
+	check.call(RoomSpots.ahead(eye, eye + Vector3(0, 0, -2.5) * U, 2.0 * U) and not RoomSpots.ahead(eye, eye + Vector3(0, 0, 2.5) * U, 2.0 * U)
+		and not RoomSpots.ahead(eye, eye + Vector3(0, 0, -1.5) * U, 2.0 * U) and not RoomSpots.ahead(eye, eye + Vector3(3.0, 0, -0.5) * U, 2.0 * U)
+		and RoomSpots.ahead(eye, eye + Vector3(2.0, 0, -1.0) * U, 2.0 * U), "room spots: ahead() is the arc and the distance")
+	var moved := RoomSpots.into_arc(eye, eye + Vector3(0.5, 0.3, 1.0) * U, 2.0 * U)
+	check.call(in_front(eye, moved) and absf(moved.y - (eye.y + 0.3 * U)) < 1e-4, "room spots: into_arc() brings a point behind into the arc, far enough")
+	var used0 := fresh()
+	used0.used[0] = 3.0
+	used0.cool(RoomSpots.USED_DECAY)
+	check.call(absf(used0.used[0] - 3.0 * exp(-1.0)) < 1e-3 and used0.want(1) == 1.0 and used0.want(0) < 1.0, "room spots: a sector just given counts against it a while")
+
+	# A small room: nothing of it 2 m out in front (the north wall 0.6 m ahead): the virtual arc.
+	var cramped := _m(0, 1.6, -2.4)
+	var small_ok := true
+	for i in 60:
+		var sp := rs.pick(cramped)
+		small_ok = small_ok and not sp.is_empty() and not sp.room and in_front(cramped, sp.pos)
+	check.call(small_ok, "room spots: a small room, then a virtual spot ahead (never a near one)")
 
 	# Kinds.
 	var all_kind := func(list: Array, k: String) -> bool:
@@ -149,17 +181,17 @@ static func run(check: Callable) -> void:
 	var pw := RoomSpots.plane_of(rs.pick(eye, ["wall"]), room()[0], 0.3 * U)
 	check.call(not pw.is_empty() and String(pw.label) == "wall", "room spots: a spot finds its plane")
 
-	# The player walks: the spots stay where they are in the room, picks keep their distance.
+	# The player walks: the spots stay where they are in the room, picks stay in front.
 	var walked := _m(1.3, 1.6, -1.6)
 	var stays := true
 	for i in 60:
 		var sp := rs.pick(walked)
 		var p: Vector3 = sp.pos
-		if Vector2(p.x - walked.x, p.z - walked.z).length() < RoomSpots.MIN_DIST * U - 1e-3 or not rs.spots.any(func(s: Dictionary) -> bool: return (s.pos as Vector3).is_equal_approx(p)):
+		if not in_front(walked, p) or not rs.spots.any(func(s: Dictionary) -> bool: return (s.pos as Vector3).is_equal_approx(p)):
 			stays = false
-	check.call(stays, "room spots: room-relative as the player walks (and still 0.8 m away)")
+	check.call(stays, "room spots: room-relative as the player walks (and still in front, 2 m away)")
 
-	# No scan: a ring around the player at 1.5 - 3 m, on the floor and in the air.
+	# No scan: a virtual arc ahead of the player, 2.2 - 3.5 m out, on the floor and in the air.
 	var none := RoomSpots.new()
 	none.unit = U
 	none.set_room([], [])
@@ -167,12 +199,15 @@ static func run(check: Callable) -> void:
 	var ring_secs := {}
 	var air := 0
 	var flo := 0
+	var ring_behind := 0
 	for i in 120:
 		var sp := none.pick(eye)
 		var p: Vector3 = sp.pos
 		var d := Vector2(p.x - eye.x, p.z - eye.z).length() / U
-		if sp.room or d < RoomSpots.RING.x - 1e-3 or d > RoomSpots.RING.y + 1e-3:
+		if sp.room or d < RoomSpots.RING.x - 1e-3 or d > RoomSpots.RING.y + 1e-3 or not in_front(eye, p):
 			ring_ok = false
+		if behind(eye, p):
+			ring_behind += 1
 		if String(sp.kind) == "air":
 			air += 1
 			var hm := p.y / U
@@ -182,10 +217,11 @@ static func run(check: Callable) -> void:
 		elif String(sp.kind) == "floor":
 			flo += 1
 		ring_secs[RoomSpots.sector_of(eye, p)] = true
-	check.call(not none.has_room() and ring_ok and air > 20 and flo > 20, "room spots: no scan, a ring around the player 1.5-3 m out (%d air, %d floor)" % [air, flo])
-	check.call(ring_secs.size() >= 11, "room spots: the ring goes all the way round (%d sectors)" % ring_secs.size())
+		none.cool(0.3)
+	check.call(not none.has_room() and ring_ok and air > 20 and flo > 20 and ring_behind == 0, "room spots: no scan, an arc ahead of the player 2.2-3.5 m out (%d air, %d floor)" % [air, flo])
+	check.call(ring_secs.size() >= 4, "room spots: the arc spreads across the front (%d sectors)" % ring_secs.size())
 	var ring_wall := none.pick(eye, ["wall"])
-	check.call(not ring_wall.is_empty() and not ring_wall.room, "room spots: a kind the ring lacks still gets a ring spot")
+	check.call(not ring_wall.is_empty() and not ring_wall.room and in_front(eye, ring_wall.pos), "room spots: a kind the arc lacks still gets a spot ahead")
 
 	# Sizes for the room and the providers.
 	check.call(absf(RoomSpots.size_for(0.1, 0.34, 8.0) * 0.34 / 8.0 - 0.1) < 1e-5 and absf(RoomSpots.size_for(0.1, 0.34, 16.0) - 2.0 * RoomSpots.size_for(0.1, 0.34, 8.0)) < 1e-5,

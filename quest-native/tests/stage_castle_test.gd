@@ -252,7 +252,8 @@ static func run(check: Callable) -> void:
 	st.auto_spawn = false
 	st.F.wave = 2
 	st.F.state = "wave"
-	var wpos := st.to_game(Vector3(-2.0, 1.2, 14.0))
+	# A wall out in front of the player (they never set out from the side or behind).
+	var wpos := st.to_game(Vector3(-9.0, 1.2, 9.0))
 	var wn := st._gdir(Vector3(0, 0, -1))
 	st.planes_provider = func() -> Array: return [
 		{"pos": wpos, "normal": wn, "ax": st._gdir(Vector3.RIGHT), "ay": Vector3.UP, "half": Vector2(3.0, 1.2), "label": "wall"},

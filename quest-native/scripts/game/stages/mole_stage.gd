@@ -9,9 +9,9 @@ extends Node3D
 ## Game units, like the other stages.
 ##
 ## Spawn spots: on the court's ground in a loose 5 x 4 field in front of the player, or, when
-## `spots_provider` returns any, on those spots (mixed reality: RoomSpots all around the player,
-## on the room's walls, open floor and furniture tops, or a ring in the air and on the floor
-## without a scan): an Array of {pos: Vector3 (game units, on the surface), normal: Vector3
+## `spots_provider` returns any, on those spots (mixed reality: RoomSpots in front of the
+## player, on the room's walls, open floor and furniture tops, or an arc in the air and on the
+## floor ahead without a scan): an Array of {pos: Vector3 (game units, on the surface), normal: Vector3
 ## (game space)}. A hole on a wall faces along the wall's normal and the Dahrooj pokes out
 ## sideways.
 ##
@@ -28,7 +28,7 @@ const RISE_T := 0.2
 const DUCK_T := 0.16
 const CLOSE_T := 0.24
 const HIT_T := 0.8
-const ROOM_UP_K := 1.6  # moles from room spots (all around the player) stay up longer
+const ROOM_UP_K := 1.6  # moles from room spots (out in the room) stay up longer
 const POINTS := {"plain": 1, "gold": 3, "sleepy": -2}
 const STREAK := 5
 const COLORS := ["ff69b4", "b36bff", "ff9b3d", "6fa8d6", "7bbf8a", "e2603f", "f1ebe1", "cfe8ff", "ffd166", "46aaa9"]
@@ -415,7 +415,7 @@ func spawn(kind := "", spot := {}) -> int:
 			m.acc = ACCS[_rng.randi() % ACCS.size()]
 	var p := pace()
 	m.up_t = lerpf(2.6, 1.4, p) * (0.75 if m.kind == "gold" else (1.25 if m.kind == "sleepy" else 1.0)) * _rng.randf_range(0.85, 1.15)
-	# All around the room: time to turn round and find him.
+	# Out in the room: time to find him.
 	if spot.get("room", false):
 		m.up_t *= ROOM_UP_K
 	m.look = 0.0

@@ -45,6 +45,7 @@ const T_START := 4.4  # flight time at the start (s)
 const T_MIN := 2.3
 const LAND_MIN := 4.0
 const LAND_MAX := 17.0
+const SHOWER_SPREAD := 0.6  # radians a shower's streaks spread off its way
 const BLAST_R := 2.0  # an explosion sets off meteors this close (× size, beyond their radii)
 const CHAIN_DELAY := 0.13
 const CHAIN_PTS := 10
@@ -202,9 +203,12 @@ var ctx: GameCtx
 
 ## Room planes (mixed reality), as SlimeStage.planes_provider; [] or invalid: the sky.
 var planes_provider: Callable
-## Landing spots (mixed reality): RoomSpots on the open floor all around the player (as
+## Landing spots (mixed reality): RoomSpots on the open floor in front of the player (as
 ## MoleStage.spots_provider). Unset or empty: the court ahead (VR).
 var spots_provider: Callable
+## Game units per metre (main: the court's scale): every meteor lands in front of the player
+## (RoomSpots.ARC either side of the court's forward, game -Z) and RoomSpots.MIN_DIST away.
+var unit := 2.0
 ## Size of the meteors and their effects (mixed reality wants 2).
 var size := 1.0
 ## The player's eye (game units). Main keeps it current.
@@ -603,11 +607,9 @@ func start_shower() -> void:
 	F.shower_spawn = 0.6
 	F.showers += 1
 	F.shower_t = SHOWER_EVERY * _rng.randf_range(0.9, 1.15) + SHOWER_T
-	var az := _rng.randf_range(-0.9, 0.9)
-	# All around the room (mixed reality): from any side.
-	if not RoomSpots.ask(spots_provider, ["floor"]).is_empty():
-		az = _rng.randf_range(-PI, PI)
-	F.shower_dir = Vector3(sin(az), 0, -cos(az))
+	# From ahead: the streaks spread SHOWER_SPREAD more either way, all inside the forward arc.
+	var az := _rng.randf_range(-(RoomSpots.ARC - SHOWER_SPREAD), RoomSpots.ARC - SHOWER_SPREAD)
+	F.shower_dir = RoomSpots.dir_at(Vector3.FORWARD, az)
 	_banner("زخّة نيازك!" if not _en() else "METEOR SHOWER!", "الذهبية بخمسة أضعاف!" if not _en() else "Golden ones are worth ×5!", Color("ff6b3d"), 2.0)
 	_sfx("firework_launch", 1.0, banner_at())
 	_sfx("whoosh", 1.0, banner_at())
@@ -651,7 +653,7 @@ static func _on_plane(pl: Dictionary, u: float, v: float) -> Vector3:
 	return (pl.pos as Vector3) + (pl.get("ax", Vector3.RIGHT) as Vector3) * u * half.x + (pl.get("ay", Vector3.BACK) as Vector3) * v * half.y
 
 
-## A landing spot all around the player (RoomSpots), or null.
+## A landing spot in front of the player (RoomSpots), or null.
 func _spot_land(fy: float) -> Variant:
 	var sps := RoomSpots.ask(spots_provider, ["floor"])
 	if sps.is_empty():
@@ -676,26 +678,32 @@ func _ceiling_above(ceilings: Array, p: Vector3) -> Variant:
 	return null
 
 
-## Where one lands in the room: on a scanned floor (not on top of you), else around you.
+## How near the player a meteor may land (game units): RoomSpots.MIN_DIST, and LAND_MIN.
+func near_d() -> float:
+	return maxf(LAND_MIN * size, RoomSpots.MIN_DIST * unit)
+
+
+## Where one lands in the room: on a scanned floor in front of you (the forward arc, not near
+## you), else on the floor ahead of you.
 func _room_land(fy: float) -> Vector3:
 	var sp: Variant = _spot_land(fy)
 	if sp != null:
 		return sp as Vector3
 	var floors := _planes.filter(func(pl): return _is_floor(pl))
 	var g := goal()
-	for _try in 6:
-		var p: Vector3
-		if not floors.is_empty():
-			var pl: Dictionary = floors[_rng.randi() % floors.size()]
-			p = _on_plane(pl, _rng.randf_range(-0.85, 0.85), _rng.randf_range(-0.85, 0.85))
-		else:
-			var a := _rng.randf() * TAU
-			p = g + Vector3(cos(a), 0, sin(a)) * _rng.randf_range(2.5, 9.0) * size
+	var near := near_d()
+	for _try in 12:
+		if floors.is_empty():
+			break
+		var pl: Dictionary = floors[_rng.randi() % floors.size()]
+		var p := _on_plane(pl, _rng.randf_range(-0.85, 0.85), _rng.randf_range(-0.85, 0.85))
 		p.y = fy
-		if Vector2(p.x - g.x, p.z - g.z).length() > 1.6 * size:
+		if RoomSpots.ahead(g, p, near):
 			return p
-	var a2 := _rng.randf() * TAU
-	return g + Vector3(cos(a2), 0, sin(a2)) * 3.0 * size + Vector3(0, fy, 0)
+	var a2 := _rng.randf_range(-RoomSpots.ARC, RoomSpots.ARC)
+	var q := g + RoomSpots.dir_at(Vector3.FORWARD, a2) * near * _rng.randf_range(1.0, 1.4)
+	q.y = fy
+	return q
 
 
 # ---- spawning ----
@@ -757,11 +765,10 @@ func spawn(kind: String, golden := false, spot := {}) -> int:
 		var dir: Vector3
 		if spot.get("shower", false):
 			var d0: Vector3 = F.shower_dir
-			dir = d0.rotated(Vector3.UP, _rng.randf_range(-0.6, 0.6))
+			dir = d0.rotated(Vector3.UP, _rng.randf_range(-SHOWER_SPREAD, SHOWER_SPREAD))
 		else:
-			var az := _rng.randf_range(-1.7, 1.7)
-			dir = Vector3(sin(az), 0, -cos(az))
-		# All around the player (mixed reality): it lands on a spot of the room and comes in
+			dir = RoomSpots.dir_at(Vector3.FORWARD, _rng.randf_range(-RoomSpots.ARC, RoomSpots.ARC))
+		# Mixed reality: it lands on a spot of the room in front of the player and comes in
 		# from beyond it, so it is seen coming from that side.
 		var at: Variant = _spot_land(fy) if not spot.get("shower", false) else null
 		if at != null:
@@ -774,7 +781,7 @@ func spawn(kind: String, golden := false, spot := {}) -> int:
 			land = _room_land(fy)
 			start_p = land + Vector3.UP * (viewer.y - fy + 8.0 * size) + dir * 4.0 * size
 		else:
-			land = gl + dir * _rng.randf_range(LAND_MIN, LAND_MAX) * size
+			land = gl + dir * maxf(_rng.randf_range(LAND_MIN, LAND_MAX) * size, near_d())
 			land.y = fy
 			var side := Vector3(-dir.z, 0, dir.x)
 			var away: Vector3 = (F.shower_dir as Vector3) * 12.0 * size if spot.get("shower", false) else dir * _rng.randf_range(6.0, 14.0) * size + side * _rng.randf_range(-6.0, 6.0) * size

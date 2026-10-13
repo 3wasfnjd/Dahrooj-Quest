@@ -163,11 +163,14 @@ var ctx: GameCtx
 
 ## Room planes (mixed reality), as SlimeStage.planes_provider; [] or invalid: the court's booth.
 var planes_provider: Callable
-## Spots all around the player (mixed reality, RoomSpots; as MoleStage.spots_provider, called
-## with the kinds wanted): cardboard targets, tosses, peekers and swingers then pick a side the
-## player has not been looking at. Without a scan (ring spots) the cardboard targets flip up and
-## the tosses jump all around the player, the rest stays at the booth.
+## Spots in front of the player (mixed reality, RoomSpots; as MoleStage.spots_provider, called
+## with the kinds wanted): cardboard targets, tosses, peekers and swingers go there. Without a
+## scan (the virtual arc ahead) the cardboard targets flip up and the tosses jump in front of
+## the player, the rest stays at the booth. Whatever the room offers, nothing starts behind
+## the player or near them (see _ahead()): rails are cut to the part of a wall out in front.
 var spots_provider: Callable
+## Game units per metre (main: the court's scale), for the distance kept from the player.
+var unit := 2.0
 ## Size of the targets and their effects (mixed reality wants 2).
 var size := 1.0
 ## The player's eye (game units): targets face it. Main keeps it current.
@@ -1004,7 +1007,7 @@ func _room(sort: String) -> Array:
 	return out
 
 
-## A spot all around the player (RoomSpots) of a sort, with the plane it lies on (the room's,
+## A spot in front of the player (RoomSpots) of a sort, with the plane it lies on (the room's,
 ## or a small stand-in for a ring spot): {pos, plane} or {}.
 func _spot_point(sort: String) -> Dictionary:
 	var sps := RoomSpots.ask(spots_provider, [sort])
@@ -1012,7 +1015,7 @@ func _spot_point(sort: String) -> Dictionary:
 		if str(sp.get("kind", "")) != sort:
 			continue
 		var p: Vector3 = sp.pos
-		if not _free_at(p, 2.2 * R * size):
+		if not _free_at(p, 2.2 * R * size) or not _ahead(p):
 			continue
 		var pl := RoomSpots.plane_of(sp, _planes, 0.3 * size)
 		if pl.is_empty():
@@ -1038,12 +1041,40 @@ func _room_point(sort: String, margin := 0.75) -> Dictionary:
 		var pl: Dictionary = list[_rng.randi() % list.size()]
 		var p := on_plane(pl, _rng.randf_range(-margin, margin), _rng.randf_range(-margin, margin))
 		var hd := Vector2(p.x - viewer.x, p.z - viewer.z).length()
-		if hd < 5.0 * size or hd > 60.0 * size:
+		if hd < 5.0 * size or hd > 60.0 * size or not _ahead(p):
 			continue
 		if not _free_at(p, 2.2 * R * size):
 			continue
 		return {"pos": p, "plane": pl}
 	return {}
+
+
+## In front of the player: RoomSpots.ARC either side of the court's forward (game -Z) and
+## RoomSpots.MIN_DIST away (across the floor).
+func _ahead(p: Vector3) -> bool:
+	return RoomSpots.ahead(viewer, p, RoomSpots.MIN_DIST * unit)
+
+
+## The longest stretch of a rail a -> b that is in front of the player ([a, b]), or [].
+func _rail_ahead(a: Vector3, b: Vector3, min_len: float) -> Array:
+	var n := 24
+	var best_i := -1
+	var best_j := -1
+	var run := -1
+	for i in n + 1:
+		var ok := _ahead(a.lerp(b, float(i) / n))
+		if ok and run < 0:
+			run = i
+		if ok and (best_i < 0 or i - run > best_j - best_i):
+			best_i = run
+			best_j = i
+		if not ok:
+			run = -1
+	if best_i < 0:
+		return []
+	var a2 := a.lerp(b, float(best_i) / n)
+	var b2 := a.lerp(b, float(best_j) / n)
+	return [a2, b2] if a2.distance_to(b2) >= min_len else []
 
 
 func _free_at(p: Vector3, d: float) -> bool:
@@ -1092,6 +1123,11 @@ func _build_rows() -> void:
 			var t := a
 			a = b
 			b = t
+		var cut := _rail_ahead(a, b, 3.0 * size)
+		if cut.is_empty():
+			continue
+		a = cut[0]
+		b = cut[1]
 		rows.append({"a": a, "b": b, "up": Vector3.UP, "face": n, "flat": flat, "flip": "spin", "grow": true,
 			"speed": 2.4 * size, "k": 1.0, "space": 2.6 * size, "timer": 0.5})
 
@@ -1169,7 +1205,7 @@ func spawn(mover: String, kind := "", at := {}) -> int:
 			ok = _setup_toss(T, at)
 	if not ok:
 		return -1
-	# All around the room: a little longer to turn and find it.
+	# Out in the room: a little longer to find it.
 	if room() and mover != "rail":
 		T.life *= 1.4
 	_dress(T)
@@ -1206,7 +1242,7 @@ func _setup_card(T: Dictionary, at: Dictionary) -> bool:
 			face = pick.plane.normal
 			pos += (face as Vector3) * 0.1 * size
 	else:
-		# Mixed reality without a scan: mostly on the floor all around the player.
+		# Mixed reality without a scan: mostly on the floor in front of the player.
 		var ring := _spot_point("floor")
 		if not ring.is_empty() and _rng.randf() < 0.7:
 			pos = ring.pos
@@ -1273,39 +1309,47 @@ func _setup_peek(T: Dictionary, at: Dictionary) -> bool:
 		var walls := _room("wall")
 		if tops.is_empty() and walls.is_empty():
 			return false
-		var use_top := not tops.is_empty() and (walls.is_empty() or _rng.randf() < 0.6)
-		# All around the room: the piece of furniture or wall of a side not looked at lately.
-		var pref := _spot_point("top" if use_top else "wall")
-		if use_top:
-			var pl: Dictionary = tops[_rng.randi() % tops.size()]
-			if not pref.is_empty() and (pref.plane as Dictionary) in tops:
-				pl = pref.plane
-			var p: Vector3 = pl.pos
-			var d := Vector3(p.x - viewer.x, 0, p.z - viewer.z)
-			if d.length() < 3.0 * size:
-				return false
-			d = d.normalized()
-			var side := Vector3(-d.z, 0, d.x)
-			var e := p + d * extent(pl, d) * 0.85 + side * extent(pl, side) * _rng.randf_range(-0.6, 0.6)
-			T.hide = e + Vector3.UP * r * 0.2
-			T.out_p = e + Vector3.UP * r * 0.95
-		else:
-			var pl: Dictionary = walls[_rng.randi() % walls.size()]
-			if not pref.is_empty() and (pref.plane as Dictionary) in walls:
-				pl = pref.plane
-			var n: Vector3 = pl.normal
-			n.y = 0.0
-			n = n.normalized()
-			var hd := n.cross(Vector3.UP).normalized()
-			var sgn := -1.0 if _rng.randf() < 0.5 else 1.0
-			var p: Vector3 = pl.pos
-			var ev := extent(pl, Vector3.UP)
-			var y := clampf(viewer.y - _rng.randf_range(0.0, 2.0) * size, p.y - ev + r * 1.5, maxf(p.y - ev + r * 1.5, p.y + ev - r * 1.5))
-			var e := p + hd * sgn * extent(pl, hd) + Vector3.UP * (y - p.y) + n * (r + 0.05 * size)
-			if Vector2(e.x - viewer.x, e.z - viewer.z).length() < 3.5 * size:
-				return false
-			T.hide = e + hd * sgn * r * 0.5
-			T.out_p = e - hd * sgn * r * 1.1
+		var placed := false
+		for _try in 6:
+			var use_top := not tops.is_empty() and (walls.is_empty() or _rng.randf() < 0.6)
+			# In front of the player: the piece of furniture or wall of a room spot first.
+			var pref := _spot_point("top" if use_top else "wall") if _try < 2 else {}
+			if use_top:
+				var pl: Dictionary = tops[_rng.randi() % tops.size()]
+				if not pref.is_empty() and (pref.plane as Dictionary) in tops:
+					pl = pref.plane
+				var p: Vector3 = pl.pos
+				var d := Vector3(p.x - viewer.x, 0, p.z - viewer.z)
+				if d.length() < 3.0 * size:
+					continue
+				d = d.normalized()
+				var side := Vector3(-d.z, 0, d.x)
+				var e := p + d * extent(pl, d) * 0.85 + side * extent(pl, side) * _rng.randf_range(-0.6, 0.6)
+				if not _ahead(e):
+					continue
+				T.hide = e + Vector3.UP * r * 0.2
+				T.out_p = e + Vector3.UP * r * 0.95
+			else:
+				var pl: Dictionary = walls[_rng.randi() % walls.size()]
+				if not pref.is_empty() and (pref.plane as Dictionary) in walls:
+					pl = pref.plane
+				var n: Vector3 = pl.normal
+				n.y = 0.0
+				n = n.normalized()
+				var hd := n.cross(Vector3.UP).normalized()
+				var sgn := -1.0 if _rng.randf() < 0.5 else 1.0
+				var p: Vector3 = pl.pos
+				var ev := extent(pl, Vector3.UP)
+				var y := clampf(viewer.y - _rng.randf_range(0.0, 2.0) * size, p.y - ev + r * 1.5, maxf(p.y - ev + r * 1.5, p.y + ev - r * 1.5))
+				var e := p + hd * sgn * extent(pl, hd) + Vector3.UP * (y - p.y) + n * (r + 0.05 * size)
+				if Vector2(e.x - viewer.x, e.z - viewer.z).length() < 3.5 * size or not _ahead(e) or not _ahead(e - hd * sgn * r * 1.1):
+					continue
+				T.hide = e + hd * sgn * r * 0.5
+				T.out_p = e - hd * sgn * r * 1.1
+			placed = true
+			break
+		if not placed:
+			return false
 		T.grow = true
 	else:
 		var free := []
@@ -1374,6 +1418,8 @@ func _setup_swing(T: Dictionary, at: Dictionary) -> bool:
 			n = n.normalized()
 			var hd := n.cross(Vector3.UP).normalized()
 			anchor = (pl.pos as Vector3) + Vector3.UP * extent(pl, Vector3.UP) + hd * extent(pl, hd) * _rng.randf_range(-0.7, 0.7) + n * 1.8 * size
+			if not _ahead(anchor):
+				return false
 		else:
 			anchor = pick.pos
 		var want := viewer.y - _rng.randf_range(-0.5, 2.0) * size
@@ -1450,7 +1496,7 @@ func _setup_toss(T: Dictionary, at: Dictionary) -> bool:
 			from = (pick.pos as Vector3) + Vector3.UP * r
 			land = from.y
 		else:
-			# Mixed reality without a scan: up from the floor all around the player.
+			# Mixed reality without a scan: up from the floor in front of the player.
 			var ring := _spot_point("floor")
 			if not ring.is_empty():
 				from = (ring.pos as Vector3) + Vector3.UP * r

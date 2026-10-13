@@ -81,7 +81,8 @@ var shot_time = 4.0
 var ctx: GameCtx
 
 ## Room spots (mixed reality), as MoleStage.spots_provider: Array of {pos, normal, kind?} in game
-## units (RoomSpots: all around the player). Every wave then comes out of the room.
+## units (RoomSpots: in front of the player, far). Every wave then comes out of the room there
+## (and hops toward the player).
 var spots_provider: Callable
 ## Size of the Dahroojs, the line and the power-ups (mixed reality wants them bigger).
 var size := 1.0
@@ -543,7 +544,7 @@ func spawn(kind: String, spot := {}) -> int:
 			m.style = PLAIN_STYLES[_rng.randi() % PLAIN_STYLES.size()]
 			m.color = COLORS[_rng.randi() % COLORS.size()] if _rng.randf() < 0.75 else Crowd.DAHROOJ_COLORS[m.style]
 			m.acc = ACCS[_rng.randi() % ACCS.size()]
-	# Mixed reality: out of the room all around the player (RoomSpots): through a hole in a
+	# Mixed reality: out of the room in front of the player (RoomSpots): through a hole in a
 	# wall, the floor or a piece of furniture; a spot in the air (no scan) or the boss drops
 	# from above there instead.
 	var room := _spots() if spot.is_empty() else []
