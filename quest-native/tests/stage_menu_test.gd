@@ -96,7 +96,7 @@ static func run(check: Callable) -> void:
 	_start_screen(check)
 	var p := MenuPanel.new()
 	# Button counts per page (7 tabs + Close on every page).
-	var want := {"modes": 23, "appearance": 21, "accessories": 22, "play": 15, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
+	var want := {"modes": 28, "appearance": 21, "accessories": 22, "play": 15, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
 	for en in [false, true]:
 		var bad: Array = []
 		for k: String in want:
@@ -110,18 +110,29 @@ static func run(check: Callable) -> void:
 	p.set_page("modes")
 	var m_ar := _model(false)
 	p.draw(m_ar, -1)
-	check.call(_count(p, "mode") == 15 and p.buttons[_find(p, "mode", "hoop")].selected and p.buttons[_find(p, "tab", "modes")].selected, "menu: 15 mode cards, the current mode and page selected")
+	check.call(_count(p, "mode") == 20 and p.buttons[_find(p, "mode", "hoop")].selected and p.buttons[_find(p, "tab", "modes")].selected, "menu: 20 mode cards, the current mode and page selected")
 	var order: Array = []
 	for b: Dictionary in p.buttons:
 		if b.kind == "mode":
 			order.append(b.id)
-	check.call(order == ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime", "rain", "climb", "balance", "ricochet", "maze"]
+	check.call(order == ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime", "meteor", "castle", "giant", "gallery", "frenzy", "rain", "climb", "balance", "ricochet", "maze"]
 		and p.buttons[_find(p, "mode", "mole")].en == "Whack-a-Dahrooj", "menu: Whack-a-Dahrooj after the fair")
 	var inv: Dictionary = p.buttons[_find(p, "mode", "invasion")]
 	check.call(inv.en == "Dahrooj Attack" and inv.ar == "هجوم الدحاريج" and inv.icon == "invasion" and MenuIcons.IDS.has("invasion"), "menu: Dahrooj Attack after Whack-a-Dahrooj, with its own icon")
 	var sl: Dictionary = p.buttons[_find(p, "mode", "slime")]
 	check.call(sl.en == "Slime" and sl.ar == "سلايم" and sl.icon == "slime" and MenuIcons.IDS.has("slime"), "menu: Slime after Dahrooj Attack, with its own icon")
-	# The grid: five across, the short last row centred, nothing overlapping.
+	# The five arcade modes after Slime, each with its own icon.
+	var arcade := [["meteor", "نيازك الدحاريج", "Dahrooj Meteors"], ["castle", "حصن الدحاريج", "Dahrooj Fort"],
+		["giant", "الدحروج العملاق", "Giant Dahrooj"], ["gallery", "ميدان الرماية", "Dahrooj Gallery"], ["frenzy", "حمّى الفرقعة", "Pop Frenzy"]]
+	var arcade_bad: Array = []
+	for k in arcade.size():
+		var want_m: Array = arcade[k]
+		var i := _find(p, "mode", want_m[0])
+		var b: Dictionary = p.buttons[i] if i >= 0 else {}
+		if i != _find(p, "mode", "slime") + 1 + k or b.ar != want_m[1] or b.en != want_m[2] or b.icon != want_m[0] or not MenuIcons.IDS.has(want_m[0]) or not GameRuntime.MODES.has(want_m[0]):
+			arcade_bad.append(want_m[0])
+	check.call(arcade_bad.is_empty(), "menu: Meteors, Fort, Giant, Gallery and Frenzy after Slime, with their own icons %s" % [arcade_bad])
+	# The grid: five across, four rows, the short last row centred, nothing overlapping.
 	var cells_ok := true
 	var cards := MenuCatalog.MODES.size()
 	for i in cards:
@@ -132,11 +143,11 @@ static func run(check: Callable) -> void:
 			var b: Dictionary = MenuPanel.mode_cell(j, true)
 			if Rect2(a.x, a.y, a.w, a.h).intersects(Rect2(b.x, b.y, b.w, b.h)):
 				cells_ok = false
-	# 15 cards: three full rows of 5 (a short last row would be centred under the others).
-	var row0: Dictionary = MenuPanel.mode_cell(10, true)
+	# 20 cards: four full rows of 5 (a short last row would be centred under the others).
+	var row0: Dictionary = MenuPanel.mode_cell(15, true)
 	var last: Dictionary = MenuPanel.mode_cell(cards - 1, true)
 	var centre := (float(row0.x) + float(last.x) + float(last.w)) / 2.0
-	check.call(cells_ok and cards == 15 and absf(float(last.x) + float(last.w) - float(MenuPanel.mode_cell(4, true).x) - float(MenuPanel.mode_cell(4, true).w)) < 0.01 and absf(centre - 664.0) < 0.01 and float(last.x) > float(row0.x) and float(row0.y) == float(last.y), "menu: the mode grid fits (three full rows), last row centred")
+	check.call(cells_ok and cards == 20 and float(MenuPanel.mode_cell(0, true).h) >= 150.0 and absf(float(last.x) + float(last.w) - float(MenuPanel.mode_cell(4, true).x) - float(MenuPanel.mode_cell(4, true).w)) < 0.01 and absf(centre - 664.0) < 0.01 and float(last.x) > float(row0.x) and float(row0.y) == float(last.y), "menu: the mode grid fits (four full rows of tall cards), last row centred")
 	var r0 := p.renders
 	p.draw(m_ar, -1)
 	check.call(p.renders == r0, "menu: an unchanged draw does not re-render")

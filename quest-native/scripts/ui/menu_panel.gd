@@ -112,12 +112,13 @@ static func grid(index: int, cols: int, y: float, h: float, english: bool, gap :
 	return {"x": content_x(english) + (col if english else cols - 1 - col) * (w + gap), "y": y + floorf(index / float(cols)) * (h + gap), "w": w, "h": h}
 
 
-## The mode cards: five across, three rows; a short last row is centred.
+## The mode cards: five across, four rows (from the tab column's top down to the
+## footer); a short last row is centred.
 static func mode_cell(index: int, english: bool) -> Dictionary:
 	var cols := 5
 	var gap := 16.0
 	var w := (888.0 - gap * (cols - 1)) / cols
-	var h := 210.0
+	var h := 170.0
 	var n := MenuCatalog.MODES.size()
 	var row := index / cols
 	var col := index % cols
@@ -125,7 +126,7 @@ static func mode_cell(index: int, english: bool) -> Dictionary:
 	var shift := (cols - in_row) / 2.0
 	var at := col + shift
 	var x := content_x(english) + (at if english else cols - 1 - at) * (w + gap)
-	return {"x": x, "y": 190.0 + row * (h + gap), "w": w, "h": h}
+	return {"x": x, "y": 174.0 + row * (h + gap), "w": w, "h": h}
 
 
 ## The centre of mode card `index` on the panel (local metres).

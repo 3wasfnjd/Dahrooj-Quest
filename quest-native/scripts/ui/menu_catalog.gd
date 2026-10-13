@@ -6,12 +6,16 @@ extends RefCounted
 
 ## mode-catalog.ts XR_MODE_CATALOG: the live headset menu's mode cards, in order.
 ## Plus the native port's Whack-a-Dahrooj ("mole"), after the fair, and Dahrooj Attack
-## ("invasion") after it, and Slime ("slime") after that.
+## ("invasion") after it, Slime ("slime") after that, then Dahrooj Meteors, Dahrooj Fort,
+## Giant Dahrooj, Dahrooj Gallery and Pop Frenzy.
 const MODES := [
 	["goal", "مرمى", "Goal"], ["hoop", "سلة", "Hoop"], ["window", "شباك", "Window"],
 	["cans", "علب", "Cans"], ["bowling", "بولينغ", "Bowling"], ["bricks", "الطوب", "Bricks"],
 	["fair", "ملاهي", "Fair"], ["mole", "اضرب الدحروج", "Whack-a-Dahrooj"],
 	["invasion", "هجوم الدحاريج", "Dahrooj Attack"], ["slime", "سلايم", "Slime"],
+	["meteor", "نيازك الدحاريج", "Dahrooj Meteors"], ["castle", "حصن الدحاريج", "Dahrooj Fort"],
+	["giant", "الدحروج العملاق", "Giant Dahrooj"], ["gallery", "ميدان الرماية", "Dahrooj Gallery"],
+	["frenzy", "حمّى الفرقعة", "Pop Frenzy"],
 	["rain", "مطر دحاريج", "Dahrooj Rain"], ["climb", "الجبل", "Summit"], ["balance", "التوازن", "Balance"],
 	["ricochet", "الارتداد", "Ricochet"], ["maze", "المتاهة", "Maze"],
 ]

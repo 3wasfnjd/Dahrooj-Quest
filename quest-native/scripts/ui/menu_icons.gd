@@ -22,7 +22,7 @@ const IDS := [
 	"flower", "crown", "headphones", "scarf", "aviator", "woodhat", "starGlasses", "beanie", "lock", "trigger",
 	"hand", "sling", "bolt", "firework", "auto", "reset", "day", "dusk", "night", "dawn",
 	"weather-rain", "snow", "place", "exit", "up", "down", "star", "mole", "mr", "vr",
-	"lang", "invasion", "slime",
+	"lang", "invasion", "slime", "meteor", "castle", "giant", "gallery", "frenzy",
 ]
 ## The start screen's large icons, baked again at HI_CELL pixels.
 const HI_IDS := ["mr", "vr", "lang", "world"]
@@ -832,6 +832,140 @@ static func shapes(id: String) -> Array:
 			d.s(P([[0, -38], [0, -50]]), false, 4.0)
 			d.s(P([[14, -36], [19, -46]]), false, 4.0)
 			d.xf = Transform2D.IDENTITY
+		"meteor":
+			# Dahrooj Meteors: a smiling Dahrooj riding the head of a fire teardrop that
+			# streaks down from the upper right, flame tongues licking off its tail, speed
+			# lines alongside and a golden spark ahead of it.
+			var hc := Vector2(-12, 14)
+			var tip := Vector2(44, -44)
+			var ux := (tip - hc).normalized()
+			var vx := Vector2(-ux.y, ux.x)
+			var at := func(u: float, v: float) -> Vector2: return hc + ux * u + vx * v
+			var a := ux.angle()
+			var off := deg_to_rad(66.0)
+			var fire := arc(hc.x, hc.y, 27, a + off, a - off)
+			for q: Array in [[30, -27], [34, -14], [52, -20], [54, -7], [81, 0], [60, 8], [48, 12], [50, 24], [30, 22]]:
+				fire.append(at.call(q[0], q[1]))
+			d.cut(fire, 4.0)
+			d.sf(fire)
+			# Inner flame lick along the tail.
+			d.s(PackedVector2Array([at.call(34, -6), at.call(56, -1), at.call(38, 8)]), false, 4.0)
+			# The fireball's head is Dahrooj himself: eyes and a grin.
+			d.cut(ell(hc.x - 9, hc.y - 1, 4.2, 6.0, 16))
+			d.cut(ell(hc.x + 8, hc.y - 1, 4.2, 6.0, 16))
+			d.s(arc(hc.x - 0.5, hc.y + 5, 9, PI * 0.2, PI * 0.8), false, 4.0)
+			# Speed lines and the golden spark.
+			d.s(PackedVector2Array([at.call(28, -40), at.call(52, -40)]), false, 4.0)
+			d.s(PackedVector2Array([at.call(46, 34), at.call(64, 34)]), false, 4.0)
+			d.ink(star(-42, -26, 11, 0.36))
+			d.ink(ell(-26, -42, 3.2, 3.2, 16))
+			d.ink(ell(-49, -4, 2.6, 2.6, 16))
+		"castle":
+			# Dahrooj Fort: a pink-roofed tower beside a crenellated wall, a cheeky
+			# Dahrooj on the battlements waving a googly-eyed flag.
+			var tower := P([[-46, -6], [-24, -6], [-24, 46], [-46, 46]])
+			var roof := P([[-51, -4], [-35, -42], [-19, -4]])
+			d.sf(tower)
+			d.cut(roof, 3.5)
+			d.sf(roof)
+			d.ink(rr(-38, 8, 6, 13, 3))
+			var wall := P([[-24, 8], [-12, 8], [-12, 18], [28, 18], [28, 8], [40, 8], [40, 46], [-24, 46]])
+			d.cut(wall, 3.5)
+			d.sf(wall)
+			var door := P([[0, 46], [0, 34]])
+			bez(door, Vector2(0, 26), Vector2(16, 26), Vector2(16, 34), 10)
+			door.append(Vector2(16, 46))
+			d.s(door, false, 4.5)
+			d.face(8, 6, 14, 3.5)
+			d.s(arc(8, 9, 6, PI * 0.15, PI * 0.85), false, 3.5)
+			# The waving arm, the pole and the flag with googly eyes.
+			d.s(P([[21, 9], [30, 2]]), false, 5.0)
+			d.s(P([[30, 6], [30, -48]]), false, 4.5)
+			var flag := P([[30, -48]])
+			bez(flag, Vector2(38, -54), Vector2(44, -42), Vector2(53, -48), 8)
+			flag.append(Vector2(53, -26))
+			bez(flag, Vector2(44, -20), Vector2(38, -32), Vector2(30, -26), 8)
+			d.sf(flag, 4.0)
+			for e: Array in [[37.5, -36.5], [46.5, -36]]:
+				d.cut(ell(e[0], e[1], 4.6, 4.6, 20))
+				d.s(ell(e[0], e[1], 4.6, 4.6, 20), true, 2.2)
+				d.ink(ell(e[0] + 1.4, e[1] + 1.6, 2.0, 2.0, 12))
+		"giant":
+			# Giant Dahrooj: a huge Dahrooj in a bow tie, a glowing gold target on one eye,
+			# a segmented HP arc over his head and a tiny Dahrooj at his feet for scale.
+			var g := Vector2(4, 2)
+			var hr := 33.0
+			var head := ell(g.x, g.y, hr, hr)
+			d.sf(head)
+			d.cut(ell(g.x - 11, g.y - 3, 4.8, 6.8, 16))
+			# The target eye: rings, a bullseye and a glow.
+			var te := Vector2(g.x + 12, g.y - 3)
+			d.cut(ell(te.x, te.y, 10.5, 10.5, 28))
+			d.s(ell(te.x, te.y, 8.5, 8.5, 28), true, 3.0)
+			d.ink(ell(te.x, te.y, 3.6, 3.6, 16))
+			for i in 4:
+				var t := PI * 0.25 + PI * 0.5 * i
+				d.s(PackedVector2Array([te + Vector2(cos(t), sin(t)) * 13.0, te + Vector2(cos(t), sin(t)) * 16.0]), false, 2.6)
+			d.s(arc(g.x - 1, g.y + 9, 9, PI * 0.2, PI * 0.8), false, 4.0)
+			# Bow tie under the chin.
+			var bow := P([[g.x, g.y + 36], [g.x - 15, g.y + 28], [g.x - 15, g.y + 44]])
+			var bow2 := P([[g.x, g.y + 36], [g.x + 15, g.y + 28], [g.x + 15, g.y + 44]])
+			d.cut(P([[g.x - 15, g.y + 28], [g.x + 15, g.y + 28], [g.x + 15, g.y + 44], [g.x - 15, g.y + 44]]), 3.0)
+			d.sf(bow, 4.0)
+			d.sf(bow2, 4.0)
+			d.ink(ell(g.x, g.y + 36, 4.5, 4.5, 16))
+			# HP arc: five segments, the last two spent.
+			var a0 := PI * 1.13
+			var sweep := PI * 0.74
+			var gap := 0.09
+			for i in 5:
+				var s0 := a0 + sweep * i / 5.0 + gap / 2.0
+				var s1 := a0 + sweep * (i + 1) / 5.0 - gap / 2.0
+				d.s(arc(g.x, g.y, 45, s0, s1), false, 7.0 if i < 3 else 3.0)
+			# The tiny one at his feet.
+			d.face(-38, 40, 9, 3.0)
+		"gallery":
+			# Dahrooj Gallery: a ringed cardboard target on a stick, a little Dahrooj face as
+			# its bullseye, a tiny crown peeking out behind it.
+			var tc := Vector2(-2, -6)
+			var crown := P([[16, -26], [16, -48], [24, -38], [31, -52], [38, -38], [46, -48], [46, -26]])
+			d.sf(crown, 4.5)
+			d.ink(ell(31, -55, 3.0, 3.0, 12))
+			var stick := rr(tc.x - 5, 24, 10, 28, 3)
+			d.sf(stick, 4.5)
+			var board := ell(tc.x, tc.y, 37, 37)
+			d.cut(board, 4.0)
+			d.sf(board)
+			d.s(ell(tc.x, tc.y, 26, 26), true, 9.0)
+			d.cut(ell(tc.x, tc.y, 17, 17), 0.0)
+			d.s(ell(tc.x, tc.y, 17, 17), true, 3.0)
+			d.face(tc.x, tc.y, 11, 3.0)
+			# A hit mark on the ring.
+			d.s(P([[-34, -36], [-40, -42]]), false, 3.5)
+			d.s(P([[-28, -42], [-29, -50]]), false, 3.5)
+			d.s(P([[-40, -28], [-49, -28]]), false, 3.5)
+		"frenzy":
+			# Pop Frenzy: a big shiny bubble with a tiny Dahrooj inside, and three small
+			# bubbles bursting in a golden spark.
+			var bc := Vector2(-8, 8)
+			var br := 38.0
+			d.sf(ell(bc.x, bc.y, br, br))
+			# The sheen: two bands of highlight in the upper left and a glint lower right.
+			d.cut(arc(bc.x, bc.y, 28, PI * 1.08, PI * 1.42) + arc(bc.x, bc.y, 22, PI * 1.42, PI * 1.08, true), 0.0)
+			d.s(arc(bc.x, bc.y, 25, PI * 1.12, PI * 1.38), false, 3.0)
+			d.s(arc(bc.x, bc.y, 30, PI * 0.12, PI * 0.38), false, 4.0)
+			d.face(bc.x + 2, bc.y + 6, 14, 3.5)
+			d.s(arc(bc.x + 2, bc.y + 9, 5, PI * 0.15, PI * 0.85), false, 3.0)
+			# Three little bubbles: two still whole, one bursting.
+			for b: Array in [[40, -12, 8.0], [21, -40, 6.0]]:
+				d.cut(ell(b[0], b[1], b[2], b[2], 24), 3.0)
+				d.sf(ell(b[0], b[1], b[2], b[2], 24), 3.5)
+			var pc := Vector2(43, -40)
+			for i in 8:
+				var t := TAU * i / 8.0 + 0.2
+				d.s(PackedVector2Array([pc + Vector2(cos(t), sin(t)) * 7.0, pc + Vector2(cos(t), sin(t)) * 11.5]), false, 3.2)
+			d.ink(star(pc.x, pc.y, 6.5, 0.4))
+			d.ink(ell(52, -24, 2.4, 2.4, 12))
 		"mr":
 			# Mixed reality: your room's back corner through a viewfinder, a cube on the floor.
 			d.s(P([[-46, 34], [-20, 16], [20, 16], [46, 34]]), false, 4.0)
