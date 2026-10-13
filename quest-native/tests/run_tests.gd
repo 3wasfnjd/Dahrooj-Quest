@@ -163,7 +163,13 @@ func _world(main: Node) -> void:
 	for i in 72 * 12:
 		wb.step_rests(1.0 / 72.0, 0.001)
 	check(wb.rests[0].p.distance_to(start) > 0.3, "and sets off on his own now and then")
-	check(absf(wb.rests[0].p.y - Ball.BR) < 0.05, "resting on the ground")
+	# They hop now and then on their own, so test the ground, not a moment of rest:
+	# never below it, and back down on it within a couple of seconds.
+	var lowest := INF
+	for i in 72 * 3:
+		wb.step_rests(1.0 / 72.0, 0.001)
+		lowest = minf(lowest, wb.rests[0].p.y)
+	check(lowest >= Ball.BR - 0.01 and lowest < Ball.BR + 0.05, "resting on the ground (lowest %.3f)" % lowest)
 	wb.rests[0].age = WorldBalls.REST_LIFE - 0.01
 	wb.step_rests(0.0, 0.02)
 	check(wb.rests.is_empty(), "leftovers go after their time")
