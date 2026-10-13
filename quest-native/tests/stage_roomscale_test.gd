@@ -1,6 +1,6 @@
 extends RefCounted
-## Roomscale play: the project asks OpenXR for the Stage space (the play area, the player walks
-## about the room), and the Summit's VR spot follows a court set anywhere in the room.
+## The project asks OpenXR for the Local Floor space (the player's own boundary), and the
+## Summit's VR spot follows a court set anywhere in the room.
 
 
 static func run(check: Callable) -> void:
@@ -11,9 +11,9 @@ static func run(check: Callable) -> void:
 		if String(prop.name) == key:
 			hint = String(prop.hint_string)
 	var names := hint.split(",")
-	check.call(names.size() == 3 and names.find("Stage") == 1, "roomscale: Godot's reference spaces are %s (Stage = 1)" % hint)
-	check.call(value == 1 and value < names.size() and names[value] == "Stage",
-		"roomscale: the project uses the Stage space (%d), not Local Floor (seated / stationary)" % value)
+	check.call(names.size() == 3 and names.find("Local Floor") == 2, "space: Godot's reference spaces are %s (Local Floor = 2)" % hint)
+	check.call(value == 2 and value < names.size() and names[value] == "Local Floor",
+		"space: the project uses the Local Floor space (%d)" % value)
 	# The Summit on a VR court set off the origin and turned: the goal's spot, wherever it is.
 	var vb := Basis(Vector3.UP, -0.9).scaled(Vector3.ONE / 2.0)
 	var gr := Transform3D(vb, Vector3(1.2, 0, -0.8) - vb * Vector3(0, 0, 9.7))
