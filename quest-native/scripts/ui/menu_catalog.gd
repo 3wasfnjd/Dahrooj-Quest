@@ -5,13 +5,15 @@ extends RefCounted
 ## (quest-controls.ts). Every entry is [id, ar, en, ...].
 
 ## mode-catalog.ts XR_MODE_CATALOG: the live headset menu's mode cards, in order.
-## Plus the native port's Whack-a-Dahrooj ("mole"), after the fair.
+## Plus the native port's Whack-a-Dahrooj ("mole"), after the fair, and Dahrooj Attack
+## ("invasion") after it, and Slime ("slime") after that.
 const MODES := [
 	["goal", "مرمى", "Goal"], ["hoop", "سلة", "Hoop"], ["window", "شباك", "Window"],
 	["cans", "علب", "Cans"], ["bowling", "بولينغ", "Bowling"], ["bricks", "الطوب", "Bricks"],
-	["fair", "ملاهي", "Fair"], ["mole", "اضرب الدحروج", "Whack-a-Dahrooj"], ["rain", "مطر دحاريج", "Dahrooj Rain"],
-	["climb", "الجبل", "Summit"], ["balance", "التوازن", "Balance"], ["ricochet", "الارتداد", "Ricochet"],
-	["maze", "المتاهة", "Maze"],
+	["fair", "ملاهي", "Fair"], ["mole", "اضرب الدحروج", "Whack-a-Dahrooj"],
+	["invasion", "هجوم الدحاريج", "Dahrooj Attack"], ["slime", "سلايم", "Slime"],
+	["rain", "مطر دحاريج", "Dahrooj Rain"], ["climb", "الجبل", "Summit"], ["balance", "التوازن", "Balance"],
+	["ricochet", "الارتداد", "Ricochet"], ["maze", "المتاهة", "Maze"],
 ]
 const PAGES := [
 	["modes", "الأنماط", "Modes"], ["appearance", "المظهر", "Appearance"], ["play", "اللعب", "Play"],

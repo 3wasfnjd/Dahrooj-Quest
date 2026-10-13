@@ -22,7 +22,7 @@ const IDS := [
 	"flower", "crown", "headphones", "scarf", "aviator", "woodhat", "starGlasses", "beanie", "lock", "trigger",
 	"hand", "sling", "bolt", "firework", "auto", "reset", "day", "dusk", "night", "dawn",
 	"weather-rain", "snow", "place", "exit", "up", "down", "star", "mole", "mr", "vr",
-	"lang",
+	"lang", "invasion", "slime",
 ]
 ## The start screen's large icons, baked again at HI_CELL pixels.
 const HI_IDS := ["mr", "vr", "lang", "world"]
@@ -768,6 +768,70 @@ static func shapes(id: String) -> Array:
 			d.s(P([[-40, -22], [-48, -30]]), false, 4.0)
 			d.s(P([[-30, -32], [-32, -44]]), false, 4.0)
 			d.s(P([[-44, -8], [-54, -8]]), false, 4.0)
+		"invasion":
+			# Dahrooj Attack: a cheeky line of them hopping in from the distance (small at the
+			# back, big at the front with a mischievous grin), a blaster bolt striking the front one.
+			d.s(P([[44, -20], [52, -20]]), false, 3.5)
+			d.s(P([[33, 2], [44, 2]]), false, 3.5)
+			d.face(37, -36, 9.5, 3.5)
+			d.face(17, -15, 14.5, 4.0)
+			d.face(-15, 13, 27, 5.0)
+			# Brows angled in, and a grin.
+			d.s(P([[-31, -3], [-20, 2]]), false, 4.5)
+			d.s(P([[1, -3], [-10, 2]]), false, 4.5)
+			d.s(arc(-15, 18, 12, PI * 0.18, PI * 0.82), false, 4.5)
+			# The bolt and its spark.
+			d.s(P([[50, 46], [26, 35]]), false, 4.0)
+			d.ink(star(19, 32, 8.5, 0.4))
+		"slime":
+			# Slime: a Dahrooj splatted flat on a wall, melting, with a flared gooey skirt, drips
+			# running down off it, splash droplets flying and impact lines over his head.
+			d.xf = Transform2D(0.0, Vector2(0.9, 0.9), 0.0, Vector2(0, 2))
+			var body := PackedVector2Array()
+			body.append(Vector2(-50, 22))
+			body.append(Vector2(-41, 17))
+			body.append(Vector2(-34, 9))
+			for i in range(0, 25):
+				var t := PI + PI * i / 24.0
+				body.append(Vector2(cos(t) * 31.0, 4.0 + sin(t) * 29.0))
+			body.append(Vector2(34, 9))
+			body.append(Vector2(42, 16))
+			body.append(Vector2(51, 21))
+			body.append(Vector2(36, 25))
+			body.append(Vector2(20, 26))
+			body.append(Vector2(2, 24))
+			body.append(Vector2(-16, 27))
+			body.append(Vector2(-34, 26))
+			d.cut(body, 4.0)
+			d.sf(body)
+			# Drips: [x, length, width] off the lower rim, each with a bulb.
+			for dr: Array in [[-24.0, 19.0, 5.0], [12.0, 26.0, 6.0], [33.0, 12.0, 4.0]]:
+				var x: float = dr[0]
+				var ln: float = dr[1]
+				var w: float = dr[2]
+				var y0 := 24.0
+				var drip := P([[x - w, y0], [x - w * 0.8, y0 + ln]])
+				for i in range(0, 17):
+					var t := PI - PI * i / 16.0
+					drip.append(Vector2(x + cos(t) * w * 1.25, y0 + ln + sin(t) * w * 1.25))
+				drip.append(Vector2(x + w * 0.8, y0 + ln))
+				drip.append(Vector2(x + w, y0))
+				d.cut(drip, 0.0)
+				d.f(drip)
+				d.s(drip, false, 5.0)
+			# His melted face: happy closed eyes and a wobbly smile.
+			d.s(arc(-11, -2, 6, PI * 1.1, PI * 1.9), false, 4.5)
+			d.s(arc(11, -2, 6, PI * 1.1, PI * 1.9), false, 4.5)
+			d.s(P([[-9, 9], [-4, 13], [0, 11], [4, 13], [9, 9]]), false, 4.0)
+			# Splash droplets and impact lines.
+			d.ink(ell(-45, -8, 4.5, 4.5, 20))
+			d.ink(ell(-36, -25, 3.0, 3.0, 16))
+			d.ink(ell(44, -14, 4.0, 4.0, 20))
+			d.ink(ell(50, 3, 2.6, 2.6, 16))
+			d.s(P([[-14, -36], [-19, -46]]), false, 4.0)
+			d.s(P([[0, -38], [0, -50]]), false, 4.0)
+			d.s(P([[14, -36], [19, -46]]), false, 4.0)
+			d.xf = Transform2D.IDENTITY
 		"mr":
 			# Mixed reality: your room's back corner through a viewfinder, a cube on the floor.
 			d.s(P([[-46, 34], [-20, 16], [20, 16], [46, 34]]), false, 4.0)

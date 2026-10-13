@@ -136,6 +136,10 @@ func _suites() -> void:
 	for f in files:
 		if f.begins_with("stage_") and f.ends_with("_test.gd"):
 			var sc: GDScript = load("res://tests/" + f)
+			# A suite that fails to parse must fail the run, not vanish silently.
+			if sc == null or not sc.can_instantiate() or not sc.has_method("run"):
+				check(false, "suite %s loads" % f)
+				continue
 			sc.call("run", check)
 
 
@@ -215,12 +219,17 @@ func _world(main: Node) -> void:
 	main.set_menu(false)
 	main._choose_mode("mole")
 	check(main.stage is MoleStage and main.runtime.mode == "mole", "the mole card starts Whack-a-Dahrooj")
+	main._choose_mode("invasion")
+	var back_inv: Vector3 = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
+	check(main.stage is InvasionStage and main.runtime.mode == "invasion" and back_inv.z > -6.0 and back_inv.z < -4.0, "the invasion card starts Dahrooj Attack, the player near the court (%.1f)" % back_inv.z)
 	main._choose_mode("maze")
 	main._step_table(1.0 / 72.0)
 	check(main.table is TabletopStage and main.table.visible and not main.stage.visible, "the maze card brings the tabletop board")
 	main._choose_mode("climb")
 	main._step_summit(1.0 / 72.0)
 	check(main.summit_on and main.summit.visible and not main.stage.visible, "the climb card starts the Summit")
+	main._choose_mode("slime")
+	check(main.stage is SlimeStage, "the slime card starts Slime")
 	main._choose_mode("goal")
 	check(not main.summit_on, "leaving the Summit for a mode")
 	check(main.table == null and main.stage.visible, "and a throwing mode puts it away")

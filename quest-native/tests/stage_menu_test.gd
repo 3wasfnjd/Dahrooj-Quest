@@ -96,7 +96,7 @@ static func run(check: Callable) -> void:
 	_start_screen(check)
 	var p := MenuPanel.new()
 	# Button counts per page (7 tabs + Close on every page).
-	var want := {"modes": 21, "appearance": 21, "accessories": 22, "play": 15, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
+	var want := {"modes": 23, "appearance": 21, "accessories": 22, "play": 15, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
 	for en in [false, true]:
 		var bad: Array = []
 		for k: String in want:
@@ -110,26 +110,33 @@ static func run(check: Callable) -> void:
 	p.set_page("modes")
 	var m_ar := _model(false)
 	p.draw(m_ar, -1)
-	check.call(_count(p, "mode") == 13 and p.buttons[_find(p, "mode", "hoop")].selected and p.buttons[_find(p, "tab", "modes")].selected, "menu: 13 mode cards, the current mode and page selected")
+	check.call(_count(p, "mode") == 15 and p.buttons[_find(p, "mode", "hoop")].selected and p.buttons[_find(p, "tab", "modes")].selected, "menu: 15 mode cards, the current mode and page selected")
 	var order: Array = []
 	for b: Dictionary in p.buttons:
 		if b.kind == "mode":
 			order.append(b.id)
-	check.call(order == ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "rain", "climb", "balance", "ricochet", "maze"]
+	check.call(order == ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime", "rain", "climb", "balance", "ricochet", "maze"]
 		and p.buttons[_find(p, "mode", "mole")].en == "Whack-a-Dahrooj", "menu: Whack-a-Dahrooj after the fair")
+	var inv: Dictionary = p.buttons[_find(p, "mode", "invasion")]
+	check.call(inv.en == "Dahrooj Attack" and inv.ar == "هجوم الدحاريج" and inv.icon == "invasion" and MenuIcons.IDS.has("invasion"), "menu: Dahrooj Attack after Whack-a-Dahrooj, with its own icon")
+	var sl: Dictionary = p.buttons[_find(p, "mode", "slime")]
+	check.call(sl.en == "Slime" and sl.ar == "سلايم" and sl.icon == "slime" and MenuIcons.IDS.has("slime"), "menu: Slime after Dahrooj Attack, with its own icon")
 	# The grid: five across, the short last row centred, nothing overlapping.
 	var cells_ok := true
-	for i in 13:
+	var cards := MenuCatalog.MODES.size()
+	for i in cards:
 		var a: Dictionary = MenuPanel.mode_cell(i, true)
 		if float(a.x) < 219.9 or float(a.x) + float(a.w) > 1108.1 or float(a.y) + float(a.h) > MenuPanel.FOOTER_Y - 8.0:
 			cells_ok = false
-		for j in range(i + 1, 13):
+		for j in range(i + 1, cards):
 			var b: Dictionary = MenuPanel.mode_cell(j, true)
 			if Rect2(a.x, a.y, a.w, a.h).intersects(Rect2(b.x, b.y, b.w, b.h)):
 				cells_ok = false
-	var last: Dictionary = MenuPanel.mode_cell(12, true)
-	var mid: Dictionary = MenuPanel.mode_cell(11, true)
-	check.call(cells_ok and absf(float(mid.x) + float(mid.w) / 2.0 - 664.0) < 0.01 and float(last.x) > float(mid.x), "menu: the mode grid fits, last row centred")
+	# 15 cards: three full rows of 5 (a short last row would be centred under the others).
+	var row0: Dictionary = MenuPanel.mode_cell(10, true)
+	var last: Dictionary = MenuPanel.mode_cell(cards - 1, true)
+	var centre := (float(row0.x) + float(last.x) + float(last.w)) / 2.0
+	check.call(cells_ok and cards == 15 and absf(float(last.x) + float(last.w) - float(MenuPanel.mode_cell(4, true).x) - float(MenuPanel.mode_cell(4, true).w)) < 0.01 and absf(centre - 664.0) < 0.01 and float(last.x) > float(row0.x) and float(row0.y) == float(last.y), "menu: the mode grid fits (three full rows), last row centred")
 	var r0 := p.renders
 	p.draw(m_ar, -1)
 	check.call(p.renders == r0, "menu: an unchanged draw does not re-render")

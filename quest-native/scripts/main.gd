@@ -53,6 +53,7 @@ var confetti: Confetti
 var toast: ToastCard
 var audio: GameAudio
 var intro: IntroRain
+var _slime_look := false
 var summit: SummitMode
 var _known_rewards := {}  # accessory id -> true, unlocked when last checked
 var _reward_check := 0.0
@@ -470,6 +471,8 @@ func set_mode(m: String) -> void:
 	place()
 	if stage != null:
 		_setup_mole()
+		_setup_invasion()
+		_setup_slime()
 
 
 func time_k() -> float:
@@ -652,8 +655,19 @@ func _game_step(delta: float) -> void:
 	world_balls.step_blast(dt)
 	if stage is MoleStage:
 		(stage as MoleStage).viewer = eye_game()
+	if stage is SlimeStage:
+		(stage as SlimeStage).viewer = eye_game()
+	var inv := stage as InvasionStage
+	var slow := 1.0
+	if inv != null:
+		inv.viewer = eye_game()
+		inv.paused = state != "play" or placing
+		if inv.visible and not summit_on:
+			slow = inv.time_scale
+	# Slow motion (Dahrooj Attack): the game slows, music and sounds drop in pitch.
+	AudioServer.playback_speed_scale = inv.audio_pitch() if inv != null and slow < 1.0 else 1.0
 	if true:
-		var gdt := dt * time_k()
+		var gdt := dt * time_k() * slow
 		runtime.step(gdt)
 		world_balls.step_rests(gdt, dt)
 		world_balls.step_contacts(gdt)
@@ -711,6 +725,16 @@ func _game_step(delta: float) -> void:
 			var k := _pop_t / 0.25
 			var e := 1.0 + 2.2 * pow(k - 1.0, 3) + 1.2 * pow(k - 1.0, 2)
 			dahrooj.scale *= maxf(0.05, e)
+	# Slime: each Dahrooj is a jelly in the colour he will splat in.
+	if stage is SlimeStage and stage.visible and not summit_on and table == null:
+		var sl := stage as SlimeStage
+		dahrooj.set_look("jelly", sl.color_for(ball.shot_id) if ball.shot else sl.next_color, worn())
+		for i in mini(volley_views.size(), ball.volley.size()):
+			(volley_views[i] as DahroojView).set_look("jelly", sl.color_for(int(ball.volley[i].shot_id)), worn())
+		_slime_look = true
+	elif _slime_look:
+		_slime_look = false
+		_apply_look()
 	world_balls.draw_rests(eye, (state != "play" and state != "menu") or summit_on)
 	for i in volley_views.size():
 		var v: DahroojView = volley_views[i]
@@ -1505,6 +1529,72 @@ func _step_table(dt: float) -> void:
 		"color": Save.jelly_color, "accessory": worn(), "eye": head_transform().origin, "english": not Save.arabic()})
 
 
+## Dahrooj Attack: in mixed reality they also burst out of the scanned walls and floor,
+## bigger; haptics through buzz().
+func _setup_invasion() -> void:
+	var inv := stage as InvasionStage
+	if inv == null:
+		return
+	inv.size = 2.0 if mode == "mr" else 1.0
+	inv.buzz = buzz
+	inv.spots_provider = func() -> Array:
+		var out := []
+		if mode != "mr":
+			return out
+		var to_game := game_root.global_transform.affine_inverse()
+		var head := head_transform().origin
+		for pl in surfaces.planes():
+			if pl.label == "ceiling":
+				continue
+			var x: Transform3D = pl.xform
+			var sz: Vector2 = pl.size
+			if sz.x < 0.35 or sz.y < 0.35:
+				continue
+			for k in 3:
+				var u := (randf() - 0.5) * sz.x * 0.8
+				var v := (randf() - 0.5) * sz.y * 0.8
+				var wp := x.origin + x.basis.x.normalized() * u + x.basis.y.normalized() * v
+				if wp.distance_to(head) < 1.5:
+					continue
+				out.append({"pos": to_game * wp, "normal": (to_game.basis * (pl.normal as Vector3)).normalized()})
+		return out
+
+
+## Slime: in mixed reality Dahrooj sticks to the scanned walls, floor and furniture.
+func _setup_slime() -> void:
+	var slime := stage as SlimeStage
+	if slime == null:
+		return
+	slime.planes_provider = func() -> Array:
+		var out := []
+		if mode != "mr":
+			return out
+		var to_game := game_root.global_transform.affine_inverse()
+		var add := func(c: Vector3, n: Vector3, u: Vector3, v: Vector3, label: String) -> void:
+			var ax: Vector3 = to_game.basis * u
+			var ay: Vector3 = to_game.basis * v
+			out.append({"pos": to_game * c, "normal": (to_game.basis * n).normalized(), "ax": ax.normalized(),
+				"ay": ay.normalized(), "half": Vector2(ax.length(), ay.length()), "label": label})
+		for pl in surfaces.planes():
+			if pl.label == "ceiling":
+				continue
+			var x: Transform3D = pl.xform
+			var sz: Vector2 = pl.size
+			add.call(x.origin, pl.normal, x.basis.x.normalized() * sz.x * 0.5, x.basis.y.normalized() * sz.y * 0.5, pl.label)
+		# Furniture volumes: their top and sides.
+		for bx in surfaces.boxes():
+			var x: Transform3D = bx.xform
+			var sz: Vector3 = bx.size
+			var e := [x.basis.x.normalized(), x.basis.y.normalized(), x.basis.z.normalized()]
+			for i in 3:
+				for sgn in [-1.0, 1.0]:
+					if i == 1 and sgn < 0.0:
+						continue
+					var n: Vector3 = e[i] * sgn
+					add.call(x.origin + n * sz[i] * 0.5, n, e[(i + 1) % 3] * sz[(i + 1) % 3] * 0.5, e[(i + 2) % 3] * sz[(i + 2) % 3] * 0.5, bx.label)
+		return out
+
+
 ## A mode card (xr-runtime.js choosePlaza).
 func _choose_mode(id: String) -> void:
 	var sound_pos := to_game(menu.global_position)
@@ -1542,6 +1632,8 @@ func _choose_mode(id: String) -> void:
 		stage.visible = true
 		place()
 		_setup_mole()
+		_setup_invasion()
+		_setup_slime()
 	sfx("whoosh", 0.5, sound_pos)
 	buzz("left", 0.45, 70)
 	buzz("right", 0.45, 70)

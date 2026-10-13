@@ -15,6 +15,8 @@ const REST_ROOM := 26.0
 const REAL_G := 9.8
 const SPARKS_MAX := 128
 const SHOTS_MAX := 16
+## Angle between the shots of a fan (radians): Dahrooj Attack's triple shot.
+const FAN_STEP := 0.11
 const SHOT_STYLE := {
 	"bolt": {"speed": 45.0, "grav": 0.0, "life": 1.2, "r": 0.02, "cool": 0.12},
 	"mini": {"speed": 11.0, "grav": 1.0, "life": 3.2, "r": 0.022, "cool": 0.12},
@@ -406,22 +408,39 @@ func fire(hand: String, origin: Vector3, dir: Vector3) -> void:
 	var P: Dictionary = SHOT_STYLE[kind]
 	if clock - float(last_shot[hand]) < P.cool:
 		return
-	# Reuse the bounded flight budget instead of stalling a held trigger.
-	if shots.size() >= SHOTS_MAX:
-		var oldest: Dictionary = shots.pop_front()
-		if oldest.node:
-			oldest.node.queue_free()
 	last_shot[hand] = clock
 	fired += 1
 	host.note_style()
 	var hk: float = host.scale_now
 	var k := blast_k()
 	var p := origin + dir * 0.08 * hk
+	# A power-up of the mode (Dahrooj Attack's triple shot) fans the shot out.
+	var fan := 1
+	var st: Node3D = host.stage
+	if st and st.is_visible_in_tree() and st.has_method("shot_fan"):
+		fan = clampi(int(st.shot_fan()), 1, 5)
+	for j in fan:
+		var d := dir.rotated(Vector3.UP, (j - (fan - 1) / 2.0) * FAN_STEP) if fan > 1 else dir
+		_add_shot(kind, P, p, d, k, j)
+	# Muzzle flash (not for a bubble), at the hand.
+	if kind != "bubble":
+		_spark(p, Vector3.ZERO, 0.07, Color("ffe9b0"), 0.05 * hk, true)
+	host.sfx("pew" if kind == "bolt" else ("firework_launch" if kind == "firework" else "whoosh"), 0.18, p)
+	host.buzz(hand, 0.12 if kind == "bubble" else 0.3, 22)
+
+
+## One shot in flight (j: its place in a fan).
+func _add_shot(kind: String, P: Dictionary, p: Vector3, dir: Vector3, k: float, j: int) -> void:
+	# Reuse the bounded flight budget instead of stalling a held trigger.
+	if shots.size() >= SHOTS_MAX:
+		var oldest: Dictionary = shots.pop_front()
+		if oldest.node:
+			oldest.node.queue_free()
 	var node: Node3D = null
 	var style := ""
 	var color := Color.WHITE
 	if kind == "mini":
-		style = MINI_STYLES[fired % MINI_STYLES.size()]
+		style = MINI_STYLES[(fired + j) % MINI_STYLES.size()]
 		var hex: String = MINI_COLORS[_rng.randi() % MINI_COLORS.size()]
 		color = Color(hex if hex != "" else String(STYLE_COLORS[style]))
 	elif kind == "bubble":
@@ -436,11 +455,6 @@ func fire(hand: String, origin: Vector3, dir: Vector3) -> void:
 	shots.append({"kind": kind, "node": node, "p": p, "v": dir * P.speed * k, "dir": dir, "t": 0.0, "r": P.r * k,
 		"k": k, "style": style, "color": color, "spin": rnd() * TAU,
 		"wob": rnd() * 6.0, "skips": 0, "float": -1.0, "tap": 0.0, "wet": false})
-	# Muzzle flash (not for a bubble), at the hand.
-	if kind != "bubble":
-		_spark(p, Vector3.ZERO, 0.07, Color("ffe9b0"), 0.05 * hk, true)
-	host.sfx("pew" if kind == "bolt" else ("firework_launch" if kind == "firework" else "whoosh"), 0.18, p)
-	host.buzz(hand, 0.12 if kind == "bubble" else 0.3, 22)
 
 
 func _mat(key: String) -> Material:
