@@ -54,6 +54,8 @@ var toast: ToastCard
 var audio: GameAudio
 var intro: IntroRain
 var summit: SummitMode
+var _known_rewards := {}  # accessory id -> true, unlocked when last checked
+var _reward_check := 0.0
 var summit_hud: SummitHud
 var summit_on := false
 var summit_zoom := 1.0
@@ -551,6 +553,7 @@ func _process(delta: float) -> void:
 		_game_step(delta)
 		_step_table(minf(delta, 0.05))
 		_step_summit(minf(delta, 0.05))
+		_watch_rewards(delta)
 	if menu.visible:
 		_step_menu(delta)
 	elif panel.visible and xr:
@@ -987,6 +990,33 @@ func note_style() -> void:
 func worn() -> String:
 	var done := DahroojLooks.done_count(Save.challenges)
 	return Save.accessory if DahroojLooks.accessory_available(Save.accessory, done, Save.challenges) else ""
+
+
+func _open_rewards() -> Array:
+	var done := DahroojLooks.done_count(Save.challenges)
+	var out := []
+	for a: Array in MenuCatalog.ACCESSORIES:
+		if a[0] != "" and DahroojLooks.accessory_available(a[0], done, Save.challenges):
+			out.append(a)
+	return out
+
+
+## xr-runtime.js watchRewards: a card (and the chime) when a challenge unlocks an accessory.
+func _watch_rewards(dt: float) -> void:
+	_reward_check -= dt
+	if _reward_check > 0.0:
+		return
+	_reward_check = 0.5
+	var open := _open_rewards()
+	var first := _known_rewards.is_empty() and not _known_rewards.has("_init")
+	for a: Array in open:
+		if not first and not _known_rewards.has(a[0]):
+			toast.notify("reward", Save.text("فتحت %s!" % a[1], "%s unlocked!" % a[2]),
+				Save.text("البسها من المظهر ← الإكسسوارات", "Equip from Appearance → Accessories"))
+			sfx("chime", 1.0, eye_game())
+	_known_rewards = {"_init": true}
+	for a: Array in open:
+		_known_rewards[a[0]] = true
 
 
 func _apply_look() -> void:
