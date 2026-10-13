@@ -590,6 +590,8 @@ func pop(i: int, dir := Vector3.FORWARD, cause := "shot") -> void:
 	it.pop_t = -1.0
 	(it.proxy as MeshInstance3D).visible = false
 	F.popped += 1
+	if ctx:
+		ctx.tally.call("frenzy500", 1)
 	# Effects: a shock ring, a spray of droplets in its colour and white.
 	_ring(p, r * 0.9, r * (2.6 if kind != "big" else 2.0), 0.38, c)
 	_spray(p, c, r, 10 if kind == "bubble" else (16 if kind == "dahrooj" else 30), dir)

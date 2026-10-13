@@ -20,21 +20,24 @@ const PLAYABLE_STYLES := ["jelly", "fur", "bubble"]
 const TINTED := ["jelly", "fur", "bubble"]
 ## appearance.ts DAHROOJ_COLOR_CHOICES: id -> hex ("" = the style's own colour).
 const COLOR_CHOICES := {"original": "", "pink": "ff69b4", "red": "ff505c", "orange": "ff9b3d", "yellow": "ffdf45",
-	"green": "58db83", "blue": "58b9ff", "purple": "b878ff"}
-const COLOR_IDS := ["original", "pink", "red", "orange", "yellow", "green", "blue", "purple"]
+	"green": "58db83", "blue": "58b9ff", "purple": "b878ff", "turquoise": "2fcdbd", "maroon": "a8304a", "navy": "3d5ab0", "gold": "e8b23a"}
+const COLOR_IDS := ["original", "pink", "red", "orange", "yellow", "green", "blue", "purple", "turquoise", "maroon", "navy", "gold"]
 ## config.ts ACCESSORIES ('' = none).
 const ACCESSORIES := ["", "party", "glasses", "cap", "flower", "crown", "headphones", "scarf", "aviator", "woodhat", "starGlasses", "beanie",
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef", "dino", "halo",
-	"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap"]
+	"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
+	"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak", "sadu", "medal",
+	"goldAgal", "bisht", "trophy"]
 ## A hat takes the place of the fur ball's ribbon.
 const HEADWEAR := ["party", "cap", "crown", "headphones", "aviator", "woodhat", "beanie",
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "astronaut", "pirate", "chef", "dino",
-	"bunny", "wizard", "viking", "propeller", "gradcap"]
+	"bunny", "wizard", "viking", "propeller", "gradcap",
+	"umbrella", "turban", "taifRose", "farwa", "lantern", "palm", "karak", "goldAgal", "trophy"]
 ## Accessories with a see-through part (drawn by GLASS_SHADER as a second mesh).
 const GLASS := ["astronaut"]
 const BOW_AT := Vector3(-0.1, 0.86, 0.5)
 ## Canvas patterns drawn by ACC_SHADER (the accessories' CanvasTextures).
-enum Pattern { NONE, PARTY, CAP, BEANIE, WOOD, SCARF, UNLIT, SHEMAGH, TAQIYAH, KUFI, KUFI_TOP, GHUTRA, BAND, CHEF, DINO }
+enum Pattern { NONE, PARTY, CAP, BEANIE, WOOD, SCARF, UNLIT, SHEMAGH, TAQIYAH, KUFI, KUFI_TOP, GHUTRA, BAND, CHEF, DINO, SADU }
 
 static var _cache := {}
 
@@ -330,13 +333,30 @@ vec3 pattern2(int k, vec2 uv) {
 	} else if (k == 13) {
 		// Chef's hat band: soft pleats.
 		return vec3(0.9 + 0.1 * smoothstep(0.0, 1.0, tri(uv.x * 22.0)));
-	} else {
+	} else if (k == 14) {
 		// Dino hood: rounded lighter spots.
 		vec2 q = uv * 5.0;
 		vec2 c = fract(q + vec2(0.5 * mod(floor(q.y), 2.0), 0.0)) - 0.5;
 		float aa = fwidth(q.x) + 0.02;
 		float s = 1.0 - smoothstep(0.2 - aa, 0.2 + aa, length(c));
 		return mix(vec3(1.0), vec3(1.25, 1.18, 0.9), s);
+	} else {
+		// Sadu weave: a red ground, a black band of white diamonds, white teeth along it.
+		vec2 q = vec2(uv.x * 26.0, fract(uv.y * 2.0));
+		float fx = abs(fract(q.x) - 0.5) * 2.0;
+		float d = abs(q.y - 0.5);
+		float aa = fwidth(q.y) * 1.5 + 0.01;
+		vec3 red = vec3(0.72, 0.13, 0.11);
+		vec3 cream = vec3(0.95, 0.91, 0.82);
+		float band = 1.0 - smoothstep(0.2 - aa, 0.2 + aa, d);
+		vec3 c = mix(red, vec3(0.08, 0.07, 0.07), band);
+		float r = fx + d / 0.2;
+		c = mix(c, cream, band * (1.0 - smoothstep(0.75 - aa * 4.0, 0.75 + aa * 4.0, r)));
+		c = mix(c, red, band * (1.0 - smoothstep(0.32 - aa * 4.0, 0.32 + aa * 4.0, r)));
+		float tooth = step(0.2, d) * (1.0 - smoothstep(0.2 + 0.1 * (1.0 - fx) - aa, 0.2 + 0.1 * (1.0 - fx) + aa, d));
+		c = mix(c, cream, tooth);
+		float stripe = 1.0 - smoothstep(0.02 - aa, 0.02 + aa, abs(d - 0.42));
+		return mix(c, vec3(0.93, 0.62, 0.2), stripe);
 	}
 }
 void fragment() {
@@ -973,9 +993,9 @@ static func _drape_edge(lite: bool, c: Dictionary, hem: bool) -> Array:
 
 ## The agal: a double black cord ringing the crown, tipped down at the front, and (full) its
 ## two tasselled tails down the back. on: the cloth's radius under it.
-static func _agal(list: Array, lite: bool, on: float) -> void:
-	var black := Color("1b1a1f")
-	var cs := _s(0.5, 0.0, Pattern.NONE, 0.35)
+static func _agal(list: Array, lite: bool, on: float, gold := false) -> void:
+	var black := Color("e0ad3c") if gold else Color("1b1a1f")
+	var cs := _s(0.3, 0.85, Pattern.NONE, 1.1) if gold else _s(0.5, 0.0, Pattern.NONE, 0.35)
 	var tilt := 0.17
 	var tube := 0.066
 	var rho := on + tube * 0.8
@@ -1121,6 +1141,15 @@ static func _accessory_parts(id: String, lite: bool) -> Array:
 				list.append([_tube(_drape_edge(lite, c, false), 0.022, 8), Transform3D.IDENTITY, Color.WHITE, cloth])
 				list.append([_tube(_drape_edge(lite, c, true), 0.016, 6), Transform3D.IDENTITY, Color.WHITE, cloth])
 			_agal(list, lite, 1.06)
+		"goldAgal":
+			# The white ghutra under a golden agal.
+			var cloth := _s(0.88, 0.0, Pattern.GHUTRA)
+			var c := {"R": 1.06, "crest": 0.3, "edge": deg_to_rad(60.0), "side": deg_to_rad(64.0), "base": 0.42, "back": 0.34, "corner": 0.18, "folds": 0.035}
+			list.append([_drape(lite, c), Transform3D.IDENTITY, Color.WHITE, cloth])
+			if not lite:
+				list.append([_tube(_drape_edge(lite, c, false), 0.022, 8), Transform3D.IDENTITY, Color.WHITE, cloth])
+				list.append([_tube(_drape_edge(lite, c, true), 0.016, 6), Transform3D.IDENTITY, Color.WHITE, cloth])
+			_agal(list, lite, 1.06, true)
 		"taqiyah":
 			# The white crocheted skullcap, a little back on the head, its rim rolled.
 			var cap := xf(Vector3(0, 0.0, -0.03), Vector3(-0.2, 0, 0))
@@ -1361,7 +1390,280 @@ static func _accessory_parts(id: String, lite: bool) -> Array:
 			list.append([cylinder(0.015, 0.015, 1.0, _q(lite, 4, 8)), cap * xf(Vector3(0.5, 1.04, 0), Vector3(0, 0, PI / 2)), gold, gs])
 			list.append([cylinder(0.02, 0.02, 0.3, _q(lite, 4, 8)), cap * xf(Vector3(1.0, 0.88, 0)), gold, gs])
 			list.append([cylinder(0.035, 0.065, 0.18, _q(lite, 8, 14)), cap * xf(Vector3(1.0, 0.66, 0)), gold, gs])
+		"umbrella":
+			# A beach umbrella on a little cap: eight striped panels on a pole, ball tips.
+			var cols := [Color("e8473c"), Color("fff4e0"), Color("ffd23f"), Color("fff4e0"), Color("3a8bd8"), Color("fff4e0"), Color("58db83"), Color("fff4e0")]
+			var hat := xf(Vector3(0, 0, -0.03), Vector3(-0.12, 0, 0.08))
+			list.append([sphere(1.045, _q(lite, 16, 40), _q(lite, 5, 10), 0, TAU, 0, PI * 0.26), hat, Color("3a8bd8"), _s(0.75)])
+			var a := PI * 0.26
+			list.append([torus(1.045 * sin(a), 0.035, _q(lite, 6, 8), _q(lite, 20, 48)), hat * xf(Vector3(0, 1.045 * cos(a), 0), Vector3(PI / 2, 0, 0)), Color("fff4e0"), _s(0.7)])
+			list.append([cylinder(0.022, 0.022, 0.62, _q(lite, 6, 10)), hat * xf(Vector3(0, 1.3, 0)), Color("f3f3f5"), _s(0.3, 0.6, Pattern.NONE, 0.8)])
+			var top := hat * xf(Vector3(0, 1.6, 0))
+			for k in 8:
+				list.append([cylinder(0.0, 1.0, 0.3, _q(lite, 2, 6), true, k * TAU / 8.0, TAU / 8.0), top, cols[k], _s(0.65)])
+				if not lite:
+					var rib := k * TAU / 8.0
+					list.append([sphere(0.03, 8, 6), top * xf(Vector3(sin(rib) * 1.0, -0.16, cos(rib) * 1.0)), Color("f3f3f5"), _s(0.4)])
+			list.append([sphere(0.055, _q(lite, 8, 12), _q(lite, 6, 8)), top * xf(Vector3(0, 0.17, 0)), Color("e8473c"), _s(0.5)])
+		"goldShades":
+			# Gold aviator sunglasses: teardrop lenses (wider at the bottom, out to the side),
+			# a double bridge and thin gold arms.
+			var gold := Color("e3b341")
+			var gs := _s(0.25, 0.85, Pattern.NONE, 1.1)
+			for sd in [-1.0, 1.0]:
+				var a: float = sd * 0.33
+				var out := Vector3(sin(a), 0, cos(a))
+				var p := out * 1.18
+				p.y = 0.08
+				var lens := xf(p, Vector3(0, a, 0))
+				var rim := _teardrop(sd, _q(lite, 16, 36))
+				var tris := []
+				for k in rim.size():
+					tris.append([Vector3(0, -0.02, -0.004), (rim[k] as Vector3) + Vector3(0, 0, -0.004), (rim[(k + 1) % rim.size()] as Vector3) + Vector3(0, 0, -0.004)])
+				list.append([_flat(tris), lens, Color("33402f"), _s(0.06, 0.3, Pattern.NONE, 1.2)])
+				var loop := rim.duplicate()
+				loop.append(rim[0])
+				loop.append(rim[1])
+				list.append([_tube(loop, 0.02, _q(lite, 5, 8)), lens, gold, gs])
+				list.append([box(0.03, 0.03, 1.05), xf(Vector3(sd * 0.75, 0.15, 0.66), Vector3(0, -sd * 0.56, 0)), gold, gs])
+			list.append([box(0.2, 0.024, 0.024), xf(Vector3(0, 0.23, 1.21)), gold, gs])
+			list.append([torus(0.075, 0.018, _q(lite, 6, 8), _q(lite, 8, 16), PI), xf(Vector3(0, 0.12, 1.22)), gold, gs])
+		"turban":
+			# A wrapped turban: folds of white cloth crossing over the brow, a dome on top,
+			# a ruby brooch with a feather.
+			var cloth := Color("f6f1e6")
+			var cs := _s(0.85, 0.0, Pattern.GHUTRA)
+			var hat := xf(Vector3(0, 0, -0.03), Vector3(-0.12, 0, 0))
+			list.append([sphere(0.78, _q(lite, 18, 40), _q(lite, 5, 12), 0, TAU, 0, PI * 0.5), hat * xf(Vector3(0, 0.7, 0), Vector3.ZERO, Vector3(1, 0.62, 1)), cloth, cs])
+			for k in 4:
+				var y := 0.36 + k * 0.14
+				var R := sqrt(1.0 - y * y) + 0.06
+				var tilt := (0.13 if k % 2 == 0 else -0.1)
+				list.append([torus(R, 0.12, _q(lite, 6, 12), _q(lite, 20, 48)), hat * Transform3D(Basis(Vector3.RIGHT, tilt) * Basis(Vector3.RIGHT, PI / 2), Vector3(0, y, 0)), cloth, cs])
+			var front := hat * xf(Vector3(0, 0.6, 0.93), Vector3(-0.5, 0, 0))
+			list.append([torus(0.07, 0.02, _q(lite, 6, 8), _q(lite, 10, 20)), front, Color("e3b341"), _s(0.3, 0.85, Pattern.NONE, 1.0)])
+			list.append([octahedron(0.065), front * xf(Vector3(0, 0, 0.02), Vector3.ZERO, Vector3(1, 1.2, 0.6)), Color("d0213a"), _s(0.15, 0.2)])
+			list.append([sphere(0.2, _q(lite, 8, 14), _q(lite, 6, 10)), front * xf(Vector3(0.03, 0.24, -0.03), Vector3(0, 0, -0.25), Vector3(0.28, 1.0, 0.12)), Color("fffaf0"), _s(0.9)])
+		"taifRose":
+			# A crown of pink Taif roses on a green vine, with little leaves between.
+			var ring := xf(Vector3(0, 0.8, -0.03), Vector3(0.16, 0, 0))
+			var R := 0.64
+			list.append([torus(R, 0.03, _q(lite, 6, 8), _q(lite, 24, 56)), ring * xf(Vector3.ZERO, Vector3(PI / 2, 0, 0)), Color("4f9447"), _s(0.7)])
+			var nf := _q(lite, 7, 9)
+			for f in nf:
+				var a := TAU * f / nf
+				var out := Vector3(sin(a), 0, cos(a))
+				var at := ring * (out * (R + 0.03) + Vector3(0, 0.05, 0))
+				var nrm := (ring.basis * (out * 0.75 + Vector3(0, 0.65, 0))).normalized()
+				var fr := Transform3D(Basis.looking_at(nrm, Vector3.UP, true), at)
+				list.append([sphere(0.06, _q(lite, 6, 10), _q(lite, 4, 8)), fr * xf(Vector3(0, 0, 0.07), Vector3.ZERO, Vector3(1, 1, 0.9)), Color("c2185b"), _s(0.55)])
+				for k in 5:
+					var pa := TAU * k / 5.0 + f
+					list.append([sphere(0.085, _q(lite, 6, 10), _q(lite, 4, 8)), fr * xf(Vector3(cos(pa) * 0.06, sin(pa) * 0.06, 0.04), Vector3(0, 0, pa), Vector3(1.0, 0.8, 0.55)), Color("e0538d"), _s(0.6)])
+					if not lite:
+						var pb := pa + PI / 5.0
+						list.append([sphere(0.1, 10, 8), fr * xf(Vector3(cos(pb) * 0.11, sin(pb) * 0.11, -0.005), Vector3(0, 0, pb), Vector3(1.0, 0.85, 0.4)), Color("f48fb6"), _s(0.6)])
+				if not lite:
+					var la := a + PI / nf
+					var lo := Vector3(sin(la), 0, cos(la))
+					list.append([sphere(0.08, 10, 8), ring * Transform3D(Basis.looking_at(lo, Vector3.UP, true) * Basis(Vector3.BACK, 0.9), lo * (R + 0.03)) * xf(Vector3.ZERO, Vector3.ZERO, Vector3(0.45, 1.0, 0.25)), Color("5aa651"), _s(0.6)])
+		"farwa":
+			# A sheepskin hat: a tan suede crown with a thick rim of curly cream wool.
+			var suede := Color("a8743f")
+			list.append([sphere(1.06, _q(lite, 18, 40), _q(lite, 6, 14), 0, TAU, 0, PI * 0.36), xf(Vector3(0, 0.04, 0)), suede, _s(0.95)])
+			var wool := Color("f3ead6")
+			var n := _q(lite, 14, 30)
+			for row in _q(lite, 1, 2):
+				var th := PI * (0.36 - row * 0.06)
+				var rr := 1.1 * sin(th)
+				var yy := 1.1 * cos(th) + 0.04
+				for k in n:
+					var a := TAU * (k + row * 0.5) / n
+					list.append([sphere(0.13 - row * 0.03, _q(lite, 6, 10), _q(lite, 4, 8)), xf(Vector3(sin(a) * rr, yy, cos(a) * rr)), wool, _s(1.0)])
+			list.append([sphere(0.15, _q(lite, 8, 14), _q(lite, 6, 10)), xf(Vector3(0, 1.12, -0.02)), wool, _s(1.0)])
+		"diving":
+			# Diving goggles over the eyes with a blue strap round the head and a snorkel up
+			# the side.
+			var rubber := Color("1f6fb2")
+			var rs := _s(0.55)
+			for sd in [-1.0, 1.0]:
+				var a: float = sd * 0.34
+				var out := Vector3(sin(a), 0, cos(a))
+				var p := out * 1.12
+				p.y = 0.1
+				var cup := xf(p, Vector3(0, a, 0), Vector3(1, 0.86, 1))
+				list.append([torus(0.24, 0.055, _q(lite, 6, 10), _q(lite, 14, 32)), cup, rubber, rs])
+				list.append([cylinder(0.24, 0.27, 0.14, _q(lite, 14, 32), true), cup * xf(Vector3(0, 0, -0.08), Vector3(PI / 2, 0, 0)), Color("185a92"), rs])
+				list.append([circle(0.235, _q(lite, 14, 32)), cup * xf(Vector3(0, 0, 0.01)), Color("8fd8f0"), _s(0.04, 0.2, Pattern.NONE, 1.2)])
+				if not lite:
+					list.append([sphere(0.04, 8, 6), cup * xf(Vector3(-0.1, 0.1, 0.03), Vector3.ZERO, Vector3(1, 0.6, 0.3)), Color.WHITE, _s(1.0, 0.0, Pattern.UNLIT)])
+			list.append([box(0.16, 0.08, 0.06), xf(Vector3(0, 0.12, 1.11)), rubber, rs])
+			list.append([torus(1.02, 0.045, _q(lite, 6, 8), _q(lite, 24, 56)), xf(Vector3(0, 0.12, 0), Vector3(PI / 2 - 0.08, 0, 0)), rubber, rs])
+			var path := []
+			for k in 9:
+				var q := float(k) / 8.0
+				var th := lerpf(deg_to_rad(95.0), deg_to_rad(22.0), q)
+				var ph := lerpf(0.25, -0.15, q)
+				path.append(Vector3(-sin(th) * cos(ph), cos(th), sin(th) * sin(ph)) * (1.1 + 0.06 * q))
+			list.append([_tube(path, 0.045, _q(lite, 6, 10)), Transform3D.IDENTITY, Color("ffd23f"), _s(0.5)])
+			var tip: Vector3 = path[path.size() - 1]
+			list.append([cylinder(0.065, 0.055, 0.1, _q(lite, 8, 14)), Transform3D(Basis(Quaternion(Vector3.UP, (tip - (path[path.size() - 2] as Vector3)).normalized())), tip), Color("ff7a2f"), _s(0.5)])
+		"lantern":
+			# A brass Ramadan lantern on top, its coloured glass lit from inside, a crescent
+			# on its finial.
+			var brass := Color("d4a23a")
+			var bs := _s(0.3, 0.85, Pattern.NONE, 1.0)
+			var l := xf(Vector3(0, 0.93, -0.04), Vector3(-0.1, 0, 0.06), Vector3.ONE * 1.12)
+			var glass := [Color("ffcf5a"), Color("ff6b5a"), Color("ffcf5a"), Color("6fdc8c"), Color("ffcf5a"), Color("6fb8ff")]
+			list.append([cylinder(0.2, 0.3, 0.09, _q(lite, 6, 6)), l * xf(Vector3(0, 0.03, 0)), brass, bs])
+			list.append([cylinder(0.25, 0.2, 0.08, _q(lite, 6, 6)), l * xf(Vector3(0, 0.115, 0)), brass, bs])
+			for k in 6:
+				list.append([cylinder(0.24, 0.2, 0.36, 1, true, k * TAU / 6.0, TAU / 6.0), l * xf(Vector3(0, 0.335, 0)), glass[k], _s(1.0, 0.0, Pattern.UNLIT)])
+				var c := k * TAU / 6.0
+				list.append([box(0.035, 0.38, 0.035), l * xf(Vector3(sin(c) * 0.225, 0.335, cos(c) * 0.225), Vector3(0, c, 0.0)), brass, bs])
+			for y: float in [0.155, 0.515]:
+				list.append([torus(0.245 if y < 0.3 else 0.205, 0.022, _q(lite, 4, 6), 6), l * xf(Vector3(0, y, 0), Vector3(PI / 2, 0, PI / 6.0)), brass, bs])
+			list.append([cylinder(0.05, 0.27, 0.17, _q(lite, 6, 6)), l * xf(Vector3(0, 0.6, 0)), brass, bs])
+			list.append([sphere(0.07, _q(lite, 8, 12), _q(lite, 6, 8)), l * xf(Vector3(0, 0.71, 0)), brass, bs])
+			list.append([cylinder(0.012, 0.02, 0.1, _q(lite, 4, 8)), l * xf(Vector3(0, 0.81, 0)), brass, bs])
+			list.append([torus(0.07, 0.02, _q(lite, 4, 8), _q(lite, 12, 24), PI * 1.3), l * xf(Vector3(0, 0.84, 0), Vector3(0, 0, PI * 0.85)), Color("ffd45c"), _s(0.25, 0.9, Pattern.NONE, 1.2)])
+		"palm":
+			# A crown of palm fronds on a woven band, with a little cluster of dates in front.
+			var band := xf(Vector3(0, 0.6, -0.03), Vector3(0.1, 0, 0))
+			list.append([torus(0.83, 0.065, _q(lite, 6, 10), _q(lite, 24, 56)), band * xf(Vector3.ZERO, Vector3(PI / 2, 0, 0)), Color("c69a58"), _s(0.85, 0.0, Pattern.WOOD)])
+			var n := _q(lite, 9, 13)
+			for k in n:
+				var a := TAU * (k + 0.5) / n
+				var lean := 0.6 + 0.16 * (k % 2)
+				var leaf := band * Transform3D(Basis(Vector3.UP, a) * Basis(Vector3.RIGHT, lean), Vector3(sin(a), 0, cos(a)) * 0.83)
+				var green := Color("4f9a3a") if k % 2 == 0 else Color("6cb84a")
+				list.append([sphere(0.5, _q(lite, 6, 12), _q(lite, 6, 12)), leaf * xf(Vector3(0, 0.42, 0), Vector3.ZERO, Vector3(0.21, 0.86 - 0.1 * (k % 2), 0.035)), green, _s(0.7)])
+				if not lite:
+					list.append([box(0.015, 0.78, 0.04), leaf * xf(Vector3(0, 0.4, 0.004)), Color("3c7a2c"), _s(0.7)])
+			for d: Array in [[-0.07, 0.0], [0.07, 0.0], [0.0, -0.07], [-0.12, -0.08], [0.12, -0.08]]:
+				list.append([sphere(0.06, _q(lite, 6, 10), _q(lite, 4, 8)), band * xf(Vector3(float(d[0]), -0.08 + float(d[1]), 0.88), Vector3.ZERO, Vector3(0.8, 1.15, 0.8)), Color("7a3b1c"), _s(0.3, 0.0, Pattern.NONE, 0.6)])
+		"misbaha":
+			# Amber prayer beads round the neck, the loop dipping in front to a gold tassel.
+			var amber := Color("db8a2a")
+			var ams := _s(0.18, 0.0, Pattern.NONE, 1.0)
+			var n := 33
+			var low := Vector3.ZERO
+			for k in n:
+				var t := TAU * k / n
+				var y := -0.5 - 0.2 * pow(cos(t / 2.0), 8.0)
+				var R := sqrt(1.0 - y * y) + 0.07
+				var p := Vector3(sin(t) * R, y, cos(t) * R)
+				if k == 0:
+					low = p
+				var big := k % 11 == 0 and k > 0
+				list.append([sphere(0.07 if big else 0.058, _q(lite, 6, 12), _q(lite, 4, 8)), xf(p), Color("e9b949") if big else amber, _s(0.25, 0.8, Pattern.NONE, 1.0) if big else ams])
+			var down := Vector3(0, -1, 0.35).normalized()
+			list.append([cylinder(0.035, 0.05, 0.1, _q(lite, 6, 10)), Transform3D(Basis(Quaternion(Vector3.UP, -down)), low + down * 0.1), Color("e9b949"), _s(0.25, 0.8, Pattern.NONE, 1.0)])
+			list.append([cylinder(0.03, 0.075, 0.2, _q(lite, 8, 14)), Transform3D(Basis(Quaternion(Vector3.UP, -down)), low + down * 0.25), Color("1e6b44"), _s(0.9)])
+		"karak":
+			# A glass of karak tea on its saucer, balanced on top, steam curling up.
+			var cup := xf(Vector3(0.05, 0.97, -0.03), Vector3(-0.12, 0, -0.1))
+			list.append([cylinder(0.38, 0.27, 0.05, _q(lite, 14, 40)), cup * xf(Vector3(0, 0.03, 0)), Color("fbf7ef"), _s(0.25, 0.0, Pattern.NONE, 0.7)])
+			list.append([torus(0.37, 0.016, _q(lite, 4, 6), _q(lite, 14, 40)), cup * xf(Vector3(0, 0.055, 0), Vector3(PI / 2, 0, 0)), Color("e3b341"), _s(0.3, 0.8, Pattern.NONE, 1.0)])
+			list.append([cylinder(0.24, 0.165, 0.16, _q(lite, 14, 36), true), cup * xf(Vector3(0, 0.32, 0)), Color("cf8f55"), _s(0.06, 0.0, Pattern.NONE, 1.4)])
+			list.append([cylinder(0.25, 0.24, 0.08, _q(lite, 14, 36), true), cup * xf(Vector3(0, 0.44, 0)), Color("eef0f2"), _s(0.04, 0.0, Pattern.NONE, 1.6)])
+			list.append([cylinder(0.165, 0.2, 0.18, _q(lite, 14, 36), true), cup * xf(Vector3(0, 0.15, 0)), Color("cf8f55"), _s(0.06, 0.0, Pattern.NONE, 1.4)])
+			list.append([cylinder(0.19, 0.19, 0.03, _q(lite, 14, 36)), cup * xf(Vector3(0, 0.075, 0)), Color("e8e2d6"), _s(0.1)])
+			list.append([circle(0.235, _q(lite, 14, 36)), cup * xf(Vector3(0, 0.4, 0), Vector3(-PI / 2, 0, 0)), Color("c98a52"), _s(0.4)])
+			list.append([torus(0.25, 0.016, _q(lite, 4, 6), _q(lite, 14, 36)), cup * xf(Vector3(0, 0.48, 0), Vector3(PI / 2, 0, 0)), Color("e3b341"), _s(0.3, 0.8, Pattern.NONE, 1.0)])
+			list.append([torus(0.168, 0.014, _q(lite, 4, 6), _q(lite, 14, 36)), cup * xf(Vector3(0, 0.24, 0), Vector3(PI / 2, 0, 0)), Color("e3b341"), _s(0.3, 0.8, Pattern.NONE, 1.0)])
+			if not lite:
+				for s in 2:
+					var path := []
+					for k in 10:
+						var q := float(k) / 9.0
+						path.append(Vector3(-0.07 + s * 0.13 + 0.05 * sin(q * 7.0 + s * 2.0), 0.5 + q * 0.36, 0.03 * cos(q * 6.0)))
+					list.append([_tube(path, 0.018 - 0.004 * s, 6), cup, Color("fff6ea"), _s(1.0, 0.0, Pattern.UNLIT)])
+		"sadu":
+			# A woven Sadu scarf: red with black-and-white Bedouin bands, fringed ends.
+			var wool := _s(0.9, 0.0, Pattern.SADU)
+			list.append([torus(0.81, 0.1, _q(lite, 8, 12), _q(lite, 20, 48)), xf(Vector3(0, -0.56, 0), Vector3(PI / 2, 0, 0)), Color.WHITE, wool])
+			list.append([sphere(0.13, _q(lite, 8, 12), _q(lite, 6, 10)), xf(Vector3(-0.3, -0.6, 0.69)), Color.WHITE, wool])
+			for sd in [-1.0, 1.0]:
+				list.append([box(0.16, 0.42, 0.045), xf(Vector3(-0.3 + sd * 0.08, -0.82, 0.65), Vector3(0, 0, sd * 0.17)), Color.WHITE, wool])
+				if not lite:
+					for j in 4:
+						list.append([cylinder(0.01, 0.01, 0.06, 6), xf(Vector3(-0.3 + sd * 0.08 + (j - 1.5) * 0.034 + sd * 0.036, -1.06, 0.65)), Color("1a1717") if j % 2 == 0 else Color("f2ead8"), _s(0.9)])
+		"medal":
+			# A gold medal with a star on a green-and-white ribbon round the neck.
+			var green := Color("0f7a43")
+			list.append([cylinder(0.84, 0.88, 0.08, _q(lite, 20, 48), true), xf(Vector3(0, -0.47, -0.02)), green, _s(0.7)])
+			var n := Vector3(0, -0.66, 0.75).normalized()
+			var c := n * 1.05
+			for sd in [-1.0, 1.0]:
+				var a := Vector3(sd * 0.3, -0.47, 0.83)
+				var b := c + Vector3(sd * 0.05, 0.16, 0.06)
+				var mid := (a + b) / 2.0
+				var yv := (a - b).normalized()
+				var zv := mid.normalized()
+				var xv := yv.cross(zv).normalized()
+				zv = xv.cross(yv)
+				var basis := Basis(xv, yv, zv)
+				list.append([box(0.12, (a - b).length() + 0.05, 0.015), Transform3D(basis, mid * 1.02), green, _s(0.7)])
+				list.append([box(0.035, (a - b).length() + 0.05, 0.018), Transform3D(basis, mid * 1.02 + zv * 0.002), Color("f7f5ee"), _s(0.7)])
+			var face := Transform3D(Basis.looking_at(n, Vector3.UP, true), c + n * 0.03)
+			list.append([cylinder(0.17, 0.17, 0.045, _q(lite, 16, 40)), face * xf(Vector3.ZERO, Vector3(PI / 2, 0, 0)), Color("f0c045"), _s(0.22, 0.9, Pattern.NONE, 1.2)])
+			list.append([torus(0.15, 0.014, _q(lite, 4, 6), _q(lite, 16, 40)), face * xf(Vector3(0, 0, 0.024)), Color("ffe08a"), _s(0.22, 0.9, Pattern.NONE, 1.2)])
+			list.append([star(0.42, 0.025), face * xf(Vector3(0, 0, 0.022)), Color("ffe08a"), _s(0.22, 0.9, Pattern.NONE, 1.2)])
+		"bisht":
+			# A brown bisht over the shoulders and down the back, flaring as it falls, its
+			# front edges and collar trimmed with gold zari.
+			var gap := 2.6  # the open front (radians around)
+			var th0 := PI * 0.38
+			var th1 := PI * 0.84
+			var nu := _q(lite, 16, 48)
+			var nv := _q(lite, 5, 14)
+			var at := func(i: int, j: int) -> Array:
+				var ph := PI / 2.0 + gap / 2.0 + (TAU - gap) * i / nu
+				var q := float(j) / nv
+				var th := lerpf(th0, th1, q)
+				var r := 1.07 + 0.12 * pow(q, 1.6)
+				return [Vector3(-cos(ph) * sin(th), cos(th), sin(ph) * sin(th)) * r, Vector2(float(i) / nu, q)]
+			list.append([_grid(nu, nv, at), Transform3D.IDENTITY, Color("7d5332"), _s(0.7, 0.0, Pattern.NONE, 0.4)])
+			var gold := Color("e0ad3c")
+			var gs := _s(0.3, 0.85, Pattern.NONE, 1.0)
+			for i: int in [0, nu]:
+				var path := []
+				for j in nv + 1:
+					path.append((at.call(i, j)[0] as Vector3) * 1.01)
+				list.append([_tube(path, 0.035, _q(lite, 5, 8)), Transform3D.IDENTITY, gold, gs])
+			for j: int in [0, nv]:
+				var path := []
+				for i in nu + 1:
+					path.append((at.call(i, j)[0] as Vector3) * 1.01)
+				list.append([_tube(path, 0.03 if j == 0 else 0.022, _q(lite, 5, 8)), Transform3D.IDENTITY, gold, gs])
+		"trophy":
+			# A golden trophy cup on top: a wooden base, a stem, a bowl with two handles and a
+			# star on its front.
+			var gold := Color("f0c045")
+			var gs := _s(0.22, 0.9, Pattern.NONE, 1.2)
+			var t := xf(Vector3(0, 0.95, -0.04), Vector3(-0.1, 0, 0))
+			list.append([cylinder(0.3, 0.34, 0.09, _q(lite, 12, 32)), t * xf(Vector3(0, 0.04, 0)), Color("5a3a26"), _s(0.6)])
+			list.append([cylinder(0.2, 0.25, 0.1, _q(lite, 12, 32)), t * xf(Vector3(0, 0.13, 0)), gold, gs])
+			list.append([cylinder(0.05, 0.08, 0.18, _q(lite, 8, 16)), t * xf(Vector3(0, 0.27, 0)), gold, gs])
+			list.append([sphere(0.08, _q(lite, 8, 14), _q(lite, 6, 10)), t * xf(Vector3(0, 0.37, 0)), gold, gs])
+			list.append([sphere(0.36, _q(lite, 14, 36), _q(lite, 6, 12), 0, TAU, PI / 2.0, PI / 2.0), t * xf(Vector3(0, 0.76, 0), Vector3.ZERO, Vector3(1, 1.08, 1)), gold, gs])
+			list.append([torus(0.36, 0.03, _q(lite, 6, 8), _q(lite, 16, 40)), t * xf(Vector3(0, 0.76, 0), Vector3(PI / 2, 0, 0)), gold, gs])
+			for sd in [-1.0, 1.0]:
+				list.append([torus(0.13, 0.03, _q(lite, 6, 8), _q(lite, 10, 20), PI * 1.25), t * Transform3D(Basis(Vector3.UP, 0.0 if sd > 0 else PI) * Basis(Vector3.BACK, -PI * 0.62), Vector3(sd * 0.36, 0.62, 0)), gold, gs])
+			list.append([star(0.5, 0.03), t * xf(Vector3(0, 0.6, 0.31), Vector3(-0.35, 0, 0)), Color("fff1b8"), _s(0.2, 0.6, Pattern.NONE, 1.0)])
 	return list
+
+
+## An aviator lens outline (lens plane, facing +Z): rounder at the top, dropping lower toward
+## the outside (sd: the side, +1 the wearer's left).
+static func _teardrop(sd: float, n: int) -> Array:
+	var out := []
+	for k in n:
+		var t := TAU * k / n
+		var low := maxf(0.0, -sin(t))
+		out.append(Vector3(cos(t) * 0.22 + sd * 0.05 * low * low, sin(t) * (0.15 + 0.07 * low) + 0.02, 0))
+	return out
 
 
 ## The lite (crowd) or full facet count.

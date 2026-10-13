@@ -45,6 +45,7 @@ static func run(check: Callable) -> void:
 	ctx.add_count = func(md, r): extra.append(["count", md, r])
 	ctx.toast = func(t): extra.append(["toast", t])
 	ctx.ch_progress = func(id, v): extra.append(["ch", id, v])
+	ctx.tally = func(id, n): extra.append(["tally", id, n])
 	ctx.confetti = func(p, _r, _e, _s): extra.append(["confetti", p])
 	st.ctx = ctx
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
@@ -82,6 +83,7 @@ static func run(check: Callable) -> void:
 	var took := st.shoot(st.items[a].proxy, st.items[a].p, Vector3.FORWARD)
 	check.call(took and not st.items[a].on and int(ctx.counts["frenzy"]) == 1 and st.frenzy_state().popped == 1, "frenzy: a shot pops a bubble and scores (%d)" % int(ctx.counts["frenzy"]))
 	check.call(sfx.any(func(e): return e[0] == "start_pop") and st._sparks.size() >= 8 and st._rings.size() >= 1, "frenzy: a pop sounds, sprays droplets and rings")
+	check.call(extra.has(["tally", "frenzy500", 1]), "frenzy: each pop counts toward frenzy500")
 	check.call(not st.shoot(st.items[a].proxy, Vector3.ZERO, Vector3.FORWARD), "frenzy: a popped one can't be shot again")
 	check.call(not buzzes.is_empty(), "frenzy: pops buzz the hands")
 

@@ -6,8 +6,19 @@ extends RefCounted
 ## {x, z, hx, hz}. No changes to the throw/world physics.
 ##
 ## won(points, result) fires on a win with result = {mode, level, attempts, failures, stars}.
+##
+## Ricochet hearts: the player has RICOCHET_HEARTS; every launch that misses (falls off the
+## board or runs out of time) costs one (heart_lost). At none the round starts again with
+## full hearts and the paddles as they first were (restarted): no game over, the score and
+## progress stay. A cleared round refills them (reset).
 
 signal won(points: int, result: Dictionary)
+signal heart_lost(left: int)
+signal restarted
+
+const RICOCHET_HEARTS := 6
+## How long the last miss lingers before the round restarts (the "out of hearts" beat).
+const OUT_DELAY := 1.5
 
 const TABLE_RADIUS := 0.14
 const MIRROR_ANGLE_STEP := PI / 36.0
@@ -39,6 +50,9 @@ var stars := {}  # star index -> true (a Set)
 var bounces := {}  # paddle index -> true (a Set)
 var angles: Array = []
 var level_count := 5
+## Ricochet only (0 elsewhere): hearts left this round, and how many a round starts with.
+var hearts := 0
+var max_hearts := 0
 
 
 static func p(x: float, z: float) -> Vector2:
@@ -187,7 +201,11 @@ static func ricochet_levels() -> Array:
 			{"start": p(-0.82, 1.25), "goal": p(0.82, 1.25), "mirrors": [a, b], "solution": [a.angle, b.angle], "obstacles": [{"x": 0.0, "z": 0.08, "hx": 0.30, "hz": 0.62}], "required": 2},
 			{"start": p(-0.82, 1.25), "goal": p(-0.42, 1.02), "mirrors": [a, b, c], "solution": [a.angle, b.angle, c.angle], "obstacles": [{"x": 0.0, "z": 0.0, "hx": 0.30, "hz": 0.55}], "required": 3},
 			reflection_route([p(-0.95, 1.25), p(-0.95, -1.06), p(0.9, -1.06), p(0.9, 0.8), p(-0.7, 0.8)], [{"x": 0.0, "z": -0.1, "hx": 0.27, "hz": 0.40}], 0.7),
-			reflection_route([p(-0.9, 1.32), p(-0.9, -1.15), p(0.9, -1.15), p(0.9, 1), p(-0.2, 1), p(-0.2, -0.35)], [{"x": 0.44, "z": 0.0, "hx": 0.14, "hz": 0.42}], 0.73),
+			# Four paddles in a hook: up, across, back up the far side and in, then the last
+			# leg runs back toward the player across his own first crossing. (The old 8.9-unit
+			# loop needed all four paddles exact and an aim within ±1.5°; this one keeps a ~5°
+			# window, ricochet_solver_test.)
+			reflection_route([p(-0.85, 1.3), p(-0.85, 0.3), p(0.75, 0.3), p(0.75, -0.7), p(-0.05, -0.7), p(-0.05, 0.65)], [{"x": 0.38, "z": -0.2, "hx": 0.12, "hz": 0.18}], 0.8),
 		]
 	return _levels.ricochet
 
@@ -284,6 +302,7 @@ static func levels_of(m: String) -> Array:
 func _init(mode_ := "balance") -> void:
 	mode = mode_ if mode_ in ["balance", "ricochet", "maze"] else "balance"
 	level_count = levels_of(mode).size()
+	max_hearts = RICOCHET_HEARTS if mode == "ricochet" else 0
 	reset()
 
 
@@ -318,6 +337,7 @@ func reset(next_level = null) -> void:
 	bounces.clear()
 	attempts = 0
 	failures = 0
+	hearts = max_hearts
 	ball = start_point()
 	angles = []
 	if mode == "ricochet":
@@ -361,6 +381,18 @@ func _fail() -> void:
 	fall = 0.0
 	failures += 1
 	velocity = Vector2.ZERO
+	if max_hearts > 0:
+		hearts = maxi(0, hearts - 1)
+		if hearts == 0:
+			delay = OUT_DELAY
+		heart_lost.emit(hearts)
+
+
+## The round again from the top with full hearts (ricochet, out of hearts): the paddles as
+## they first were; the score, the rounds and the unlocks stay.
+func restart() -> void:
+	reset(level)
+	restarted.emit()
 
 
 ## The moving gate of a balance level, or {} (a box {x, z, hx, hz}).
@@ -540,6 +572,8 @@ func step(dt: float, active := true) -> void:
 			if delay <= 0.0:
 				if phase == "won":
 					reset(level + 1)
+				elif max_hearts > 0 and hearts <= 0:
+					restart()
 				else:
 					_retry()
 			continue

@@ -67,6 +67,7 @@ var summit_hud: SummitHud
 var summit_on := false
 var summit_zoom := 1.0
 var summit_throw_at := -1.0
+var summit_throw_hand := ""  # the trigger that keeps throwing on the Summit
 var tabletops := {}  # mode -> TabletopStage (built once, kept)
 var table: TabletopStage = null  # the tabletop in play, or null
 var table_spot = null  # VR: Transform3D in front of you
@@ -207,7 +208,10 @@ func _ready() -> void:
 		rig.button.connect(_on_button)
 		rig.menu_pressed.connect(_on_menu)
 		rig.grip_tapped.connect(func(h): if h == "recenter": _on_recenter())
-		rig.focus_changed.connect(func(f): if not f: _release(holder, true))
+		rig.focus_changed.connect(func(f):
+			if not f:
+				_release(holder, true)
+				runtime.flush())
 		_session_time = 0.0
 		state = "boot"
 	else:
@@ -865,7 +869,7 @@ func _park_spot(F: String) -> Vector3:
 
 func _on_button(hand: String, name: String, down: bool) -> void:
 	# Owner's layout: the menu button opens the mode list, left X the challenges, left Y
-	# Dahrooj's look; A and B (right hand) do nothing.
+	# Dahrooj's look; right A jumps on the Summit, otherwise A and B (right hand) do nothing.
 	if down and (state == "play" or state == "menu") and hand == "left" and name == "by":
 		toggle_menu("appearance")
 		return
@@ -873,6 +877,8 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 		toggle_menu("challenges")
 		return
 	if hand == "right" and (name == "ax" or name == "by"):
+		if down and name == "ax" and state == "play" and summit_on and not placing:
+			summit.jump()
 		return
 	if state == "menu":
 		if name == "trigger" and down and hand == menu_hand:
@@ -896,20 +902,20 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 		return
 	if state != "play":
 		return
-	# Summit: left grip or right A jumps, right grip throws (held: keeps throwing);
-	# the triggers fire shots as everywhere.
+	# Summit: right A jumps (above); a trigger throws (held: keeps throwing), so no shots
+	# there; the grips do nothing.
 	if summit_on and not placing:
-		if name == "grip":
-			if down and hand == "left":
-				summit.jump()
-			elif down:
+		if name == "trigger":
+			if down:
 				summit.throw_ball()
 				summit_throw_at = _clock + 0.3
-			elif hand == "right":
+				summit_throw_hand = hand
+			elif hand == summit_throw_hand:
 				summit_throw_at = -1.0
+				summit_throw_hand = ""
 			return
-		if name == "trigger":
-			return  # no shots on the Summit
+		if name == "grip":
+			return
 	# Tabletop: the grip holds the board / turns a paddle; a trigger the board doesn't
 	# take fires shots; A retries.
 	if table != null and not placing:
@@ -1424,6 +1430,8 @@ func _menu_action(i: int) -> void:
 				reset_arm = 0.0
 				Save.challenges.clear()
 				Save.styles_used.clear()
+				Save.total_score = 0
+				runtime.forget_scores()
 				Save.accessory = ""
 				if not MenuCatalog.color_available(Save.jelly_color, Save.challenges):
 					Save.jelly_color = "pink"
@@ -1481,6 +1489,7 @@ func set_summit(on: bool) -> void:
 	ball.volley.clear()
 	auto_fire.clear()
 	summit_throw_at = -1.0
+	summit_throw_hand = ""
 	summit_hud.visible = on
 	place()
 	if not on:

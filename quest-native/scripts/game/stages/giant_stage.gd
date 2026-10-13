@@ -11,7 +11,10 @@ extends Node3D
 ## - Phases by what is left of the ring: (1) he bounces and stomps: dust rings, nearby props
 ##   jump; (2) he spits waves of little Dahroojs at you: pop them (if one reaches you it just
 ##   bounces off, the combo breaks); (3) he melts into slime and splits into three medium
-##   ones that merge back later; (4) rage: red glow, faster, more spots.
+##   ones that merge back later; (4) rage: red glow, faster, more spots. The three stay
+##   hidden while he collapses, then pop up out of the top of the puddle (small, growing on
+##   the way out); merging back, each one splashes into him as it reaches the puddle, and
+##   none is left by the time he stands up again (never inside or under him, at any size).
 ## - Ring empty: a huge knock-out (spin, dizzy stars, he topples over, a confetti storm,
 ##   fireworks), then he comes back bigger, in a new colour and accessory ("Giant Lv.2").
 ## - Mixed reality: he stands where the court was pinned (the anchor: game (0, floor, aim_z)),
@@ -40,6 +43,7 @@ const POP_DMG := 1.0
 const PHASE_AT := [0.75, 0.5, 0.25]
 const G_GRAV := 26.0
 const SPLIT_T := 11.0
+const OUT_K := 0.35  # how small a medium one is as it pops out of the puddle
 const WHOLE_T := 7.0
 const KO_T := 4.9
 const ENTER_DROP := 30.0
@@ -1103,6 +1107,60 @@ func _start_hop(b: Dictionary, big: bool) -> void:
 	b.s_to = 0.78
 
 
+## Merging back: each medium one splashes into him as soon as it reaches the puddle (or
+## lands); run again once the bodies have moved, so none is drawn over him.
+func _absorb() -> void:
+	_place(giant)
+	for m in meds:
+		if m.on:
+			_place(m)
+			if not m.air or absorbed(m):
+				_burst(m.c, Color("8dff7a"), 10, 1.0)
+				_body_off(m)
+
+
+## The giant's footprint: how far his squashed body reaches across the floor from his centre.
+func footprint(b: Dictionary) -> float:
+	var s: float = b.s
+	return float(b.r) * float(b.k) * (1.0 / sqrt(maxf(s, 0.2))) * (1.0 + 0.8 * float(b.melt)) * float(b.sx_k)
+
+
+## How high his body's top is over where he stands.
+func _top_of(b: Dictionary) -> float:
+	var s: float = b.s
+	return 2.0 * float(b.r) * float(b.k) * s * (1.0 - 0.86 * float(b.melt)) + float(b.y)
+
+
+## Whether a point is inside his body (the squashed, wobbling ellipsoid).
+func inside(b: Dictionary, p: Vector3) -> bool:
+	var bs := body_basis(b)
+	if absf(bs.determinant()) < 1e-9:
+		return false
+	return (bs.inverse() * (p - (b.c as Vector3))).length() < 1.0
+
+
+## A medium one merging back has reached him: its centre over his footprint or in his body.
+func absorbed(m: Dictionary) -> bool:
+	var g := giant
+	var d: Vector3 = (m.c as Vector3) - (g.g as Vector3)
+	d.y = 0.0
+	return d.length() < footprint(g) or inside(g, m.c)
+
+
+## As _launch, from the height b.y it is at now down to the floor at `to`, peaking h above
+## where it starts.
+func _launch_from(b: Dictionary, to: Vector3, h: float) -> void:
+	h = maxf(h, 0.05)
+	var y0 := maxf(0.0, float(b.y))
+	var vy := sqrt(2.0 * G_GRAV * h)
+	var t_air := (vy + sqrt(vy * vy + 2.0 * G_GRAV * y0)) / G_GRAV
+	b.vy = vy
+	b.hv = (to - (b.g as Vector3)) / t_air
+	b.hv.y = 0.0
+	b.air = true
+	b.s_to = 1.16
+
+
 func _launch(b: Dictionary, to: Vector3, h: float) -> void:
 	h = maxf(h, 0.05)
 	var vy := sqrt(2.0 * G_GRAV * h)
@@ -1239,6 +1297,9 @@ func _spit_one(b: Dictionary) -> void:
 func _start_split() -> void:
 	F.split = "melt"
 	F.split_t = 0.0
+	for m in meds:
+		if m.on:
+			_body_off(m)
 	var g := giant
 	g.act = ""
 	g.air = false
@@ -1291,23 +1352,36 @@ func _step_split(dt: float) -> void:
 				var mr: float = g.r * 0.52
 				var lane: float = maxf(float(room.lane), mr * 1.2)
 				var spots := [home + side * minf(g.r * 1.55, lane + mr) + fwd * mr * 0.4, home - side * minf(g.r * 1.55, lane + mr) + fwd * mr * 0.4, home + fwd * g.r * 1.15]
+				# Out of the top of the puddle (not from inside or under it): each starts
+				# small, sitting on the slime toward its spot, and grows as it leaps out.
+				var top := _top_of(g)
+				var reach := footprint(g) * 0.45
 				for i in 3:
 					var m: Dictionary = meds[i]
 					_body_reset(m, mr)
-					m.g = home
-					m.y = 0.0
+					var away: Vector3 = spots[i] - home
+					away.y = 0.0
+					m.g = home + away.normalized() * minf(reach, away.length())
+					m.y = top
+					m.k = OUT_K
 					m.base = spots[i]
 					m.fwd = fwd
 					m.face = "joy"
 					m.face_t = 1.0
 					(m.view as DahroojView).visible = true
 					m.act = "air"
-					_launch(m, spots[i], mr * 1.6)
+					_launch_from(m, spots[i], mr * 1.6)
+					_place(m)
+					_burst(m.c, Color("8dff7a"), 10, mr / R_BASE)
 				_sfx("splash", 1.0, home)
 				_sfx("boom", 0.5, home)
 				_buzz2(0.5, 120)
 		"out":
 			g.sx_k = lerpf(1.0, 0.45, clampf(t / 0.6, 0.0, 1.0))
+			var e := clampf(t / 0.45, 0.0, 1.0)
+			for m in meds:
+				if m.on:
+					m.k = lerpf(OUT_K, 1.0, e * e * (3.0 - 2.0 * e))
 			if t >= 0.8:
 				F.split = "fight"
 				F.split_t = 0.0
@@ -1322,10 +1396,14 @@ func _step_split(dt: float) -> void:
 			for m in meds:
 				if m.on:
 					m.k = maxf(0.3, 1.0 - t * 0.7)
-					if not m.air or t > 1.2:
+			_absorb()
+			if t >= 1.0:
+				# None left over to stand inside him as he rises (a big one is still in the
+				# air here: in mixed reality, and from Lv.2 on).
+				for m in meds:
+					if m.on:
 						_burst(m.c, Color("8dff7a"), 10, 1.0)
 						_body_off(m)
-			if t >= 1.0:
 				F.split = "reform"
 				F.split_t = 0.0
 				_sfx("splash", 1.0, g.c)
@@ -1893,6 +1971,8 @@ func update(_b: Ball, dt: float) -> void:
 			_step_body(b, dt)
 			_place(b)
 			_step_spots(b, dt)
+	if F.split == "merge":
+		_absorb()
 	for mi in minions:
 		if mi.on:
 			_step_minion(mi, dt)

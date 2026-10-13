@@ -51,7 +51,38 @@ const CHALLENGES := [
 	["maze1", "أكمل متاهة", "Complete a maze", 1],
 	["maze5", "المتاهات الخمس", "All five mazes", 5],
 	["mazeClean", "اجمع النجوم وأكمل المتاهة دون إعادة", "Collect the stars and finish without retrying", 1],
+	# The big numbers, for long play (no losing needed): scores, lifetime totals and tallies.
+	["score1k", "اجمع ١٬٠٠٠ نقطة في نمط واحد", "Score 1,000 in one mode", 1000],
+	["mole100", "اضرب ١٠٠ دحروج", "Whack 100 Dahroojs", 100],
+	["modes10", "العب ١٠ أنماط مختلفة", "Play 10 different modes", 10],
+	["bricks100", "اكسر ١٠٠ طوبة", "Break 100 bricks", 100],
+	["castle200", "طيّح ٢٠٠ دحروج من الحصن", "Knock 200 Dahroojs off the fort", 200],
+	["score5k", "اجمع ٥٬٠٠٠ نقطة في نمط واحد", "Score 5,000 in one mode", 5000],
+	["frenzy500", "فرقع ٥٠٠ في حمّى الفرقعة", "Pop 500 in Pop Frenzy", 500],
+	["meteor500", "فجّر ٥٠٠ نيزك", "Blast 500 meteors", 500],
+	["combo25", "كومبو ٢٥ في نيازك الدحاريج", "A 25-blast combo in Dahrooj Meteors", 25],
+	["pop500", "فجّر ٥٠٠ دحروج بالطلقات", "Pop 500 Dahroojs with your shots", 500],
+	["total50k", "اجمع ٥٠٬٠٠٠ نقطة بالمجموع", "Score 50,000 points in all", 50000],
+	["score10k", "اجمع ١٠٬٠٠٠ نقطة في نمط واحد", "Score 10,000 in one mode", 10000],
+	["invasion25", "اصمد ٢٥ موجة", "Survive 25 waves", 25],
+	["giant30", "اهزم العملاق ٣٠ مرة", "Knock out the Giant 30 times", 30],
+	["shots1000", "اصب ١٬٠٠٠ هدف بالطلقات", "Hit 1,000 targets with shots", 1000],
+	["modesAll", "العب كل الأنماط العشرين", "Play all 20 modes", 20],
+	["total100k", "اجمع ١٠٠٬٠٠٠ نقطة بالمجموع", "Score 100,000 points in all", 100000],
+	["score25k", "اجمع ٢٥٬٠٠٠ نقطة في نمط واحد", "Score 25,000 in one mode", 25000],
+	["total250k", "اجمع ٢٥٠٬٠٠٠ نقطة بالمجموع", "Score 250,000 points in all", 250000],
 ]
+## The big-number challenges fed by the runtime rather than a stage:
+## - the best score of one mode this session (counts) and the lifetime total (Save.total_score);
+const SCORE_ONE := ["score1k", "score5k", "score10k", "score25k"]
+const SCORE_TOTAL := ["total50k", "total100k", "total250k"]
+## - lifetime tallies: every progress call of the first counts one more toward the second
+##   (each is one whack, knock, brick, pop, blast or knockout);
+const FEEDS := {"mole20": "mole100", "castle25": "castle200", "bricks20": "bricks100", "pop20": "pop500", "meteor50": "meteor500", "giant3": "giant30"}
+## - a longer run of the same thing (the value passes on, the best is kept).
+const BESTS := {"combo10": "combo25", "invasion10": "invasion25"}
+## Seconds between saves of the quiet (fast-moving) progress.
+const FLUSH_T := 2.0
 const MODES := ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime", "meteor", "giant", "frenzy", "castle", "gallery"]
 
 var ball: Ball
@@ -62,6 +93,12 @@ var stage: Node3D
 var counts := {"goal": 0, "hoop": 0, "window": 0, "cans": 0, "bowling": 0, "bricks": 0, "fair": 0, "mole": 0, "invasion": 0, "slime": 0, "meteor": 0, "giant": 0, "frenzy": 0, "castle": 0, "gallery": 0, "climb": 0}
 var hoop_streak := 0
 var cache := {}
+## The highest score seen per mode (what has been added to the lifetime total).
+var _seen := {}
+var _best_one := 0
+## Quiet progress not saved yet, and the time to the next save.
+var _dirty := false
+var _flush_t := FLUSH_T
 ## chime(): a challenge was completed (the runtime plays the chime).
 var on_chime: Callable = func(): pass
 
@@ -75,6 +112,7 @@ func _init(b: Ball, stage_parent: Node3D) -> void:
 	ctx.lang = "ar" if Save.arabic() else "en"
 	ctx.add_count = add_count
 	ctx.ch_progress = ch_progress
+	ctx.tally = tally
 	ball.event.connect(_on_ball)
 	for id in ["hoop3", "fair25"]:
 		ch_progress(id, 0)
@@ -96,6 +134,10 @@ static func challenge_value(id: String, current: int, goal: int, next: int) -> i
 
 
 func ch_progress(id: String, value: int) -> void:
+	if FEEDS.has(id):
+		tally(FEEDS[id], 1)
+	if BESTS.has(id):
+		ch_progress(BESTS[id], value)
 	var c := challenge(id)
 	if c.is_empty():
 		return
@@ -112,6 +154,66 @@ func ch_progress(id: String, value: int) -> void:
 
 func ch_add(id: String) -> void:
 	ch_progress(id, int(Save.challenges.get(id, 0)) + 1)
+
+
+## Progress that moves fast (scores, tallies): kept in memory and saved every FLUSH_T
+## seconds; finishing it goes through ch_progress (saved at once, with its card).
+func quiet_progress(id: String, value: int) -> void:
+	var c := challenge(id)
+	if c.is_empty():
+		return
+	var before := int(Save.challenges.get(id, 0))
+	var next := clampi(value, 0, int(c[3]))
+	if next <= before:
+		return
+	if next >= int(c[3]):
+		ch_progress(id, next)
+	else:
+		Save.challenges[id] = next
+		_dirty = true
+
+
+## n more toward a lifetime tally.
+func tally(id: String, n: int) -> void:
+	if n > 0:
+		quiet_progress(id, int(Save.challenges.get(id, 0)) + n)
+
+
+## Writes the quiet progress now (a mode change, the headset taken off).
+func flush() -> void:
+	if _dirty:
+		_dirty = false
+		Save.save()
+	_flush_t = FLUSH_T
+
+
+## The challenges were reset: the one-mode scores count again from this session's best.
+func forget_scores() -> void:
+	_best_one = 0
+	_dirty = false
+
+
+## The scores (counts) grew: the gain goes to the lifetime total (Save.total_score; a score
+## that dips and climbs back counts once), the best mode's score to the one-mode challenges.
+func track_scores() -> void:
+	var gained := 0
+	var best := 0
+	for m: String in counts:
+		var v := int(counts[m])
+		var was := int(_seen.get(m, 0))
+		if v > was:
+			gained += v - was
+			_seen[m] = v
+		best = maxi(best, v)
+	if gained > 0:
+		Save.total_score += gained
+		_dirty = true
+		for id: String in SCORE_TOTAL:
+			quiet_progress(id, Save.total_score)
+	if best > _best_one:
+		_best_one = best
+		for id: String in SCORE_ONE:
+			quiet_progress(id, best)
 
 
 func reset_streak() -> void:
@@ -138,7 +240,10 @@ const SHOT_CHALLENGES := {"firework": "firework10", "laser": "laser30", "rocket"
 
 ## The blaster's `kind` hit n targets (WorldBalls): toward that style's challenge.
 func shot_hits(kind: String, n: int) -> void:
-	if n <= 0 or not SHOT_CHALLENGES.has(kind):
+	if n <= 0:
+		return
+	tally("shots1000", n)
+	if not SHOT_CHALLENGES.has(kind):
 		return
 	var id: String = SHOT_CHALLENGES[kind]
 	ch_progress(id, int(Save.challenges.get(id, 0)) + n)
@@ -157,6 +262,8 @@ func note_mode(id: String, worn: String) -> void:
 		if str(k).begins_with("played:"):
 			n += 1
 	ch_progress("modes5", n)
+	ch_progress("modes10", n)
+	ch_progress("modesAll", n)
 	if worn == "shemagh":
 		ch_progress("shemaghPlay", 1)
 
@@ -187,6 +294,7 @@ func set_mode(id: String) -> void:
 	if mode != id:
 		reset_streak()
 	ball.volley.clear()
+	flush()
 	if stage:
 		if stage.has_method("deactivate"):
 			stage.deactivate()
@@ -214,3 +322,12 @@ func step(dt: float) -> void:
 	ctx.time = ball.time
 	ctx.lang = "ar" if Save.arabic() else "en"
 	ball.step(dt)
+	track_scores()
+	autosave(dt)
+
+
+## Saves the quiet progress every FLUSH_T seconds.
+func autosave(dt: float) -> void:
+	_flush_t -= dt
+	if _dirty and _flush_t <= 0.0:
+		flush()

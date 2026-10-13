@@ -96,7 +96,7 @@ static func run(check: Callable) -> void:
 	_start_screen(check)
 	var p := MenuPanel.new()
 	# Button counts per page (7 tabs + Close on every page).
-	var want := {"modes": 28, "appearance": 21, "accessories": 24, "play": 23, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
+	var want := {"modes": 28, "appearance": 25, "accessories": 24, "play": 23, "world": 18, "world-mr": 9, "challenges": 13, "system": 10, "about": 8}
 	for en in [false, true]:
 		var bad: Array = []
 		for k: String in want:
@@ -223,7 +223,8 @@ static func run(check: Callable) -> void:
 		"menu: locked accessories are disabled with the challenge that opens them")
 	check.call(MenuCatalog.accessory_available("beanie", 0, {"mazeClean": 1}) and MenuCatalog.accessory_available("crown", 0, {"reward:crown": 1}) and not MenuCatalog.accessory_available("crown", 9, {}), "menu: accessory unlock rules")
 	var qc := MenuCatalog.quest_controls("climb", "sling")
-	check.call(qc.left_grip[1] == "Jump" and qc.left_trigger[1] == "—" and qc.right_grip[1] == "Throw a ball"
+	check.call(qc.a[1] == "Jump" and qc.a[0] == "قفز" and qc.left_trigger[1] == "Throw a ball" and qc.right_trigger[1] == "Throw a ball" and qc.right_grip[1] == "—" and qc.left_grip[1] == "—"
+		and MenuCatalog.quest_controls("goal", "trigger").a[1] == "" and MenuCatalog.quest_controls("ricochet", "trigger").a[1] == ""
 		and MenuCatalog.quest_controls("maze", "hand").grip[1].begins_with("Grip: hold and tilt"), "menu: the controls help follows mode and throw style")
 	var all_fire := true
 	for mode: Array in MenuCatalog.MODES:

@@ -40,9 +40,9 @@ Pick virtual reality and play in a sunny park, or pick mixed reality and play in
 Bolt, mini Dahrooj, bubble, firework, confetti, bouncy, laser, boomerang, jelly glob, rocket, lightning, and a spinning dallah that sprays coffee beans.
 
 YOUR OWN DAHROOJ
-Jelly, fur or bubble, 8 colours and 29 accessories: shemagh & agal, ghutra, taqiyah, a falcon, a jasmine crown, a space helmet and many more.
+Jelly, fur or bubble, 12 colours and 44 accessories: shemagh & agal, ghutra, taqiyah, a falcon, a jasmine crown, a space helmet and many more.
 
-43 CHALLENGES
+62 CHALLENGES
 Every challenge you finish unlocks a new shot, colour or accessory.
 
 MADE FOR EVERYONE
@@ -61,8 +61,8 @@ Use these where the dashboard asks for highlights.
 - 20 modes: throwing courses, arcade action, tabletop puzzles, a summit climb and Dahrooj Rain
 - Play in a sunny VR park, or in mixed reality, where targets come from your room's walls, floor and furniture
 - 12 shots, from a bolt and a laser to fireworks, lightning and a coffee-spraying dallah
-- 3 styles (jelly, fur, bubble), 8 colours and 29 accessories, including shemagh & agal, ghutra, taqiyah, falcon and jasmine crown
-- 43 challenges, each one unlocking a reward
+- 3 styles (jelly, fur, bubble), 12 colours and 44 accessories, including shemagh & agal, ghutra, taqiyah, falcon and jasmine crown
+- 62 challenges, each one unlocking a reward
 - Open play, with no timers or game over in the arcade modes
 - Fully bilingual: Arabic and English
 - Comfortable: you stand still and nothing moves you

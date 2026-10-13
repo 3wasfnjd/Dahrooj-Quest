@@ -42,6 +42,8 @@ const COLORS := [
 	["pink", "وردي", "Pink", "ff69b4", ""], ["red", "أحمر", "Red", "ff505c", "ricochet1"], ["orange", "برتقالي", "Orange", "ff9b3d", "windowMin"],
 	["yellow", "أصفر", "Yellow", "ffdf45", "bouncy3"], ["green", "أخضر", "Green", "58db83", "shemaghPlay"], ["blue", "أزرق", "Blue", "58b9ff", "slime5"],
 	["purple", "بنفسجي", "Purple", "b878ff", "styles5"],
+	["turquoise", "فيروزي", "Turquoise", "2fcdbd", "mole100"], ["maroon", "عنابي", "Maroon", "a8304a", "score5k"],
+	["navy", "كحلي", "Navy", "3d5ab0", "invasion25"], ["gold", "ذهبي", "Gold", "e8b23a", "score25k"],
 ]
 ## MENU_ACCESSORIES: [id, ar, en, need] — need is 0 for the one open from the start, else the
 ## challenge id (GameRuntime's) that opens it; each challenge opens one reward
@@ -59,6 +61,15 @@ const ACCESSORIES := [
 	["aviator", "قبعة طيّار", "Aviator cap", "balance5"], ["halo", "هالة", "Halo", "balanceClean"], ["woodhat", "قبعة خشبية", "Wooden hat", "ricochet5"],
 	["falcon", "صقر", "Falcon", "ricochetAce"], ["gradcap", "قبعة تخرّج", "Graduation cap", "maze1"],
 	["starGlasses", "نظارة نجوم", "Star glasses", "maze5"], ["beanie", "طاقية صوف", "Wool hat", "mazeClean"],
+	# The big-number challenges' rewards.
+	["umbrella", "قبعة مظلة", "Umbrella hat", "score1k"], ["goldShades", "نظارة طيّار ذهبية", "Gold aviators", "modes10"],
+	["turban", "عمامة", "Turban", "bricks100"], ["taifRose", "طوق ورد طائفي", "Taif rose crown", "castle200"],
+	["farwa", "قبعة فروة", "Fleece hat", "frenzy500"], ["diving", "نظارة غوص", "Diving mask", "meteor500"],
+	["lantern", "فانوس رمضان", "Ramadan lantern", "combo25"], ["palm", "تاج سعف", "Palm-frond crown", "pop500"],
+	["misbaha", "مسبحة", "Misbaha", "total50k"], ["karak", "كوب كرك", "Karak cup", "score10k"],
+	["sadu", "وشاح سدو", "Sadu scarf", "giant30"], ["medal", "ميدالية ذهبية", "Gold medal", "shots1000"],
+	["goldAgal", "غترة وعقال ذهبي", "Ghutra & gold agal", "modesAll"], ["bisht", "بشت", "Bisht", "total100k"],
+	["trophy", "كأس البطولة", "Trophy", "total250k"],
 ]
 ## progression/challenges.ts CHALLENGES: [id, goal, ar, en] (unlock rules and their hints).
 const CHALLENGES := [
@@ -153,7 +164,8 @@ static func color_available(id: String, progress: Dictionary) -> bool:
 ## The Touch-controller bindings for a mode and throw style (after quest-controls.ts,
 ## with the native control scheme: in every mode the triggers fire shots and a
 ## grip holds Dahrooj): {a, left_trigger, right_trigger, left_grip, right_grip,
-## grip}, each [ar, en] (grip: one line on how to throw).
+## grip}, each [ar, en] (grip: one line on how to throw). A (right hand) is empty but on
+## the Summit, where it jumps and a trigger throws.
 static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 	var tilting := mode == "balance" or mode == "maze"
 	var tabletop := tilting or mode == "ricochet"
@@ -162,7 +174,7 @@ static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 	var left_grip := grab
 	var right_grip := grab
 	var grip := ["القبضة: امسك دحروج · اضغط للشحن وأفلت للرمي", "Grip: hold Dahrooj · hold to charge, release to throw"]
-	var a := ["استرجاع دحروج", "Recall Dahrooj"]
+	var a := ["", ""]
 	if throw_style == "hand":
 		grip = ["القبضة: امسك دحروج، حرّك يدك ثم أفلت", "Grip: grab Dahrooj, swing your hand, then release"]
 	elif throw_style == "sling":
@@ -170,7 +182,6 @@ static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 		right_grip = ["سحب ثم إفلات", "Pull, then release"]
 		grip = ["النبيطة باليسرى · اسحب بقبضة اليمنى ثم أفلت", "Slingshot in the left hand · pull with the right grip, release"]
 	if tabletop:
-		a = ["", ""]
 		# No shots in the tabletop modes.
 		fire = ["—", "—"] if tilting else ["تصويب وإطلاق دحروج", "Aim and launch Dahrooj"]
 		if tilting:
@@ -181,9 +192,10 @@ static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 			grip = ["القبضة: وجّه للوح الخشبي وأدره بخطوات ٥°", "Grip: point at a wooden paddle and turn it in 5° steps"]
 		right_grip = left_grip
 	elif mode == "climb":
-		a = ["", ""]
-		fire = ["—", "—"]  # no shots on the Summit
-		left_grip = ["قفز", "Jump"]
-		right_grip = ["رمي كرة", "Throw a ball"]
-		grip = ["القير الأيسر: حركة · القير الأيمن: تكبير وتصغير الجبل", "Left stick: move · right stick: resize the mountain"]
+		# A jumps, a trigger throws (no shots on the Summit); the grips are free.
+		a = ["قفز", "Jump"]
+		fire = ["رمي كرة", "Throw a ball"]
+		left_grip = ["—", "—"]
+		right_grip = ["—", "—"]
+		grip = ["زر A: قفز · الزناد: رمي · القير الأيسر: حركة · الأيمن: حجم الجبل", "A: jump · trigger: throw · left stick: move · right stick: resize"]
 	return {"a": a, "left_trigger": fire, "right_trigger": fire, "left_grip": left_grip, "right_grip": right_grip, "grip": grip}

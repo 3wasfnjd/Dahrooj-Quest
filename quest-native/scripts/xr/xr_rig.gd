@@ -15,8 +15,9 @@ extends XROrigin3D
 ##   left  "primary" stick x -> the Summit: Dahrooj climbs left / right (the right stick
 ##                              when the left controller is away)
 ##   No stick moves or turns the player.
-##   "trigger_click"         -> shoot / select (either hand)
-##   "grip_click"            -> hold Dahrooj (the Summit: jump / throw; tabletops: the board)
+##   "trigger_click"         -> shoot / select (either hand; the Summit: throw)
+##   "grip_click"            -> hold Dahrooj (tabletops: the board; nothing on the Summit)
+##   right "ax_button" (A)   -> the Summit: jump (nothing elsewhere)
 ##   left "menu_button"      -> the mode menu; the system recenter (pose_recentered)
 ##                              re-places the court in front of the player
 

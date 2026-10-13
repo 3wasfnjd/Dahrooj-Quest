@@ -35,9 +35,11 @@ const TRACK_TOP := 300.0
 const TRACK_HEIGHT := 440.0
 ## A challenge row (824 wide): the title, then the reward's pill at CHIP_X (mirrored in
 ## Arabic), then the count.
-const TITLE_W := 410.0
-const CHIP_X := 494.0
-const CHIP_W := 196.0
+const TITLE_W := 384.0
+const CHIP_X := 468.0
+const CHIP_W := 190.0
+## The count at the row's end ("12,500 / 25,000"), right-aligned after the pill.
+const COUNT_W := 136.0
 
 const BG := Color(0.07, 0.075, 0.1)
 const TEXT := Glass.TEXT
@@ -222,7 +224,7 @@ func layout(m: Dictionary) -> Array[Dictionary]:
 				var c: Array = MenuCatalog.COLORS[i]
 				var open := MenuCatalog.color_available(c[0], col_progress)
 				var need := ChallengeRewards.need_text(str(c[4])) if c.size() > 4 else ["", ""]
-				add.call("jellyColor", c[0], c[1], c[2], grid(i, 4, 575, 102, english), {"selected": c[0] == m.get("jelly_color", ""), "color": c[3],
+				add.call("jellyColor", c[0], c[1], c[2], grid(i, 4, 572, 90, english, 12.0), {"selected": c[0] == m.get("jelly_color", ""), "color": c[3],
 					"icon": "original" if c[0] == "original" else "palette", "disabled": not open, "sub": "" if open else _say(need[0], need[1])})
 		else:
 			var progress: Dictionary = {}
@@ -615,7 +617,7 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 			_icon(ci, str(b.icon), Vector2(c.x, r.position.y + 31), 40, line, tint)
 			_text(ci, name, c.x, r.position.y + 70, Glass.T_TAB, label_col, r.size.x - 12, "center", Glass.W_LABEL)
 		"jellyColor":
-			var sc := Vector2(c.x, r.position.y + 38)
+			var sc := Vector2(c.x, r.position.y + minf(38.0, r.size.y * 0.37))
 			if b.id == "original":
 				_icon(ci, "original", sc, 50, line, tint)
 			else:
@@ -633,7 +635,7 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 					_circle(ci, sc, 12, Color(0.12, 0.13, 0.17, 0.95))
 					_circle(ci, sc, 12, Color(1, 1, 1, 0.2), false, 1.5)
 					_icon(ci, "lock", sc, 15.6, Color(TEXT, 0.85), Color(ACCENT, 0.3))
-			_text(ci, name, c.x, r.end.y - 16, Glass.T_SMALL, label_col, lw, "center", Glass.W_LABEL)
+			_text(ci, name, c.x, r.end.y - 14, Glass.T_SMALL, label_col, lw, "center", Glass.W_LABEL)
 		"appearance", "reset":
 			# Icon and label side by side, centred as a group (icon on the reading side).
 			var isz := 44.0 if kind == "appearance" else 34.0
@@ -726,6 +728,8 @@ func _details(ci: CanvasItem) -> void:
 			{"title": _say("اليد اليسرى", "Left hand"), "rows": [["≡", _say("الأنماط", "Modes")], ["X", _say("التحديات", "Challenges")], ["Y", _say("المظهر", "Appearance")], ["trigger", _pair(help.left_trigger)], ["grip", _pair(help.left_grip)]]},
 			{"title": _say("اليد اليمنى", "Right hand"), "rows": [["trigger", _pair(help.right_trigger)], ["grip", _pair(help.right_grip)]]},
 		]
+		if str(help.a[1]) != "":
+			(hands[1].rows as Array).append(["A", _pair(help.a)])  # the Summit: A jumps
 		for i in 2:
 			var hand: Dictionary = hands[i]
 			# The left hand on the left in both languages (it is the controller).
@@ -834,11 +838,16 @@ func _paint_list(ci: CanvasItem) -> void:
 			_icon(ci, "challenges", Vector2(ix, y + 36), 36, Color(TEXT, 0.8), Color(ACCENT, 0.3))
 		_text(ci, _say(str(c.get("title", "")), str(c.get("en", ""))), 70.0 if english else 754.0, y + 44, 25, TEXT, TITLE_W, "left" if english else "right", Glass.W_LABEL)
 		_reward_chip(ci, str(c.get("id", "")), done, y)
-		_text(ci, "%d / %d" % [value, goal], 804.0 if english else 20.0, y + 44, 22, ACCENT if done else SUB, 100, "right" if english else "left", Glass.W_LABEL, TextServer.DIRECTION_LTR)
+		_text(ci, count_text(value, goal, not english), 804.0 if english else 20.0, y + 44, 22, ACCENT if done else SUB, COUNT_W, "right" if english else "left", Glass.W_LABEL, TextServer.DIRECTION_LTR)
 		_rect(ci, Rect2(24, y + 64, 776, 7), 3.5, Color(1, 1, 1, 0.09))
 		var w := clampf(value / maxf(1.0, goal), 0.0, 1.0) * 776.0
 		if w > 0.5:
 			_rect(ci, Rect2(24.0 if english else 800.0 - w, y + 64, w, 7), 3.5, ACCENT if done else Color(ACCENT, 0.75))
+
+
+## A row's count, its big numbers grouped: "1,250 / 10,000", in Arabic "١٬٢٥٠ / ١٠٬٠٠٠".
+static func count_text(value: int, goal: int, arabic: bool) -> String:
+	return "%s / %s" % [GameCtx.grouped(value, arabic), GameCtx.grouped(goal, arabic)]
 
 
 ## A challenge row's reward (ChallengeRewards): a pill between the title and the count with

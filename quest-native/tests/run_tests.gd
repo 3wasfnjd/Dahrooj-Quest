@@ -287,11 +287,53 @@ func _scene() -> void:
 	main._panel_action("vr")
 	check(main.state == "play" and main.mode == "vr", "choosing VR starts the game")
 	await _world(main)
+	_summit_buttons(main)
 	await _room_play(main)
 	_reward_cards(main)
 	await _roomscale(main)
 	main.queue_free()
 	await get_tree().process_frame
+
+
+## The Summit's buttons: right A jumps, a trigger (either hand) throws and holding it keeps
+## throwing, the grips do nothing there; A and B do nothing in the other modes.
+func _summit_buttons(main: Node) -> void:
+	main._choose_mode("climb")
+	main.state = "play"
+	main.placing = false
+	main._step_summit(1.0 / 72.0)
+	var s: Dictionary = main.summit.state
+	var calm := func() -> void:
+		s.input.buffer = 0.0
+		s.shots.clear()
+		s.ball.cool = 0.0
+	calm.call()
+	main._on_button("left", "grip", true)
+	main._on_button("right", "grip", true)
+	main._on_button("left", "grip", false)
+	main._on_button("right", "grip", false)
+	check(main.summit_on and float(s.input.buffer) == 0.0 and s.shots.is_empty() and main.holder == "", "summit: the grips no longer jump or throw")
+	main._on_button("right", "ax", true)
+	main._on_button("right", "ax", false)
+	check(float(s.input.buffer) > 0.0 and s.shots.is_empty(), "summit: A jumps")
+	calm.call()
+	main._on_button("right", "trigger", true)
+	check(s.shots.size() == 1 and float(s.input.buffer) == 0.0 and main.summit_throw_at > 0.0 and main.auto_fire.is_empty(), "summit: the right trigger throws (no shots)")
+	main._on_button("right", "trigger", false)
+	check(main.summit_throw_at < 0.0, "summit: letting go of the trigger stops throwing")
+	calm.call()
+	main._on_button("left", "trigger", true)
+	main._on_button("left", "trigger", false)
+	check(s.shots.size() == 1, "summit: the left trigger throws too")
+	main._on_button("right", "by", true)
+	main._on_button("right", "by", false)
+	check(float(s.input.buffer) == 0.0, "summit: B does nothing")
+	main._choose_mode("goal")
+	main.state = "play"
+	calm.call()
+	main._on_button("right", "ax", true)
+	main._on_button("right", "ax", false)
+	check(not main.summit_on and float(s.input.buffer) == 0.0 and main.holder == "" and main.state == "play", "A does nothing outside the Summit")
 
 
 ## Mixed reality out in the room (main.gd room_play): the arcade modes take RoomSpots in front

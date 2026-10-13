@@ -151,7 +151,9 @@ static func _unlocks(check: Callable) -> void:
 ## (hiding the ribbon when it is headwear), unlocks on schedule, and crowds wear it too.
 static func _new_accessories(check: Callable) -> void:
 	var added := ["shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef", "dino", "halo",
-		"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap"]
+		"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
+		"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak", "sadu", "medal",
+		"goldAgal", "bisht", "trophy"]
 	var v := DahroojView.new()
 	var bad: Array = []
 	for id: String in added:
@@ -186,6 +188,18 @@ static func _new_accessories(check: Callable) -> void:
 	check.call(A.call("ghutra", 0, {"strike1": 1}) and not A.call("ghutra", 40, {}) and A.call("shemagh", 0, {"modes5": 5}) and not A.call("shemagh", 0, {"modes5": 4})
 		and A.call("falcon", 0, {"ricochetAce": 1}) and A.call("halo", 0, {"balanceClean": 1}) and A.call("wizard", 0, {"combo10": 10}) and A.call("bowtie", 0, {"balance1": 1}),
 		"looks: ghutra with a strike, shemagh with 5 modes, falcon with a first-throw ricochet, wizard hat with a 10 combo")
+	check.call(A.call("umbrella", 0, {"score1k": 1000}) and not A.call("umbrella", 60, {"score1k": 999}) and A.call("trophy", 0, {"total250k": 250000})
+		and not A.call("trophy", 0, {"total250k": 249999}) and A.call("goldAgal", 0, {"modesAll": 20}) and A.call("bisht", 0, {"total100k": 100000}),
+		"looks: the big-number rewards open with their challenge (umbrella at 1,000, trophy at 250,000)")
+	check.call("goldAgal" in DahroojLooks.HEADWEAR and "trophy" in DahroojLooks.HEADWEAR and not "medal" in DahroojLooks.HEADWEAR
+		and not "misbaha" in DahroojLooks.HEADWEAR and not "goldShades" in DahroojLooks.HEADWEAR and DahroojLooks.ACC_SHADER.contains("Sadu"),
+		"looks: hats hide the ribbon, the medal, beads and glasses keep it; the Sadu weave is drawn")
+	var ga: PackedColorArray = DahroojLooks.accessory_mesh("goldAgal").surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+	var golden := 0
+	for c in ga:
+		if c.r > 0.6 and c.b < 0.15:
+			golden += 1
+	check.call(golden > 200, "looks: the golden agal is gold (%d)" % golden)
 	check.call(A.call("astronaut", 0, {"meteor50": 50}) and not A.call("astronaut", 30, {"meteor50": 49}) and A.call("dino", 0, {"giant3": 3}),
 		"looks: the space helmet and dino hood unlock with their arcade challenge")
 	var needs: Array = []

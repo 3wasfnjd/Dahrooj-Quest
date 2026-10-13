@@ -13,6 +13,11 @@ extends Node3D
 ## a paddle it points at (ricochet, 5-degree steps); the TRIGGER aims and launches Dahrooj
 ## in ricochet. In balance and maze the stage leaves the trigger to the runtime (blaster):
 ## xr_press returns whether the stage took the press.
+##
+## Ricochet hearts (TabletopGame.RICOCHET_HEARTS): a row of six glossy hearts stands on top
+## of the sign. A launch that misses costs one: it pops, spins and empties with a squeak and
+## an "ouch" text where Dahrooj fell; the last one beats faster; out of hearts the round
+## starts over with all six (they pop back in one by one, as after a cleared round).
 
 ## A round is won: points, result {mode, level, attempts, failures, stars}, and where
 ## (world position of the ball) for confetti.
@@ -21,6 +26,8 @@ signal won(points: int, result: Dictionary, at_world: Vector3)
 const R := TabletopGame.TABLE_RADIUS
 const TRAY_W := 3.35
 const TRAY_D := 3.77
+const HEART_SIZE := 1.25  # the ricochet hearts over the sign (about 8 cm each in VR)
+const HEART_GAP := 0.36
 
 static var _meshes := {}
 static var _grain: ImageTexture
@@ -59,6 +66,13 @@ var grips := {}  # input id -> {q, pos, buttons, tilt} or {q, pos, index, angle}
 var aim := Vector2(0, -1)
 var trigger = null  # input id holding the trigger (ricochet)
 var english := false
+## Ricochet: the hearts on the sign (empty elsewhere), each heart's time since it was lost
+## (-1: not animating) and since the row refilled.
+var hearts: Array = []
+var heart_row: Node3D
+var heart_lost_t: Array = []
+var hearts_refill_t := 99.0
+var hearts_shown := -1
 
 
 func _init(mode_ := "balance") -> void:
@@ -68,6 +82,8 @@ func _init(mode_ := "balance") -> void:
 	tilting = mode == "balance" or mode == "maze"
 	game = TabletopGame.new(mode)
 	game.won.connect(_on_won)
+	game.heart_lost.connect(_on_heart_lost)
+	game.restarted.connect(_on_restarted)
 	board = Node3D.new()
 	board.name = "Board"
 	board.rotation_order = EULER_ORDER_XYZ
@@ -336,6 +352,63 @@ static func star_mesh() -> ArrayMesh:
 	return mesh
 
 
+## An extruded, bevelled heart standing up (x across, y up, thickness along z), about
+## .22 wide and .2 tall with its tip at y -.1.
+static func heart_mesh() -> ArrayMesh:
+	if _meshes.has("heart"):
+		return _meshes.heart
+	var n := 48
+	var base := PackedVector2Array()
+	for k in n:
+		var t := TAU * k / n
+		var x := 16.0 * pow(sin(t), 3)
+		var y := 13.0 * cos(t) - 5.0 * cos(2.0 * t) - 2.0 * cos(3.0 * t) - cos(4.0 * t)
+		base.append(Vector2(x, y + 2.5) * 0.0068)
+	var inner := PackedVector2Array()
+	for q in base:
+		inner.append(q * 0.9)
+	var tris := Geometry2D.triangulate_polygon(inner)
+	var mb := MB.new()
+	var d := 0.04
+	var b := 0.016
+	for side: float in [1.0, -1.0]:
+		var nn := Vector3(0, 0, side)
+		for i in range(0, tris.size(), 3):
+			var a := inner[tris[i]]
+			var c := inner[tris[i + 1]]
+			var e := inner[tris[i + 2]]
+			var va := Vector3(a.x, a.y, side * d)
+			var vc := Vector3(c.x, c.y, side * d)
+			var ve := Vector3(e.x, e.y, side * d)
+			if (vc - va).cross(ve - va).dot(nn) < 0.0:
+				mb.tri(va, ve, vc, nn)
+			else:
+				mb.tri(va, vc, ve, nn)
+	# The bevelled rim: inner face edge -> outline at the middle -> the other face.
+	var rings := [[inner, d], [base, d - b], [base, -(d - b)], [inner, -d]]
+	for l in 3:
+		var p0: PackedVector2Array = rings[l][0]
+		var p1: PackedVector2Array = rings[l + 1][0]
+		var z0: float = rings[l][1]
+		var z1: float = rings[l + 1][1]
+		for i in n:
+			var j := (i + 1) % n
+			var a0 := Vector3(p0[i].x, p0[i].y, z0)
+			var b0 := Vector3(p0[j].x, p0[j].y, z0)
+			var a1 := Vector3(p1[i].x, p1[i].y, z1)
+			var b1 := Vector3(p1[j].x, p1[j].y, z1)
+			var out := Vector3((p1[i] + p1[j]).x, (p1[i] + p1[j]).y, 0.0) * 0.5
+			var nm := (b0 - a0).cross(a1 - a0).normalized()
+			if nm.dot(out + Vector3(0, 0, (z0 + z1) * 0.5)) < 0.0:
+				nm = -nm
+				mb.quad(a0, a1, b1, b0, nm)
+			else:
+				mb.quad(a0, b0, b1, a1, nm)
+	var mesh := mb.commit()
+	_meshes.heart = mesh
+	return mesh
+
+
 static func cylinder_mesh(r: float, h: float, segs: int) -> CylinderMesh:
 	var key := "cyl_%f_%f_%d" % [r, h, segs]
 	if not _meshes.has(key):
@@ -551,6 +624,31 @@ func _build() -> void:
 	character = DahroojView.new(R)
 	character.name = "Dahrooj"
 	board.add_child(character)
+	if game.max_hearts > 0:
+		_build_hearts()
+
+
+## Ricochet: the hearts stand in a row on top of the sign (coral and glossy while you have
+## them, a dark walnut inlay once lost).
+func _build_hearts() -> void:
+	mats.heart = plain(Color("ff5a6e"), 0.22)
+	(mats.heart as StandardMaterial3D).rim_enabled = true
+	(mats.heart as StandardMaterial3D).rim = 0.6
+	(mats.heart as StandardMaterial3D).emission_enabled = true
+	(mats.heart as StandardMaterial3D).emission = Color("ff2d55")
+	(mats.heart as StandardMaterial3D).emission_energy_multiplier = 0.18
+	mats.heart_empty = plain(Color("5b4034"), 0.8)
+	heart_row = Node3D.new()
+	heart_row.name = "ricochet-hearts"
+	heart_row.position = Vector3(0, 0.426 + 0.375 + 0.17, -1.81)
+	board.add_child(heart_row)
+	var n := game.max_hearts
+	for i in n:
+		var h := _mesh(heart_row, heart_mesh(), mats.heart, Vector3((i - (n - 1) / 2.0) * HEART_GAP, 0, 0))
+		h.name = "heart-%d" % i
+		hearts.append(h)
+		heart_lost_t.append(-1.0)
+	hearts_shown = game.hearts
 
 
 func _multi(mat: Material, count: int) -> MultiMeshInstance3D:
@@ -626,7 +724,7 @@ func _tr(ar: String, en: String) -> String:
 
 func _status(en: bool) -> void:
 	english = en
-	var key := "%s|%d|%s|%d|%d|%d|%d|%s" % [en, game.level, game.phase, game.stars.size(), game.bounces.size(), game.attempts, game.score, grips.size() > 0]
+	var key := "%s|%d|%s|%d|%d|%d|%d|%s|%d" % [en, game.level, game.phase, game.stars.size(), game.bounces.size(), game.attempts, game.score, grips.size() > 0, game.hearts]
 	if key == status_key:
 		return
 	status_key = key
@@ -636,6 +734,11 @@ func _status(en: bool) -> void:
 	var hint: String
 	if game.phase == "won":
 		hint = _tr("أحسنت! المرحلة التالية…", "Nice! Next round…")
+	elif game.phase == "falling" and game.max_hearts > 0:
+		if game.hearts > 0:
+			hint = _tr("راح قلب! باقي %s" % GameCtx.ar_digits(game.hearts), "Lost a heart! %d left" % game.hearts)
+		else:
+			hint = _tr("نفدت القلوب! نعيد المرحلة بست قلوب", "Out of hearts! The round starts over with six")
 	elif game.phase == "falling":
 		hint = _tr("جرّب مرة ثانية", "Try again")
 	elif mode == "balance":
@@ -825,6 +928,76 @@ func ball_world() -> Vector3:
 	return _board_xf() * Vector3(game.ball.x, R - game.fall, game.ball.y)
 
 
+## A missed launch: the heart pops, spins and empties; a squeak and an "ouch" where he fell.
+func _on_heart_lost(left: int) -> void:
+	if left >= 0 and left < heart_lost_t.size():
+		heart_lost_t[left] = 0.0
+	hearts_shown = left
+	var at := Vector3(clampf(game.ball.x, -1.1, 1.1), 0.75, clampf(game.ball.y, -1.3, 1.1))
+	sfx.call("squeak", 0.7, _grp_xf() * at)
+	JuiceText.spawn(self, _tr("آخ!", "OUCH!"), at, "ouch", 0.32)
+	if left == 0 and heart_row:
+		JuiceText.spawn(self, _tr("نفدت القلوب!", "Out of hearts!"), heart_row.position + Vector3(0, 0.45, 0.1), "ouch", 0.3)
+
+
+## Out of hearts: the round from the top, all six hearts back.
+func _on_restarted() -> void:
+	xr_cancel()
+	_refill_hearts()
+	sfx.call("swish", 0.6, _board_xf() * heart_row.position if heart_row else ball_world())
+
+
+func _refill_hearts() -> void:
+	hearts_refill_t = 0.0
+	hearts_shown = game.hearts
+	for i in heart_lost_t.size():
+		heart_lost_t[i] = -1.0
+
+
+## The heart row each frame: full ones bob (the last one beats fast), a lost one pops and
+## spins for .6 s then sits empty, a refill pops them back in one after another.
+func _frame_hearts(dt: float) -> void:
+	if hearts.is_empty():
+		return
+	if game.hearts > hearts_shown:
+		_refill_hearts()
+	hearts_refill_t += dt
+	for i in hearts.size():
+		var h: MeshInstance3D = hearts[i]
+		var x := (i - (hearts.size() - 1) / 2.0) * HEART_GAP
+		var full := i < game.hearts
+		var lt: float = heart_lost_t[i]
+		var k := 1.0
+		var y := 0.0
+		var spin := 0.0
+		if lt >= 0.0:
+			lt += dt
+			heart_lost_t[i] = lt
+			var u := clampf(lt / 0.6, 0.0, 1.0)
+			if lt < 0.3:
+				k = 1.0 + 0.6 * sin(PI * lt / 0.3)  # the pop
+			else:
+				k = lerpf(1.0, 0.8, clampf((u - 0.5) * 2.0, 0.0, 1.0))  # settles, empty
+			y = 0.22 * sin(PI * u)
+			spin = TAU * (1.0 - pow(1.0 - u, 3.0))
+			full = lt < 0.3
+			if lt > 0.6:
+				heart_lost_t[i] = -1.0
+		elif full:
+			var beat := 7.0 if game.hearts == 1 else 3.0
+			k = 1.0 + (0.12 if game.hearts == 1 else 0.05) * maxf(0.0, sin(time * beat + i * 0.7))
+			y = 0.02 * sin(time * 2.2 + i * 0.9)
+		else:
+			k = 0.8
+		# The refill: each pops in with a little overshoot, left to right.
+		var rt := hearts_refill_t - i * 0.08
+		if rt < 0.35 and full:
+			k *= clampf(rt / 0.35, 0.0, 1.0) * (1.0 + 0.35 * sin(PI * clampf(rt / 0.35, 0.0, 1.0)))
+		h.position = Vector3(x, y, 0)
+		h.basis = Basis(Vector3.UP, spin) * Basis.from_scale(Vector3.ONE * HEART_SIZE * maxf(k, 0.001))
+		h.material_override = mats.heart if full else mats.heart_empty
+
+
 func _on_won(points: int, result: Dictionary) -> void:
 	tabletop_win.call(result)
 	var at := _board_xf() * Vector3(game.ball.x, R, game.ball.y)
@@ -889,6 +1062,7 @@ func xr_frame(dt: float, ctx: Dictionary) -> void:
 	_level_art()
 	_status(bool(ctx.get("english", english)))
 	_frame_pieces()
+	_frame_hearts(dt if active else 0.0)
 	var style := str(ctx.get("style", Save.style))
 	character.set_look(style, str(ctx.get("color", Save.jelly_color)), str(ctx.get("accessory", "")))
 	var pos := Vector3(game.ball.x, R - game.fall, game.ball.y)

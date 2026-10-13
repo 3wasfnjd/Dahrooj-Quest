@@ -15,6 +15,7 @@ static func run(check: Callable) -> void:
 	_runtime(check)
 	_migrate(check)
 	_page(check)
+	_big(check)
 
 
 static func _ids() -> Array:
@@ -40,8 +41,8 @@ static func _one_each(check: Callable) -> void:
 	var kinds := {"acc": 0, "shot": 0, "color": 0}
 	for r: Dictionary in ChallengeRewards.all():
 		kinds[r.kind] = int(kinds[r.kind]) + 1
-	check.call(int(kinds.acc) == MenuCatalog.ACCESSORIES.size() - 1 and int(kinds.shot) == ShotCatalog.ids().size() - 4 and int(kinds.color) == 6,
-		"rewards: all accessories but None, the shots but the first four, six colours (%s)" % [kinds])
+	check.call(int(kinds.acc) == MenuCatalog.ACCESSORIES.size() - 1 and int(kinds.shot) == ShotCatalog.ids().size() - 4 and int(kinds.color) == 10,
+		"rewards: all accessories but None, the shots but the first four, ten colours (%s)" % [kinds])
 	var counted := true
 	for a: Array in MenuCatalog.ACCESSORIES:
 		counted = counted and (a[3] is String or a[0] == "")
@@ -228,6 +229,137 @@ static func _page(check: Callable) -> void:
 			locked.append(b.id)
 		if b.kind == "jellyColor" and b.id == "purple":
 			purple_open = not b.disabled
-	check.call(locked.size() == 5 and purple_open and not "pink" in locked and not "original" in locked,
+	check.call(locked.size() == 9 and purple_open and not "pink" in locked and not "original" in locked,
 		"menu: the colours a challenge opens are locked until then %s" % [locked])
+	p.free()
+
+
+## The big-number challenges: late in the list, their goals climbing; the runtime feeds them
+## (tallies from the older challenges, longer combos and waves, every shot hit, the modes
+## played, the best one-mode score and the lifetime total, saved quietly and flushed); the
+## lifetime total survives a save and an old save loads it as 0; the challenge rows show big
+## counts grouped and they fit.
+static func _big(check: Callable) -> void:
+	var ids := _ids()
+	var big := ["score1k", "mole100", "modes10", "bricks100", "castle200", "score5k", "frenzy500", "meteor500", "combo25", "pop500",
+		"total50k", "score10k", "invasion25", "giant30", "shots1000", "modesAll", "total100k", "score25k", "total250k"]
+	var late := true
+	for id: String in big:
+		late = late and ids.find(id) > ids.find("mazeClean")
+	var tiers := [GameRuntime.challenge("score1k")[3], GameRuntime.challenge("score5k")[3], GameRuntime.challenge("score10k")[3], GameRuntime.challenge("score25k")[3]]
+	check.call(late and ids.size() == 62 and ids.slice(43) == big and tiers == [1000, 5000, 10000, 25000]
+		and int(GameRuntime.challenge("total250k")[3]) == 250000 and int(GameRuntime.challenge("modesAll")[3]) == MenuCatalog.MODES.size(),
+		"big challenges: 19 more after the tabletops, easiest first (1,000 .. 25,000 in one mode; 250,000 in all; all %d modes)" % MenuCatalog.MODES.size())
+	check.call(ChallengeRewards.reward_of("score1k").id == "umbrella" and ChallengeRewards.reward_of("score25k").id == "gold"
+		and ChallengeRewards.reward_of("total250k").id == "trophy" and ChallengeRewards.reward_of("mole100").kind == "color",
+		"big challenges: the umbrella hat first, the gold colour at 25,000, the trophy last")
+
+	var path: String = Save.PATH
+	var had := FileAccess.file_exists(path)
+	var before := FileAccess.get_file_as_string(path) if had else ""
+	var keep: Dictionary = Save.challenges.duplicate(true)
+	var keep_total: int = Save.total_score
+	Save.challenges.clear()
+	Save.total_score = 0
+	var b := Ball.new()
+	var parent := Node3D.new()
+	var rt := GameRuntime.new(b, parent)
+	var toasts: Array = []
+	rt.ctx.toast = func(t: String) -> void: toasts.append(t)
+	# Tallies: each whack, knock, brick, pop, blast and knockout counts once more.
+	for k in 3:
+		rt.ctx.ch_progress.call("mole20", int(Save.challenges.get("mole20", 0)) + 1)
+	for k in 25:
+		rt.ch_progress("castle25", int(Save.challenges.get("castle25", 0)) + 1)
+	rt.ch_progress("castle25", 26)
+	rt.ch_add("pop20")
+	rt.ch_add("pop20")
+	rt.ch_progress("giant3", 1)
+	rt.ch_progress("giant3", 2)
+	rt.ch_progress("giant3", 1)
+	rt.ch_progress("meteor50", 7)
+	rt.ch_progress("bricks20", 1)
+	rt.ctx.tally.call("frenzy500", 4)
+	var P := func(id: String) -> int: return int(Save.challenges.get(id, 0))
+	check.call(P.call("mole100") == 3 and P.call("castle200") == 26 and P.call("pop500") == 2 and P.call("giant30") == 3 and P.call("meteor500") == 1
+		and P.call("bricks100") == 1 and P.call("frenzy500") == 4, "big challenges: lifetime tallies count every whack, knock, pop and knockout (even past the small goal)")
+	rt.ch_progress("combo10", 12)
+	rt.ch_progress("invasion10", 30)
+	check.call(P.call("combo25") == 12 and P.call("combo10") == 10 and P.call("invasion25") == 25, "big challenges: a longer combo and more waves carry on (12; 25 of 30)")
+	rt.shot_hits("bolt", 5)
+	rt.shot_hits("laser", 2)
+	check.call(P.call("shots1000") == 7 and P.call("laser30") == 2, "big challenges: every shot's hits count toward 1,000")
+	for m: String in ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime"]:
+		rt.note_mode(m, "")
+	check.call(P.call("modes10") == 10 and P.call("modesAll") == 10, "big challenges: ten modes played (modes10 done, modesAll 10 of 20)")
+	# Scores: the best mode's score and every point gained, once.
+	toasts.clear()
+	rt.counts["meteor"] = 600
+	rt.counts["invasion"] = 500
+	rt.track_scores()
+	check.call(P.call("score1k") == 600 and Save.total_score == 1100 and P.call("total50k") == 1100, "big challenges: one-mode best 600, total 1,100")
+	rt.counts["mole"] = 50
+	rt.track_scores()
+	rt.counts["mole"] = 40
+	rt.track_scores()
+	rt.counts["mole"] = 60
+	rt.counts["meteor"] = 1200
+	rt.track_scores()
+	check.call(P.call("score1k") == 1000 and P.call("score5k") == 1200 and Save.total_score == 1760 and toasts.size() == 1,
+		"big challenges: 1,000 in one mode is done (its card), a dip and climb back counts once (1,760)")
+	# Quiet progress is saved by flush (or FLUSH_T later), finishing at once.
+	rt.flush()
+	rt.tally("mole100", 2)
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(path))
+	check.call(int((saved.challenges as Dictionary).get("mole100", 0)) == 3 and int(saved.get("total_score", 0)) == 1760, "big challenges: quiet progress waits to be saved")
+	rt.autosave(GameRuntime.FLUSH_T + 0.1)
+	saved = JSON.parse_string(FileAccess.get_file_as_string(path))
+	check.call(int((saved.challenges as Dictionary).get("mole100", 0)) == 5, "big challenges: ... and is saved a moment later")
+	Save.total_score = 0
+	Save.load_data()
+	check.call(Save.total_score == 1760, "big challenges: the lifetime total survives a save")
+	var old_save: Dictionary = saved.duplicate(true)
+	old_save.erase("total_score")
+	var f0 := FileAccess.open(path, FileAccess.WRITE)
+	f0.store_string(JSON.stringify(old_save))
+	f0.close()
+	Save.load_data()
+	check.call(Save.total_score == 0 and P.call("mole100") == 5, "big challenges: a save from before the total loads it as 0")
+	parent.free()
+	Save.challenges.clear()
+	Save.challenges.merge(keep)
+	Save.total_score = keep_total
+	if had:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(before)
+		f.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+	Save.load_data()
+
+	# The rows: big counts grouped, in Arabic digits in Arabic; every row fits when done.
+	check.call(MenuPanel.count_text(1250, 10000, false) == "1,250 / 10,000" and MenuPanel.count_text(1250, 10000, true) == "١٬٢٥٠ / ١٠٬٠٠٠"
+		and MenuPanel.count_text(3, 3, true) == "٣ / ٣" and GameCtx.grouped(250000) == "250,000" and GameCtx.grouped(999) == "999",
+		"menu: big counts are grouped (1,250 / 10,000; ١٬٢٥٠ / ١٠٬٠٠٠)")
+	var p := MenuPanel.new()
+	var ch: Array = []
+	for c: Array in GameRuntime.CHALLENGES:
+		ch.append({"id": c[0], "title": c[1], "en": c[2], "value": c[3], "goal": c[3]})
+	var bad: Array = []
+	var counts := 0
+	for en in [false, true]:
+		var m := {"english": en, "kind": "vr", "accessory": "", "done": ch.size(), "reset_armed": false, "rewards": {}, "challenges": ch}
+		p.set_page("challenges")
+		p.challenge_offset = 0.0
+		p.draw(m, -1)
+		while true:
+			for r: Dictionary in p.measure():
+				if float(r.w) > float(r.max_w) + 0.5 or int(r.size) < Glass.MIN_SIZE:
+					bad.append(r.s)
+				if str(r.s) in ["250,000 / 250,000", "٢٥٠٬٠٠٠ / ٢٥٠٬٠٠٠"]:
+					counts += 1
+			if not p.scroll_by(MenuPanel.LIST_HEIGHT * 0.5):
+				break
+			p.draw(m, -1)
+	check.call(bad.is_empty() and counts >= 2, "menu: finished big rows fit, counts and all (%d) %s" % [counts, bad.slice(0, 6)])
 	p.free()

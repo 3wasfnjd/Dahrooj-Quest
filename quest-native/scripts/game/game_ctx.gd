@@ -18,6 +18,9 @@ var sfx: Callable = func(_n, _k, _p): pass
 var add_count: Callable = func(_m, _r): pass
 ## ch_progress(id: String, value: int) — ctx.chProgress (challenge progress).
 var ch_progress: Callable = func(_id, _v): pass
+## tally(id: String, n: int) — n more toward a lifetime challenge, saved a little later
+## (for counts that move fast).
+var tally: Callable = func(_id, _n): pass
 ## toast(text: String) — ctx.toast (a notification card).
 var toast: Callable = func(_t): pass
 ## confetti(pos: Vector3, radius: float, elevation: float, scale: float) — confetti.pop.
@@ -35,3 +38,19 @@ static func ar_digits(n) -> String:
 	for ch in s:
 		out += "٠١٢٣٤٥٦٧٨٩"[int(ch)] if ch >= "0" and ch <= "9" else ch
 	return out
+
+
+## A whole number with its thousands grouped: "12,500", or in Arabic-Indic digits with the
+## Arabic thousands separator, "١٢٬٥٠٠".
+static func grouped(n: int, arabic := false) -> String:
+	var digits := str(absi(n))
+	var out := ""
+	var k := 0
+	for i in range(digits.length() - 1, -1, -1):
+		if k > 0 and k % 3 == 0:
+			out = ("٬" if arabic else ",") + out
+		out = digits[i] + out
+		k += 1
+	if n < 0:
+		out = "-" + out
+	return ar_digits(out) if arabic else out

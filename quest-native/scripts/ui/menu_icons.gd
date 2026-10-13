@@ -26,6 +26,8 @@ const IDS := [
 	"confetti", "bouncy", "laser", "boomerang", "glob", "rocket", "lightning", "dallah",
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef",
 	"dino", "halo", "bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
+	"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak",
+	"sadu", "medal", "goldAgal", "bisht", "trophy",
 ]
 ## The start screen's large icons, baked again at HI_CELL pixels.
 const HI_IDS := ["mr", "vr", "lang", "world"]
@@ -1139,9 +1141,9 @@ static func shapes(id: String) -> Array:
 				d.sf(ell(0, 0, 7, 4.5, 20), 3.5)
 				d.s(P([[-4, 0], [4, 0]]), false, 2.5)
 			d.xf = Transform2D.IDENTITY
-		"shemagh", "ghutra":
+		"shemagh", "ghutra", "goldAgal":
 			# Dahrooj in a head-cloth with the peak over the brow and the double agal; the
-			# shemagh is checked.
+			# shemagh is checked, the golden agal sparkles.
 			var hood := arc(0, 4, 40, PI, 0)
 			hood.append_array(P([[40, 46], [24, 40], [-24, 40], [-40, 46]]))
 			d.sf(hood)
@@ -1163,6 +1165,9 @@ static func shapes(id: String) -> Array:
 				d.cut(band, 2.0)
 				d.s(band, false, 6.5)
 			d.face(0, 16, 22, 3.5)
+			if id == "goldAgal":
+				d.ink(star(-40, -38, 8, 0.4))
+				d.ink(star(40, -30, 6, 0.4))
 		"taqiyah":
 			# A crocheted skullcap: rows of little holes over a rolled rim.
 			var dome := arc(0, 12, 36, PI, 0)
@@ -1348,6 +1353,151 @@ static func shapes(id: String) -> Array:
 			d.ink(ell(0, -14, 4, 3, 16))
 			d.s(P([[0, -14], [36, -8], [36, 16]]), false, 3.5)
 			d.ink(rr(32, 14, 8, 14, 3))
+		"umbrella":
+			# Dahrooj under a striped beach umbrella.
+			var can := arc(0, -4, 42, PI, TAU)
+			d.sf(can)
+			for x in [-15.0, 15.0]:
+				d.s(P([[0, -46], [x, -4]]), false, 3.5)
+			d.s(P([[0, -4], [0, 10]]), false, 4.0)
+			d.face(0, 28, 17, 3.0)
+		"goldShades":
+			# Teardrop aviator lenses on a double bridge.
+			for sx in [-1.0, 1.0]:
+				var lens := PackedVector2Array()
+				for i in 40:
+					var t := TAU * i / 40.0
+					var bulge := maxf(0.0, sin(t))
+					lens.append(Vector2(sx * 22.0 + cos(t) * 17.0 + sx * bulge * 4.0, -2.0 + sin(t) * (13.0 + 6.0 * bulge)))
+				d.sf(lens)
+				d.s(P([[sx * 38.0, -10], [sx * 48.0, -16]]), false, 4.0)
+				d.s(P([[sx * 15.0, -8], [sx * 22.0, -11]]), false, 3.0)
+			d.s(P([[-7, -12], [7, -12]]), false, 3.5)
+			d.s(arc(0, -2, 6, PI, TAU), false, 3.5)
+		"turban":
+			# A wrapped turban: a dome over crossing folds, a jewel and a feather.
+			var dome := arc(0, 4, 32, PI, TAU)
+			d.sf(dome)
+			var band := rr(-40, 0, 80, 22, 11)
+			d.cut(band, 2.5)
+			d.sf(band)
+			d.s(P([[-28, -12], [8, -30]]), false, 3.5)
+			d.s(P([[-30, 4], [26, 18]]), false, 3.5)
+			var plume := ell(6, -12, 5, 15)
+			d.cut(plume, 2.0)
+			d.sf(plume)
+			d.cut(ell(2, 10, 8, 8), 2.0)
+			d.ink(ell(2, 10, 6, 6, 24))
+		"taifRose":
+			# A ring of roses on a green vine.
+			d.s(arc(0, 34, 44, PI * 1.12, PI * 1.88), false, 4.0)
+			d.f(ell(-22, 6, 9, 5))
+			d.f(ell(22, 6, 9, 5))
+			for r: Array in [[-32, 10, 10.0], [-15, -4, 12.0], [15, -4, 12.0], [32, 10, 10.0], [0, -12, 13.0]]:
+				var c := ell(r[0], r[1], r[2], r[2])
+				d.cut(c, 2.5)
+				d.sf(c)
+				d.s(arc(r[0], r[1], float(r[2]) * 0.45, 0.0, PI * 1.5), false, 3.0)
+		"farwa":
+			# A suede hat with a fluffy wool rim and a tuft on top.
+			d.sf(arc(0, 12, 32, PI, TAU))
+			d.sf(ell(0, -24, 8, 8))
+			for i in 7:
+				var c := ell(-36.0 + i * 12.0, 14, 8, 8)
+				d.cut(c, 1.5)
+				d.sf(c)
+		"diving":
+			# Diving goggles on their strap, a snorkel up the side.
+			d.s(P([[-50, 0], [-38, 0]]), false, 5.0)
+			d.s(P([[38, 0], [44, 0]]), false, 5.0)
+			for x in [-38.0, 4.0]:
+				var lens := rr(x, -14, 34, 28, 11)
+				d.cut(lens, 2.5)
+				d.sf(lens)
+				d.s(P([[x + 7, -6], [x + 13, -9]]), false, 3.0)
+			d.s(P([[-4, -1], [4, -1]]), false, 4.0)
+			d.s(P([[44, 16], [46, -28], [40, -38]]), false, 6.0)
+			d.ink(rr(32, -46, 12, 10, 3))
+		"lantern":
+			# A Ramadan lantern: a hexagonal glass body under a roof, a crescent on top.
+			var body := P([[-16, -18], [16, -18], [22, -10], [22, 16], [16, 24], [-16, 24], [-22, 16], [-22, -10]])
+			d.sf(body)
+			d.s(P([[-7, -18], [-7, 24]]), false, 3.0)
+			d.s(P([[7, -18], [7, 24]]), false, 3.0)
+			d.ink(ell(0, 3, 4, 6, 20))
+			var roof := P([[-22, -18], [0, -34], [22, -18]])
+			d.cut(roof, 2.0)
+			d.sf(roof)
+			d.sf(rr(-18, 24, 36, 9, 3))
+			d.s(P([[0, -34], [0, -40]]), false, 3.5)
+			d.s(arc(0, -46, 6, PI * 0.3, PI * 1.6), false, 3.5)
+		"palm":
+			# Palm fronds fanning out of a woven band, dates in front.
+			for i in 7:
+				var a := lerpf(-PI * 0.92, -PI * 0.08, i / 6.0)
+				d.xf = Transform2D(a, Vector2(0, 18))
+				d.sf(ell(24, 0, 22, 6.5))
+				d.xf = Transform2D.IDENTITY
+			var band := rr(-34, 14, 68, 13, 6)
+			d.cut(band, 2.5)
+			d.sf(band)
+			for c: Array in [[-6, 34], [6, 34], [0, 42]]:
+				d.ink(ell(c[0], c[1], 4.5, 5.5, 20))
+		"misbaha":
+			# A loop of prayer beads, a tassel hanging below.
+			for i in 17:
+				var t := -PI * 0.5 + TAU * (i + 0.5) / 18.0
+				if absf(wrapf(t - PI * 0.5, -PI, PI)) < 0.2:
+					continue
+				d.sf(ell(cos(t) * 30.0, -6.0 + sin(t) * 32.0, 5.0, 5.0, 20))
+			d.ink(ell(0, 30, 5, 5, 20))
+			d.sf(P([[-5, 36], [5, 36], [11, 52], [-11, 52]]))
+		"karak":
+			# A glass of tea on a saucer, steam curling up.
+			d.sf(ell(0, 28, 36, 8))
+			var glass := P([[-21, -12], [21, -12], [15, 27], [-15, 27]])
+			d.cut(glass, 2.5)
+			d.sf(glass)
+			d.s(P([[-20, -3], [20, -3]]), false, 3.0)
+			d.s(P([[-17, 13], [17, 13]]), false, 3.0)
+			d.s(bez(P([[-7, -20]]), Vector2(-15, -28), Vector2(2, -36), Vector2(-6, -48)), false, 3.5)
+			d.s(bez(P([[8, -20]]), Vector2(0, -28), Vector2(17, -34), Vector2(9, -46)), false, 3.5)
+		"sadu":
+			# A scarf woven in Sadu bands: diamonds along it, fringed tails.
+			var tail := P([[6, 0], [24, 0], [29, 38], [11, 40]])
+			d.sf(tail)
+			for x in [15, 23]:
+				d.s(P([[x, 40], [x + 1, 48]]), false, 4.0)
+			var band := rr(-42, -22, 84, 24, 12)
+			d.cut(band, 3.0)
+			d.sf(band)
+			for x in [-27.0, -9.0, 9.0, 27.0]:
+				d.ink(P([[x, -16], [x + 6, -10], [x, -4], [x - 6, -10]]))
+			d.s(P([[12, 18], [26, 18]]), false, 3.0)
+		"medal":
+			# A medal with a star, on a ribbon.
+			d.sf(P([[-28, -46], [-13, -46], [5, -2], [-10, -2]]))
+			d.sf(P([[28, -46], [13, -46], [-5, -2], [10, -2]]))
+			var disc := ell(0, 20, 23, 23)
+			d.cut(disc, 3.0)
+			d.sf(disc)
+			d.ink(star(0, 20, 12, 0.45))
+		"bisht":
+			# Dahrooj in a bisht: the cloak open at the front, gold edges.
+			d.sf(P([[-14, 4], [-44, 46], [-6, 46], [-4, 12]]))
+			d.sf(P([[14, 4], [44, 46], [6, 46], [4, 12]]))
+			d.s(P([[-8, 14], [-10, 46]]), false, 3.0)
+			d.s(P([[8, 14], [10, 46]]), false, 3.0)
+			d.face(0, -14, 24, 3.5)
+		"trophy":
+			# A trophy cup with two handles and a star.
+			var cup := arc(0, -24, 27, 0, PI)
+			d.sf(cup)
+			d.s(arc(-27, -14, 10, PI * 0.5, PI * 1.5), false, 4.5)
+			d.s(arc(27, -14, 10, -PI * 0.5, PI * 0.5), false, 4.5)
+			d.s(P([[0, 4], [0, 22]]), false, 6.0)
+			d.sf(rr(-20, 22, 40, 12, 4))
+			d.ink(star(0, -13, 9, 0.45))
 		_:
 			d.sf(star(0, 0, 36, 0.46))
 	return d.ops
