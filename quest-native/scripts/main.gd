@@ -163,7 +163,9 @@ func _ready() -> void:
 	intro.buzz = buzz
 	intro.ch_add = func(id: String): runtime.ch_add(id)
 	intro.sky_pop = func(p: Vector3): world_balls.sky_pop(to_game(p))
-	intro.cleared.connect(func(): stage.visible = true)
+	intro.cleared.connect(func():
+		_anchor_vr_here()
+		stage.visible = true)
 	hud = Node3D.new()
 	hud.name = "Hud"
 	hud.visible = false
@@ -497,6 +499,17 @@ func head_anchor() -> Dictionary:
 	return {"p": Vector3(head.origin.x, 0.0, head.origin.z), "theta": atan2(dir.x, -dir.z)}
 
 
+## VR: the court set again around where the player stands and faces now, as play begins
+## (the start screen's pose can be stale or untracked).
+func _anchor_vr_here() -> void:
+	if mode == "mr" or summit_on or table != null:
+		return
+	vr_anchor = {}
+	place()
+	if stage != null:
+		_setup_stage()
+
+
 ## VR: the player's spot when the court was placed, as a room transform (floor, facing -Z).
 func vr_frame() -> Transform3D:
 	if vr_anchor.is_empty():
@@ -528,8 +541,11 @@ func place() -> void:
 			back = maxf(0.0, stage.aim_z - (stage.reach_z if stage.reach_z != null else FAR_Z))
 		var p := Vector3(0, 0, 0.5 * VR_SCALE + back)
 		_rig_game_z = p.z
-		if vr_anchor.is_empty():
+		if vr_anchor.is_empty() or bool(vr_anchor.get("stale", false)):
 			vr_anchor = head_anchor()
+			# Before the headset tracks, the head sits at the origin: place again once it does.
+			if xr and (vr_anchor.p as Vector3).length() < 1e-4 and absf(float(vr_anchor.theta)) < 1e-4:
+				vr_anchor["stale"] = true
 		# The player's game spot p lands on the floor where they stood, the court ahead of them.
 		var vb := Basis(Vector3.UP, -float(vr_anchor.theta)).scaled(Vector3.ONE / VR_SCALE)
 		game_root.transform = Transform3D(vb, (vr_anchor.p as Vector3) - vb * p)
@@ -634,6 +650,8 @@ func _record(hand: String, p: Vector3) -> void:
 func _game_step(delta: float) -> void:
 	var dt := minf(delta, 0.05)
 	_frames += 1
+	if xr and mode != "mr" and bool(vr_anchor.get("stale", false)) and head_transform().origin.length() > 1e-4:
+		place()
 	var F := _fork_hand()
 	fork.visible = F != ""
 	if F != "":
@@ -931,6 +949,7 @@ func _press(hand: String, how: String) -> void:
 			return
 		if on_start[hand] and intro.end_intro():
 			placing = mode == "mr"
+			_anchor_vr_here()
 			ball.respawn()
 			stage.visible = true
 		else:
