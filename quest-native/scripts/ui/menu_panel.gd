@@ -643,8 +643,8 @@ func _details(ci: CanvasItem) -> void:
 		_section(ci, _say("أزرار Meta Quest", "Meta Quest controls"), 500)
 		var help := MenuCatalog.quest_controls(str(model.get("mode", "")), str(model.get("throw_style", "")))
 		var hands := [
-			{"title": _say("اليد اليسرى", "Left hand"), "rows": [["Y", _say("الأنماط", "Modes")], ["X", _say("التحديات", "Challenges")], ["trigger", _pair(help.left_trigger)], ["grip", _pair(help.left_grip)]]},
-			{"title": _say("اليد اليمنى", "Right hand"), "rows": [["B", _say("صفحة اللعب", "Play settings")], ["A", _pair(help.a)], ["trigger", _pair(help.right_trigger)], ["grip", _pair(help.right_grip)]]},
+			{"title": _say("اليد اليسرى", "Left hand"), "rows": [["≡", _say("الأنماط", "Modes")], ["X", _say("التحديات", "Challenges")], ["Y", _say("المظهر", "Appearance")], ["trigger", _pair(help.left_trigger)], ["grip", _pair(help.left_grip)]]},
+			{"title": _say("اليد اليمنى", "Right hand"), "rows": [["trigger", _pair(help.right_trigger)], ["grip", _pair(help.right_grip)]]},
 		]
 		for i in 2:
 			var hand: Dictionary = hands[i]
@@ -658,7 +658,7 @@ func _details(ci: CanvasItem) -> void:
 			var rows: Array = hand.rows
 			for j in rows.size():
 				var row: Array = rows[j]
-				var y := 596.0 + j * 42.0
+				var y := 592.0 + j * 36.0
 				var bx := x + 50.0 if english else x + 382.0
 				if row[0] == "trigger" or row[0] == "grip":
 					# A key cap for the trigger and the grip.
@@ -672,7 +672,14 @@ func _details(ci: CanvasItem) -> void:
 				else:
 					_circle(ci, Vector2(bx, y - 8), 15, Color(ACCENT, 0.16))
 					_circle(ci, Vector2(bx, y - 8), 15, Color(ACCENT, 0.9), false, 2.0)
-					_text(ci, row[0], bx, y, 20, TEXT, 26, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
+					if row[0] == "≡":
+						# The controller's menu button: three bars (the font has no ≡).
+						if ci != null:
+							for k in 3:
+								var yy := y - 14.0 + k * 6.0
+								ci.draw_line(Vector2(bx - 7, yy), Vector2(bx + 7, yy), TEXT, 2.4, true)
+					else:
+						_text(ci, row[0], bx, y, 20, TEXT, 26, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
 				_text(ci, row[1], x + 98.0 if english else x + 334.0, y, Glass.T_SMALL + 1, TEXT, 316, "left" if english else "right", Glass.W_BODY)
 		_text(ci, _pair(help.grip), cx, 790, Glass.T_SMALL, SUB, 880)
 		_text(ci, _say("في القائمة: الزناد للاختيار · قير اليمين لتمرير التحديات", "In menus: the trigger selects · the right stick scrolls challenges"), cx, 826, Glass.T_SMALL, Glass.MUTED, 880)

@@ -385,10 +385,14 @@ func draw_rests(eye: Vector3, hidden: bool) -> void:
 ## The size of the blaster's world (game units per metre, for the shots, their sparks and bursts):
 ## the court's scale as placed, so in mixed reality the shots grow and shrink with the court when you
 ## zoom it (ar_zoom), like the goal and Dahrooj. Hand-relative things (the muzzle) use scale_now.
+## Mixed reality: shots at the room's small court are drawn smaller (owner's request).
+const AR_SHOT := 0.4
+
+
 func blast_k() -> float:
 	var k: float = host.scale_now
 	if host.get("mode") == "mr" and host.get("ar_zoom") != null:
-		k *= float(host.get("ar_zoom"))
+		k *= float(host.get("ar_zoom")) * AR_SHOT
 	return k
 
 

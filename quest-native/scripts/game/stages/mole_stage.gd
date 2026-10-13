@@ -16,7 +16,7 @@ extends Node3D
 ## MeshInstance3D that follows it, so the runtime's ray_stage() finds it and calls shoot().
 
 const ROUND := 60.0
-const R := 0.48  # a mole's radius (game units, before `size`)
+const R := 0.34  # a mole's radius (game units, before `size`)
 const HOLE_K := 1.32  # hole radius / mole radius
 const SLOTS := 8
 const OPEN_T := 0.22
@@ -534,7 +534,7 @@ func spawn(kind := "", spot := {}) -> int:
 			m.color = COLORS[_rng.randi() % COLORS.size()] if _rng.randf() < 0.7 else Crowd.DAHROOJ_COLORS[m.style]
 			m.acc = ACCS[_rng.randi() % ACCS.size()]
 	var p := pace()
-	m.up_t = lerpf(1.8, 0.85, p) * (0.75 if m.kind == "gold" else (1.25 if m.kind == "sleepy" else 1.0)) * _rng.randf_range(0.85, 1.15)
+	m.up_t = lerpf(2.6, 1.4, p) * (0.75 if m.kind == "gold" else (1.25 if m.kind == "sleepy" else 1.0)) * _rng.randf_range(0.85, 1.15)
 	if not F.on:
 		m.up_t = 2.4
 	m.look = 0.0

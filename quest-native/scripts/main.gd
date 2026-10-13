@@ -760,12 +760,15 @@ func _park_spot(F: String) -> Vector3:
 # --- input -----------------------------------------------------------------------
 
 func _on_button(hand: String, name: String, down: bool) -> void:
-	# Left Y: the mode cards; left X: challenges; right B: the play page (xr-runtime menuButtons).
-	if down and (state == "play" or state == "menu") and name == "by":
-		toggle_menu("modes" if hand == "left" else "play")
+	# Owner's layout: the menu button opens the mode list, left X the challenges, left Y
+	# Dahrooj's look; A and B (right hand) do nothing.
+	if down and (state == "play" or state == "menu") and hand == "left" and name == "by":
+		toggle_menu("appearance")
 		return
-	if down and (state == "play" or state == "menu") and name == "ax" and hand == "left":
+	if down and (state == "play" or state == "menu") and hand == "left" and name == "ax":
 		toggle_menu("challenges")
+		return
+	if hand == "right" and (name == "ax" or name == "by"):
 		return
 	if state == "menu":
 		if name == "trigger" and down and hand == menu_hand:
@@ -801,24 +804,18 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 			elif hand == "right":
 				summit_throw_at = -1.0
 			return
-		if name == "ax" and hand == "right":
-			if down:
-				summit.jump()
-			return
+		if name == "trigger":
+			return  # no shots on the Summit
 	# Tabletop: the grip holds the board / turns a paddle; a trigger the board doesn't
 	# take fires shots; A retries.
 	if table != null and not placing:
 		if name == "trigger" or name == "grip":
 			if down:
-				if not table.xr_press(_table_input(hand), name) and name == "trigger":
-					_fire_blast(hand)
-					auto_fire[hand] = _clock + 0.13
+				# No shots in the tabletop modes.
+				table.xr_press(_table_input(hand), name)
 			else:
 				auto_fire.erase(hand)
 				table.xr_release(hand, false, name)
-			return
-		if hand == "right" and name == "ax" and down:
-			table.retry()
 			return
 	# Every mode: the trigger fires shots, the grip (either hand) holds Dahrooj.
 	if name == "trigger":
@@ -831,9 +828,6 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 			_press(hand, name)
 		elif holder == hand:
 			_release(hand, false)
-	# Right A: Dahrooj back to the hand.
-	elif hand == "right" and name == "ax" and down:
-		_recall()
 
 
 func _other_grab_down(hand: String, released: String) -> bool:
@@ -1358,7 +1352,7 @@ func _setup_mole() -> void:
 	if mole == null:
 		return
 	mole.sink = mode != "mr"
-	mole.size = 2.8 if mode == "mr" else 1.0
+	mole.size = 2.0 if mode == "mr" else 1.0
 	mole.spots_provider = func() -> Array:
 		var out := []
 		if mode != "mr":

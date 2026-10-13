@@ -201,16 +201,19 @@ static func run(check: Callable) -> void:
 	check.call(cap.disabled and cap.sub == "Needs 5 challenges" and not glasses.disabled and aviator.sub == "All five balance rounds", "menu: locked accessories are disabled with their unlock")
 	check.call(MenuCatalog.accessory_available("beanie", 0, {"mazeClean": 1}) and MenuCatalog.accessory_available("crown", 0, {"reward:crown": 1}) and not MenuCatalog.accessory_available("crown", 9, {}), "menu: accessory unlock rules")
 	var qc := MenuCatalog.quest_controls("climb", "sling")
-	check.call(qc.a[1] == "Jump" and qc.left_trigger[1] == "Fire shots" and qc.right_grip[1] == "Pull, then release" and qc.left_grip[1] == "Hold slingshot"
+	check.call(qc.left_grip[1] == "Jump" and qc.left_trigger[1] == "—" and qc.right_grip[1] == "Throw a ball"
 		and MenuCatalog.quest_controls("maze", "hand").grip[1].begins_with("Grip: hold and tilt"), "menu: the controls help follows mode and throw style")
 	var all_fire := true
 	for mode: Array in MenuCatalog.MODES:
 		for th: Array in MenuCatalog.THROWS:
 			var hc := MenuCatalog.quest_controls(str(mode[0]), str(th[0]))
-			if hc.left_trigger[1] != "Fire shots" or hc.right_trigger[1] != "Fire shots":
+			var no_shots: bool = str(mode[0]) in ["climb", "balance", "maze", "ricochet"]
+			if not no_shots and (hc.left_trigger[1] != "Fire shots" or hc.right_trigger[1] != "Fire shots"):
+				all_fire = false
+			if no_shots and hc.left_trigger[1] == "Fire shots":
 				all_fire = false
 	check.call(all_fire and MenuCatalog.THROWS[0][0] == "trigger" and MenuCatalog.THROWS[0][2] == "Charge" and MenuCatalog.THROWS[0][1] == "شحن",
-		"menu: the triggers fire in every mode; the charge throw keeps its id")
+		"menu: the triggers fire in the throwing modes, not in the climb and tabletops; the charge throw keeps its id")
 	_fit(p, check)
 	# Icons: every id draws something; the rasteriser anti-aliases.
 	var empty: Array = []

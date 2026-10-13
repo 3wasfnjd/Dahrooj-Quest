@@ -127,7 +127,9 @@ static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 		right_grip = ["سحب ثم إفلات", "Pull, then release"]
 		grip = ["النبيطة باليسرى · اسحب بقبضة اليمنى ثم أفلت", "Slingshot in the left hand · pull with the right grip, release"]
 	if tabletop:
-		a = ["إعادة المحاولة", "Retry round"]
+		a = ["", ""]
+		# No shots in the tabletop modes.
+		fire = ["—", "—"] if tilting else ["تصويب وإطلاق دحروج", "Aim and launch Dahrooj"]
 		if tilting:
 			left_grip = ["إمساك اللوح وإمالته", "Hold and tilt board"]
 			grip = ["القبضة: امسك اللوح وأمله · الإفلات يوقفه", "Grip: hold and tilt the board · release to pause"]
@@ -136,6 +138,9 @@ static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 			grip = ["القبضة: وجّه للوح الخشبي وأدره بخطوات ٥°", "Grip: point at a wooden paddle and turn it in 5° steps"]
 		right_grip = left_grip
 	elif mode == "climb":
-		a = ["قفز", "Jump"]
+		a = ["", ""]
+		fire = ["—", "—"]  # no shots on the Summit
+		left_grip = ["قفز", "Jump"]
+		right_grip = ["رمي كرة", "Throw a ball"]
 		grip = ["القير الأيسر: حركة · القير الأيمن: تكبير وتصغير الجبل", "Left stick: move · right stick: resize the mountain"]
 	return {"a": a, "left_trigger": fire, "right_trigger": fire, "left_grip": left_grip, "right_grip": right_grip, "grip": grip}

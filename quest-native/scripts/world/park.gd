@@ -179,7 +179,7 @@ func _ground() -> void:
 ## show (on the stone, in the pond, past the fade). The shader widens the far blades to make up.
 func _grass() -> void:
 	var size := 60.0
-	var cell := 0.14  # about 51 blades per square unit near the player (the web: 17)
+	var cell := 0.12  # about 69 blades per square unit near the player (the web: 17)
 	var sub := int(size / cell)
 	var r := RandomNumberGenerator.new()
 	r.seed = 4027
@@ -194,7 +194,7 @@ func _grass() -> void:
 			var d := Vector2(x, z - clampf(z, 0.0, 11.0)).length()
 			var want := 1.0
 			if d > 11.0:
-				want = lerpf(1.0, 0.35, minf(1.0, (d - 11.0) / 10.0)) if d < 21.0 else lerpf(0.35, 0.2, (d - 21.0) / 4.5)
+				want = lerpf(1.0, 0.45, minf(1.0, (d - 11.0) / 10.0)) if d < 21.0 else lerpf(0.45, 0.25, (d - 21.0) / 4.5)
 			if d > 25.5 or keep > want:
 				continue
 			# Surely on the stone (slab_at > 0.7 whatever the noise) or in the pond: the shader would drop it.
