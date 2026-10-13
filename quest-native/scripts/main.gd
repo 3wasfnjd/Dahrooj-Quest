@@ -84,7 +84,8 @@ var ar_zoom := 1.0
 var reticle: MeshInstance3D
 var surfaces: SceneSurfaces
 var room: RoomColliders
-var place_hint: Label3D
+var place_hint: Panel3D
+var _place_hint_lang := ""
 var holder := ""
 var parked := false
 var charge_t := {"left": 0.0, "right": 0.0}
@@ -227,23 +228,11 @@ func _build_placing() -> void:
 	reticle.material_override = m
 	reticle.visible = false
 	add_child(reticle)
-	place_hint = Panel3D.label("", 46, Panel3D.TEXT)
-	place_hint.outline_size = 0
+	# The same glass panel as the menus and the start screen.
+	place_hint = Panel3D.new()
+	place_hint.name = "PlaceHint"
 	place_hint.visible = false
 	add_child(place_hint)
-	var bg := MeshInstance3D.new()
-	var qm := QuadMesh.new()
-	qm.size = Vector2(0.86, 0.2)
-	bg.mesh = qm
-	var bm := StandardMaterial3D.new()
-	bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	bm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	bm.albedo_color = Panel3D.BG
-	bm.albedo_texture = Panel3D.round_tex()
-	bm.render_priority = 2
-	bg.material_override = bm
-	bg.position.z = -0.002
-	place_hint.add_child(bg)
 	surfaces = SceneSurfaces.new()
 	surfaces.name = "SceneSurfaces"
 	add_child(surfaces)
@@ -312,14 +301,18 @@ func _step_placing(dt: float) -> void:
 		ar_scale *= ar_zoom / z
 		ar_zoom = z
 		place()
-	place_hint.text = Save.text("وجّه على سطح واضغط الزناد للتثبيت\nالعصا للأعلى والأسفل تكبّر وتصغّر قبل التثبيت",
-		"Aim at a surface and pull the trigger to pin\nStick up and down: bigger and smaller, until you pin")
+	var lang := "ar" if Save.arabic() else "en"
+	if lang != _place_hint_lang:
+		_place_hint_lang = lang
+		place_hint.build(Save.text("ثبّت الملعب", "Pin the court"),
+			Save.text("وجّه على سطح واضغط الزناد · العصا تكبّر وتصغّر", "Aim at a surface, pull the trigger · stick: bigger / smaller"), [])
 	var head := head_transform()
 	var fwd := -head.basis.z
 	fwd.y = 0.0
 	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
 	place_hint.global_position = head.origin + fwd * 1.0 + Vector3(0, 0.25, 0)
 	place_hint.look_at(head.origin, Vector3.UP, true)
+	place_hint.scale = Vector3.ONE * 0.8
 	place_hint.visible = true
 
 

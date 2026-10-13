@@ -240,6 +240,8 @@ func _world(main: Node) -> void:
 	main._press("left", "grip")
 	check(main.holder == "left", "either grip holds Dahrooj")
 	main._release("left", true)
+	main.place_hint.build("ثبّت الملعب", "وجّه على سطح واضغط الزناد · العصا تكبّر وتصغّر", [])
+	check(main.place_hint is Panel3D and main.place_hint.height > 0.0, "the MR pin hint is the menus' glass panel")
 	main.ar_zoom = 1.0
 	main.anchor_from(Vector3(0, 0.7, -1), Vector3.UP)
 	check(main.ar_scale == 16.0, "MR: a table gets the smaller court (1/16)")
