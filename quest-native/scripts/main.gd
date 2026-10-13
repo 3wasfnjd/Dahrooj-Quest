@@ -1576,8 +1576,6 @@ func _setup_slime() -> void:
 			out.append({"pos": to_game * c, "normal": (to_game.basis * n).normalized(), "ax": ax.normalized(),
 				"ay": ay.normalized(), "half": Vector2(ax.length(), ay.length()), "label": label})
 		for pl in surfaces.planes():
-			if pl.label == "ceiling":
-				continue
 			var x: Transform3D = pl.xform
 			var sz: Vector2 = pl.size
 			add.call(x.origin, pl.normal, x.basis.x.normalized() * sz.x * 0.5, x.basis.y.normalized() * sz.y * 0.5, pl.label)
