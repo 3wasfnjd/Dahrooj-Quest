@@ -9,6 +9,13 @@ extends Node3D
 ## Lives under GameRoot: positions in game units. `host` is the main scene (scale,
 ## eye, hands, sounds, haptics, the park and the runtime).
 
+## The dallah's ding (fair_ding) is soft: its level when fired and when it spills, and the
+## least time between two of its dings (a held trigger, both hands, spills landing together).
+const DALLAH_FIRE_K := 0.3
+const DALLAH_SPILL_K := 0.22
+const DALLAH_DING_GAP := 0.3
+## The least time between two thumps of the dallah's coffee beans hitting things.
+const BEAN_THUMP_GAP := 0.15
 const RESTS_MAX := 8
 const REST_LIFE := 12.0
 const REST_ROOM := 26.0
@@ -37,9 +44,11 @@ const SHOT_STYLE := {
 	"glob": {"speed": 12.0, "grav": 1.0, "life": 2.5, "r": 0.045, "cool": 0.35, "splat": 0.4, "puddle": 2.2, "sk": 0.7},
 	"rocket": {"speed": 20.0, "grav": 0.0, "life": 2.6, "r": 0.03, "cool": 0.6, "burst": 0.75, "turn": 6.0, "seek": 16.0, "sk": 1.0},
 	"lightning": {"speed": 0.0, "grav": 0.0, "life": 0.32, "r": 0.02, "cool": 0.45, "range": 22.0, "chain": 4, "hop": 3.0, "cone": 0.32, "sk": 1.0},
-	"dallah": {"speed": 13.0, "grav": 0.55, "life": 1.1, "r": 0.05, "cool": 0.5, "spray": 0.08, "sk": 0.5},
+	"dallah": {"speed": 13.0, "grav": 0.55, "life": 1.1, "r": 0.05, "cool": 0.5, "spray": 0.08, "sk": DALLAH_FIRE_K},
 	"bean": {"speed": 7.0, "grav": 1.0, "life": 0.6, "r": 0.014, "cool": 0.0, "sk": 0.5},
 }
+## How fast a boomerang spins (radians a second): about four turns.
+const BOOMERANG_SPIN := 24.0
 const FIRE_COLS := ["e2603f", "f2c14e", "6fa8d6", "7bbf8a", "c9a2e6", "fffaf2"]
 const CONFETTI_COLS := ["ff5c8a", "ffd23f", "3ec7ff", "7ee05a", "b98cff", "ff8a3d"]
 const BOUNCY_COLS := ["ff4f9a", "4fd1ff", "b6f03c", "ffb02e", "a77bff"]
@@ -74,6 +83,7 @@ var _beam_mm: MultiMesh
 var _hand_sign := 1.0
 var _tri_cache := {}  # Mesh -> TriangleMesh
 var _shot_mats := {}
+var _sound_at := {}  # sound -> clock when the dallah last played it (_dallah_sfx)
 ## Mini and bubble shots: one crowd (a few MultiMesh draws for every shot in flight).
 var shot_crowd: Crowd
 var _crowd_drawn := 0
@@ -492,10 +502,22 @@ func fire(hand: String, origin: Vector3, dir: Vector3) -> void:
 	if kind != "bubble":
 		_spark(p, Vector3.ZERO, 0.07, Color(String(MUZZLE.get(kind, "ffe9b0"))), (0.07 if kind == "bolt" else 0.05) * hk, true)
 	var info := ShotCatalog.info(kind)
-	host.sfx(String(info.get("sound", "pew")), float(P.sk), p)
+	if kind == "dallah":
+		_dallah_sfx("fair_ding", float(P.sk), p)
+	else:
+		host.sfx(String(info.get("sound", "pew")), float(P.sk), p)
 	if kind == "confetti":
 		host.sfx("start_pop", 0.5, p)
 	host.buzz(hand, 0.12 if kind == "bubble" else (0.45 if kind in ["rocket", "lightning", "laser"] else 0.3), 22)
+
+
+## The dallah's sounds, kept soft and spaced: one `snd` at most every `gap` seconds.
+func _dallah_sfx(snd: String, k: float, p: Vector3, gap := DALLAH_DING_GAP) -> void:
+	var last := float(_sound_at.get(snd, -10.0))
+	if clock - last < gap and clock >= last:
+		return
+	_sound_at[snd] = clock
+	host.sfx(snd, k, p)
 
 
 ## A direction `ang` radians off `d`, turned `az` around it.
@@ -549,7 +571,7 @@ func _add_shot(kind: String, P: Dictionary, p: Vector3, dir: Vector3, k: float, 
 		"wob": rnd() * 6.0, "skips": 0, "float": -1.0, "tap": 0.0, "wet": false,
 		"o": p, "side": side * _hand_sign, "hand": hand, "ret": false, "caught": false, "hits": {}, "pops": 0, "bounces": 0,
 		"target": {}, "seek_t": 0.0, "size": 1.0, "axis": Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized(),
-		"hue": rnd(), "spray_t": 0.0, "n": Vector3.UP}
+		"hue": rnd(), "spray_t": 0.0, "n": Vector3.UP, "bank": 0.0, "pv": dir * speed}
 	if kind == "mini":
 		# Every little Dahrooj his own size and tumble.
 		s.size = 0.8 + rnd() * 0.5
@@ -562,7 +584,6 @@ const MATS := {
 	"trail": ["ffe9a8", 0.95, "add"], "head": ["ffffff", 1.0, "flat"], "bolt_glow": ["ffb547", 0.55, "add"],
 	"rocket": ["ffb347", 1.0, "flat"], "fw_glow": ["ff9a3c", 0.5, "add"], "flame": ["ffcf6a", 0.85, "add"],
 	"rk_body": ["e8473c", 1.0, "lit"], "rk_nose": ["f4efe6", 1.0, "lit"], "rk_fin": ["3a6fd8", 1.0, "lit"],
-	"wood": ["d18e4c", 1.0, "lit"], "paint": ["2fb7a4", 1.0, "lit"],
 	"glob": ["7ee05a", 0.8, "alpha"], "glob_core": ["d4ff9e", 0.55, "add"], "puddle": ["6fd14a", 0.72, "alpha"],
 	"brass": ["dcaa48", 1.0, "metal"], "brass_dark": ["9c6b22", 1.0, "metal"], "dallah_glow": ["ffd98a", 0.3, "add"],
 }
@@ -622,6 +643,115 @@ static func _cyl(top: float, bottom: float, h: float, segs := 8) -> CylinderMesh
 	return c
 
 
+static var _boomerang: ArrayMesh
+
+## The boomerang (game units at k = 1, about 0.3 tip to tip, flat in XZ, spinning about its
+## centre of mass at the origin): a smooth banana-curved V with a rounded elbow, arms
+## tapering to round tips, an airfoil section (domed on top, flatter below) thinning toward
+## the tips; natural wood painted with teal tips, red and yellow bands and white dots.
+static func boomerang_mesh() -> ArrayMesh:
+	if _boomerang != null:
+		return _boomerang
+	const L := 0.15  # half span
+	const D := 0.1  # how far the arms sweep back
+	const E := 0.32  # the elbow's roundness
+	const W := 0.024  # half width at the elbow
+	const T := 0.0058  # half thickness at the elbow
+	var centre := func(u: float) -> Vector3:
+		return Vector3(u * L, 0.0, D * (sqrt(u * u + E * E) - E) / (sqrt(1.0 + E * E) - E) + 0.012 * u * u * u * u)
+	# The centre of mass (roughly: the centreline's mean), so it spins about the right spot.
+	var com := Vector3.ZERO
+	for k in 41:
+		com += centre.call(-1.0 + 2.0 * k / 40.0)
+	com /= 41.0
+	var wood := Color("c8894c")
+	var dark := Color("8a5428")
+	var teal := Color("1fb5a6")
+	var red := Color("e2483a")
+	var yellow := Color("f6c445")
+	var ws := [0.55, 0.0, 0, 0.35]
+	var paint := [0.38, 0.0, 0, 0.45]
+	# Bands along the span (|u| from the elbow out), mirrored on both arms.
+	var bands: Array = [[0.0, 0.12, red], [0.12, 0.16, yellow], [0.16, 0.58, wood], [0.58, 0.62, dark], [0.62, 0.68, red],
+		[0.68, 0.72, yellow], [0.72, 0.78, red], [0.78, 0.84, wood], [0.84, 1.0, teal]]
+	var list := []
+	for side: float in [-1.0, 1.0]:
+		for b: Array in bands:
+			var u0: float = b[0]
+			var u1: float = b[1]
+			var n := maxi(2, int(ceil((u1 - u0) * 48.0)))
+			list.append([_boomerang_strip(centre, com, side, u0, u1, n, W, T), Transform3D.IDENTITY, b[2], ws if b[2] == wood or b[2] == dark else paint])
+		# Painted dots down the middle of each arm, on the top face.
+		for k in 6:
+			var u := 0.24 + k * 0.058
+			var c: Vector3 = (centre.call(u * side) as Vector3) - com
+			var top := _boomerang_half_thick(u, T) * 0.92
+			list.append([DahroojLooks.sphere(0.0042, 8, 4, 0.0, TAU, 0.0, PI / 2.0), DahroojLooks.xf(c + Vector3(0, top, 0), Vector3.ZERO, Vector3(1, 0.5, 1)),
+				Color("fff6e0"), paint])
+	_boomerang = DahroojLooks.merge(list)
+	return _boomerang
+
+
+## The round end of an arm: 1 along it, falling to 0 at the very tip (|u| = 1).
+static func _boomerang_tip(u: float) -> float:
+	if u <= 0.89:
+		return 1.0
+	var q := (u - 0.89) / 0.11
+	return sqrt(maxf(0.0, 1.0 - q * q))
+
+
+static func _boomerang_width(u: float, W: float) -> float:
+	return W * (1.0 - 0.3 * u) * _boomerang_tip(u)
+
+
+static func _boomerang_half_thick(u: float, T: float) -> float:
+	return T * (1.0 - 0.35 * u) * sqrt(_boomerang_tip(u))
+
+
+## One stretch of an arm, |u| from u0 to u1 on `side`: rings of an airfoil section (domed
+## on top, flatter underneath) around the centreline, normals from the surface.
+static func _boomerang_strip(centre: Callable, com: Vector3, side: float, u0: float, u1: float, n: int, W: float, T: float) -> Dictionary:
+	const M := 16
+	var pv := PackedVector3Array()
+	var pn := PackedVector3Array()
+	var puv := PackedVector2Array()
+	var pi := PackedInt32Array()
+	var at := func(u: float, a: float) -> Vector3:
+		var c: Vector3 = (centre.call(u * side) as Vector3) - com
+		var d: Vector3 = (centre.call(minf(u + 0.01, 1.0) * side) as Vector3) - (centre.call(maxf(u - 0.01, 0.0) * side) as Vector3)
+		if d.length_squared() < 1e-12:
+			d = Vector3(side, 0, 0)
+		var tw := d.normalized()
+		var across := Vector3(tw.z, 0.0, -tw.x)
+		var w := _boomerang_width(u, W)
+		var th := _boomerang_half_thick(u, T)
+		var sa := sin(a)
+		return c + across * w * cos(a) + Vector3.UP * th * sa * (1.0 if sa > 0.0 else 0.6)
+	for j in n + 1:
+		var u := lerpf(u0, u1, float(j) / n)
+		var c: Vector3 = (centre.call(u * side) as Vector3) - com
+		for i in M + 1:
+			var a := TAU * i / M
+			var p: Vector3 = at.call(u, a)
+			var du: Vector3 = (at.call(minf(u + 0.004, 1.0), a) as Vector3) - (at.call(maxf(u - 0.004, 0.0), a) as Vector3)
+			var da: Vector3 = (at.call(u, a + 0.05) as Vector3) - (at.call(u, a - 0.05) as Vector3)
+			var nrm := du.cross(da)
+			if nrm.length_squared() < 1e-16 or u >= 0.999:
+				nrm = p - c
+			nrm = nrm.normalized()
+			if nrm.dot(p - c) < 0.0:
+				nrm = -nrm
+			pv.append(p)
+			pn.append(nrm)
+			puv.append(Vector2(u, float(i) / M))
+	var row := M + 1
+	for j in n:
+		for i in M:
+			var q := j * row + i
+			pi.append_array([q, q + 1, q + row + 1, q, q + row + 1, q + row])
+	return {"v": pv, "n": pn, "uv": puv, "i": pi}
+
+
 ## A shot drawn as its own little model (mini and bubble shots are drawn by shot_crowd,
 ## pellets, bouncy balls and beans with the sparks). Looks along -z.
 func _shot_node(kind: String, k: float) -> Node3D:
@@ -659,22 +789,17 @@ func _shot_node(kind: String, k: float) -> Node3D:
 			flame.position.z = 0.07 * k
 			root.add_child(flame)
 		"boomerang":
-			# Two wooden arms in a V, painted tips, flat in its spin plane.
+			# A classic wooden boomerang (boomerang_mesh): it leans into its curve (Tilt) and
+			# spins flat in its own plane (Spin).
+			var tilt := Node3D.new()
+			tilt.name = "Tilt"
+			root.add_child(tilt)
 			var spin := Node3D.new()
 			spin.name = "Spin"
-			spin.scale = Vector3.ONE * 1.4
-			root.add_child(spin)
-			for side in [-1.0, 1.0]:
-				var arm := _mesh_mi(BoxMesh.new(), _mat("wood"))
-				(arm.mesh as BoxMesh).size = Vector3(0.13, 0.012, 0.034) * k
-				arm.rotation.y = side * 0.55
-				arm.position = Vector3(side * 0.052 * k, 0.0, 0.03 * k)
-				spin.add_child(arm)
-				var tip := _mesh_mi(BoxMesh.new(), _mat("paint"))
-				(tip.mesh as BoxMesh).size = Vector3(0.03, 0.014, 0.036) * k
-				tip.rotation.y = side * 0.55
-				tip.position = Vector3(side * 0.103 * k, 0.0, 0.058 * k)
-				spin.add_child(tip)
+			tilt.add_child(spin)
+			var mi := _mesh_mi(boomerang_mesh(), DahroojLooks.acc_material())
+			mi.scale = Vector3.ONE * k
+			spin.add_child(mi)
 		"glob":
 			var blob := _mesh_mi(_sphere(0.045 * k, 14), _mat("glob"))
 			blob.name = "Blob"
@@ -845,13 +970,19 @@ func _ch(id: String, value: int) -> void:
 
 ## Everything a rocket or a lightning arc can go for: [{kind, ref, p}] — leftovers ("r"),
 ## earlier throws ("v"), the throw in flight ("b"), the Golden Dahrooj ("g", main's
-## GoldenDahrooj while he is out) and the stage's hidden hit spheres ("s": the layers = 0
-## MeshInstance3Ds the blaster's ray finds).
+## GoldenDahrooj while he is out), the stage's hidden hit spheres ("s": the layers = 0
+## MeshInstance3Ds the blaster's ray finds) and the rain's Dahroojs ("i": IntroRain drops,
+## drawn by its Crowd, so they have no spheres of their own).
 func targets() -> Array:
 	var out: Array = []
 	var g := golden()
 	if g != null:
 		out.append({"kind": "g", "ref": g, "p": g.pos})
+	var ir := rain()
+	if ir != null:
+		var w2l := global_transform.affine_inverse()
+		for d: IntroRain.Drop in ir.target_drops():
+			out.append({"kind": "i", "ref": d, "p": w2l * ir.drop_world(d)})
 	for r in rests:
 		out.append({"kind": "r", "ref": r, "p": r.p})
 	for v in ball.volley:
@@ -875,10 +1006,21 @@ func golden() -> GoldenDahrooj:
 	return null
 
 
+## Main's rain (the opening or Dahrooj Rain) while it is falling, or null.
+func rain() -> IntroRain:
+	var ir = host.get("intro") if host != null else null
+	if ir is IntroRain and (ir as IntroRain).active and (ir as IntroRain).leaving <= 0.0:
+		return ir as IntroRain
+	return null
+
+
 ## How close a shot must pass a target of this kind (beyond its own radius R).
 func _target_r(t: Dictionary) -> float:
 	if String(t.kind) == "g":
 		return (t.ref as GoldenDahrooj).radius() * 1.15
+	if String(t.kind) == "i":
+		var ir := rain()
+		return ir.drop_radius_world(t.ref) * global_transform.affine_inverse().basis.get_scale().x if ir != null else Ball.BR
 	return Ball.BR
 
 
@@ -909,6 +1051,10 @@ func target_at(t: Dictionary) -> Variant:
 		"g":
 			var g := golden()
 			return g.pos if g != null and is_same(g, t.ref) else null
+		"i":
+			var ir := rain()
+			if ir != null and ir.has_drop(t.ref):
+				return global_transform.affine_inverse() * ir.drop_world(t.ref)
 		"s":
 			var m = t.ref
 			if is_instance_valid(m) and (m as MeshInstance3D).is_visible_in_tree():
@@ -945,6 +1091,12 @@ func hit_target(t: Dictionary, dir: Vector3) -> bool:
 				return false
 			impact(g.pos, -dir if dir.length_squared() > 0.0 else Vector3.BACK, Color("ffc928"))
 			return g.catch("shot")
+		"i":
+			var ir := rain()
+			if ir == null or not ir.has_drop(t.ref):
+				return false
+			ir.pop_ball(t.ref)
+			return true
 		"s":
 			var m = t.ref
 			var st: Node3D = host.stage
@@ -1439,6 +1591,29 @@ func _on_solid(s: Dictionary, P: Dictionary, point: Vector3, n: Vector3, took: b
 	return true
 
 
+## A boomerang's pose: it faces along its flight, leans into the curve it is turning (from its
+## sideways acceleration; thrown on edge, it lies down flatter as it comes back) and spins
+## flat in its own plane.
+func _boomerang_pose(s: Dictionary, nd: Node3D, dt: float) -> void:
+	var tilt := nd.get_node_or_null("Tilt") as Node3D
+	var sp := nd.get_node_or_null("Tilt/Spin") as Node3D
+	if tilt == null or sp == null:
+		return
+	var v: Vector3 = s.v
+	var hv := Vector3(v.x, 0.0, v.z)
+	if hv.length_squared() > 1e-10 and dt > 0.0:
+		var f := hv.normalized()
+		var right := f.cross(Vector3.UP)
+		var lat := ((v - (s.pv as Vector3)) / dt).dot(right) / maxf(1e-3, float(s.k))
+		var life := float(SHOT_STYLE.boomerang.life)
+		var lean := lerpf(0.9, 0.25, clampf(float(s.t) / life, 0.0, 1.0))
+		var want := clampf(-lat * 0.03, -lean, lean)
+		s.bank = lerpf(float(s.bank), want, 1.0 - exp(-10.0 * dt))
+		tilt.basis = Basis.looking_at(f, Vector3.UP) * Basis(Vector3.FORWARD, float(s.bank)) * Basis(Vector3.RIGHT, 0.1)
+	s.pv = v
+	sp.rotation = Vector3(0.0, float(s.spin), 0.0)
+
+
 ## Ends a shot: a firework blooms, a rocket blows up, a glob splats, a dallah spills.
 func _finish(s: Dictionary, P: Dictionary, k: float) -> void:
 	if s.wet:
@@ -1460,7 +1635,7 @@ func _finish(s: Dictionary, P: Dictionary, k: float) -> void:
 				var d := cone_dir(Vector3.UP, 1.1, i * TAU / 6.0)
 				_add_shot("bean", SHOT_STYLE.bean, s.p, d, k, i)
 			impact(s.p, Vector3.UP, Color("dcaa48"))
-			host.sfx("fair_ding", 0.5, s.p)
+			_dallah_sfx("fair_ding", DALLAH_SPILL_K, s.p)
 		"boomerang":
 			if s.caught:
 				host.sfx("thump", 0.25, s.p)
@@ -1502,7 +1677,7 @@ func step_blast(dt: float) -> void:
 				(s.node as Node3D).scale *= ratio
 		var R: float = s.r
 		s.t += dt
-		s.spin += dt * (9.0 if s.kind == "mini" else (14.0 if s.kind in ["boomerang", "dallah"] else 1.2))
+		s.spin += dt * (9.0 if s.kind == "mini" else (BOOMERANG_SPIN if s.kind == "boomerang" else (14.0 if s.kind == "dallah" else 1.2)))
 		var a: Vector3 = s.p
 		_move(s, P, dt, k)
 		var seg: Vector3 = s.p - a
@@ -1594,6 +1769,8 @@ func step_blast(dt: float) -> void:
 				if took:
 					s.hits[hit.node] = s.t
 					_credit(String(s.kind), 1)
+				elif s.kind == "bean":
+					_dallah_sfx("thump", 0.25, hit.point, BEAN_THUMP_GAP)
 				elif s.kind != "bouncy":
 					host.sfx("thump", 0.25, hit.point)
 				done = _on_solid(s, P, hit.point, n, took)
@@ -1669,10 +1846,12 @@ func step_blast(dt: float) -> void:
 					var fl := nd.get_node_or_null("Flame") as Node3D
 					if fl:
 						fl.scale = Vector3.ONE * (0.8 + rnd() * 0.5)
-				"boomerang", "dallah":
+				"boomerang":
+					_boomerang_pose(s, nd, dt)
+				"dallah":
 					var sp := nd.get_node_or_null("Spin") as Node3D
 					if sp:
-						sp.rotation = Vector3(0.35, float(s.spin), 0.0) if s.kind == "boomerang" else Vector3(float(s.spin) * 0.6, 0.4, float(s.spin) * 0.25)
+						sp.rotation = Vector3(float(s.spin) * 0.6, 0.4, float(s.spin) * 0.25)
 				"glob":
 					var bl := nd.get_node_or_null("Blob") as Node3D
 					if bl:

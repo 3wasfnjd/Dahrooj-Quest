@@ -26,6 +26,11 @@ var tally: Callable = func(_id, _n): pass
 ## the session score drops by up to `points` (never below 0; records, the lifetime total and
 ## the challenges keep what they have). Returns the points taken. at: game units.
 var penalty: Callable = func(_m, _p, _a): return 0
+## nibble(mode: String, points: int, at: Vector3) -> int — the same, for the small, frequent
+## things that get through (a meteor hitting the ground, a mole ducking back unwhacked, a
+## climber planting his flag): the score drops the same way, with a lighter touch (a small grey
+## «-10» where it happened, a soft bump; no red flash). Returns the points taken.
+var nibble: Callable = func(_m, _p, _a): return 0
 ## toast(text: String) — ctx.toast (a notification card).
 var toast: Callable = func(_t): pass
 ## confetti(pos: Vector3, radius: float, elevation: float, scale: float) — confetti.pop.

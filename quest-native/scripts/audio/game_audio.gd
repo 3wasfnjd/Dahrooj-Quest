@@ -39,7 +39,7 @@ const SFX := {
 	"cans_clang": {"k": [0.25, 0.5, 0.75, 1.0], "n": 3, "law": [0.02, 0.07]},  # stages/cans.js clang(s)
 	"bowling_clack": {"k": [0.25, 0.5, 0.75, 1.0], "n": 3, "law": [0.012, 0.05]}, # stages/bowling.js clack(s)
 	"bricks_tink": {"k": [0.0, 0.25, 0.5, 0.75, 1.0], "n": 0, "law": []},     # stages/bricks.js tink(k)
-	"fair_ding": {"k": [], "n": 0, "law": []},                                 # stages/fair.js ding()
+	"fair_ding": {"k": [], "n": 0, "law": [], "gain": true},                   # stages/fair.js ding() (k: its level, 1 = full)
 }
 const BIRD_KINDS := 4
 const BIRD_VARIANTS := 2
@@ -168,6 +168,9 @@ func pick(snd: String, k: float) -> Array:
 			var a: float = law[0]
 			var b: float = law[1]
 			db = linear_to_db(maxf(a + b * clampf(k, 0.0, 1.0), 1e-4) / (a + b * best))
+	elif e.get("gain", false):
+		# One render; k sets its level (1 = as rendered), for quieter uses of the same sound.
+		db = linear_to_db(clampf(k, 0.05, 1.0))
 	var n: int = e.n
 	if n > 0:
 		var i: int

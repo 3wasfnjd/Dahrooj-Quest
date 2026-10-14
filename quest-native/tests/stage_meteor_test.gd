@@ -61,6 +61,10 @@ static func run(check: Callable) -> void:
 	ctx.penalty = func(md: String, pts: int, _at: Vector3) -> int:
 		taken.append([md, pts])
 		return pts
+	var nibbled: Array = []
+	ctx.nibble = func(md: String, pts: int, _at: Vector3) -> int:
+		nibbled.append([md, pts])
+		return pts
 	st.ctx = ctx
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
 	b.set_stage(st, "meteor")
@@ -86,8 +90,9 @@ static func run(check: Callable) -> void:
 	check.call(st.fx_spawned > f0 + 6 and first.c.y < fy0 - 1.0, "meteor: a trail of embers as it falls (%d)" % (st.fx_spawned - f0))
 	check.call(Vector2(first.land.x, first.land.z).distance_to(Vector2(land0.x, land0.z)) < 0.3, "meteor: the target is where it really lands")
 
-	# A meteor that lands: a crater, a shockwave, dust; the combo breaks; nothing else is lost.
+	# A meteor that lands: a crater, a shockwave, dust; the combo breaks; it nibbles points.
 	_fresh(st, b)
+	nibbled.clear()
 	var m := _fly(st, "big", false, Vector3(2, 18, -16), Vector3(1, 0, -9), 2.0)
 	st.F.combo = 5
 	st.F.combo_t = 1.5
@@ -100,12 +105,16 @@ static func run(check: Callable) -> void:
 	check.call(Vector2(m.c.x, m.c.z).distance_to(Vector2(1, -9)) < 0.5, "meteor: it landed on its target")
 	_steps(st, b, MeteorStage.LAND_T + 0.1)
 	check.call(not m.on, "meteor: the dazed Dahrooj sinks away")
-	check.call(taken.is_empty(), "meteor: one landing far from you takes nothing")
+	check.call(taken.is_empty(), "meteor: one landing far from you does not hit you")
+	check.call(nibbled == [["meteor", MeteorStage.GROUND_PENALTY.big]] and int(MeteorStage.GROUND_PENALTY.big) == 20,
+		"meteor: a big one reaching the ground takes 20 (light) (%s)" % [nibbled])
 	# One landing right at your feet hits you: LAND_PENALTY points.
 	var vf := Vector3(st.viewer.x, 0, st.viewer.z - st.near_d() * 1.05)
 	var m2 := _fly(st, "small", false, vf + Vector3(1, 18, -6), vf, 1.5)
 	check.call(_until(st, b, func(): return m2.phase == "land", 3.0) and taken.size() == 1 and taken[0][0] == "meteor" and int(taken[0][1]) == MeteorStage.LAND_PENALTY,
 		"meteor: one landing at your feet takes 25 points (%s)" % [taken])
+	check.call(nibbled.size() == 2 and nibbled[1] == ["meteor", MeteorStage.GROUND_PENALTY.small] and int(MeteorStage.GROUND_PENALTY.small) == 10,
+		"meteor: and the ground takes its 10 for a small one too (%s)" % [nibbled])
 	_steps(st, b, MeteorStage.CRATER_T)
 	check.call(st.craters.is_empty(), "meteor: the crater fades")
 

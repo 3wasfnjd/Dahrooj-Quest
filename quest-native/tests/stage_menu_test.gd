@@ -93,6 +93,7 @@ static func _start_screen(check: Callable) -> void:
 
 
 static func run(check: Callable) -> void:
+	_finale_button(check)
 	_start_screen(check)
 	var p := MenuPanel.new()
 	# Button counts per page (7 tabs + Close on every page).
@@ -228,7 +229,10 @@ static func run(check: Callable) -> void:
 	check.call(MenuCatalog.accessory_available("beanie", 0, {"mazeClean": 1}) and MenuCatalog.accessory_available("crown", 0, {"reward:crown": 1}) and not MenuCatalog.accessory_available("crown", 9, {}), "menu: accessory unlock rules")
 	var qc := MenuCatalog.quest_controls("climb", "sling")
 	check.call(qc.a[1] == "Jump" and qc.a[0] == "قفز" and qc.left_trigger[1] == "Throw a ball" and qc.right_trigger[1] == "Throw a ball" and qc.right_grip[1] == "—" and qc.left_grip[1] == "—"
-		and MenuCatalog.quest_controls("goal", "trigger").a[1] == "" and MenuCatalog.quest_controls("ricochet", "trigger").a[1] == ""
+		and qc.b[1] == "" and MenuCatalog.quest_controls("goal", "trigger").a[1] == "Next shot" and MenuCatalog.quest_controls("goal", "trigger").b[1] == "Next accessory"
+		and MenuCatalog.quest_controls("rain", "hand").a[1] == "Next shot" and MenuCatalog.quest_controls("rain", "hand").left_trigger[1] == "Fire shots"
+		and MenuCatalog.quest_controls("ricochet", "trigger").a[1] == "Next paddle" and MenuCatalog.quest_controls("ricochet", "trigger").b[1] == "Next accessory"
+		and MenuCatalog.quest_controls("ricochet", "trigger").grip[1].begins_with("Left stick: turn") and MenuCatalog.quest_controls("ricochet", "trigger").right_grip[1] == "—"
 		and MenuCatalog.quest_controls("maze", "hand").grip[1].begins_with("Grip: hold and tilt"), "menu: the controls help follows mode and throw style")
 	var all_fire := true
 	for mode: Array in MenuCatalog.MODES:
@@ -256,4 +260,42 @@ static func run(check: Callable) -> void:
 				partial = true
 	check.call(empty.is_empty() and imgs[0].get_used_rect().size.x > 16 and partial, "menu: icons rasterise with soft edges %s" % [empty])
 	check.call(ResourceLoader.exists(MenuIcons.ATLAS), "menu: the baked icon atlas is in the project")
+	p.free()
+
+
+## Every challenge done: the challenges page offers the finale again («احتفال الأبطال») beside
+## the reset, with the World Cup's icon; both fit, side by side, in Arabic and English. Not before.
+static func _finale_button(check: Callable) -> void:
+	var p := MenuPanel.new()
+	p.set_page("challenges")
+	var done := {}
+	for c: Array in GameRuntime.CHALLENGES:
+		done[c[0]] = c[3]
+	var bad: Array = []
+	for en: bool in [false, true]:
+		var m := _model(en)
+		p.draw(m, -1)
+		if _find(p, "finale", "finale") >= 0:
+			bad.append("shown before")
+		m.rewards = done
+		p.draw(m, -1)
+		var fi := _find(p, "finale", "finale")
+		var ri := _find(p, "reset", "reset")
+		if fi < 0 or ri < 0:
+			bad.append("missing")
+			continue
+		var f: Dictionary = p.buttons[fi]
+		var r: Dictionary = p.buttons[ri]
+		if f.icon != "worldCup" or not MenuIcons.IDS.has("worldCup") or Rect2(f.x, f.y, f.w, f.h).intersects(Rect2(r.x, r.y, r.w, r.h)):
+			bad.append("layout")
+		if (float(f.x) < float(r.x)) != en:
+			bad.append("reading side")
+		if p.action(fi).get("kind", "") != "finale":
+			bad.append("action")
+		for hv in [-1, fi, ri]:
+			p.draw(m, hv)
+			for q: Dictionary in p.measure():
+				if float(q.w) > float(q.max_w) + 0.5 or int(q.size) < Glass.MIN_SIZE:
+					bad.append("fit:" + str(q.s))
+	check.call(bad.is_empty(), "menu: all done, the challenges page replays the finale beside the reset %s" % [bad])
 	p.free()

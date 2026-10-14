@@ -27,7 +27,7 @@ const IDS := [
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef",
 	"dino", "halo", "bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
 	"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak",
-	"sadu", "medal", "goldAgal", "bisht", "trophy", "goldStar", "goldPal",
+	"sadu", "medal", "goldAgal", "bisht", "trophy", "goldStar", "goldPal", "worldCup",
 ]
 ## The start screen's large icons, baked again at HI_CELL pixels.
 const HI_IDS := ["mr", "vr", "lang", "world"]
@@ -1142,8 +1142,8 @@ static func shapes(id: String) -> Array:
 				d.s(P([[-4, 0], [4, 0]]), false, 2.5)
 			d.xf = Transform2D.IDENTITY
 		"shemagh", "ghutra", "goldAgal":
-			# Dahrooj in a head-cloth with the peak over the brow and the double agal; the
-			# shemagh is checked, the golden agal sparkles.
+			# Dahrooj in a head-cloth lying smooth over the crown (no peak) under the double
+			# agal; the shemagh is checked, the golden agal sparkles.
 			var hood := arc(0, 4, 40, PI, 0)
 			hood.append_array(P([[40, 46], [24, 40], [-24, 40], [-40, 46]]))
 			d.sf(hood)
@@ -1154,9 +1154,6 @@ static func shapes(id: String) -> Array:
 						if (gy < 4 and q.distance_to(Vector2(0, 4)) > 34.0) or (gy >= -24 and gy <= -6) or q.distance_to(Vector2(0, 16)) < 28.0 or gy > 36:
 							continue
 						d.ink(rr(gx - 2.4, gy - 2.4, 4.8, 4.8, 1.0))
-			var peak := P([[-10, -33], [0, -48], [10, -33]])
-			d.cut(peak, 2.5)
-			d.sf(peak)
 			for y in [-21.0, -11.0]:
 				var band := PackedVector2Array()
 				for k in 25:
@@ -1498,6 +1495,31 @@ static func shapes(id: String) -> Array:
 			d.s(P([[0, 4], [0, 22]]), false, 6.0)
 			d.sf(rr(-20, 22, 40, 12, 4))
 			d.ink(star(0, -13, 9, 0.45))
+		"worldCup":
+			# The World Cup: a banded base, a waisted stem with spiralling ribbons, a globe on
+			# top with its meridians, and a twinkle.
+			var stem := P([[-16, -12]])
+			bez(stem, Vector2(-6, -2), Vector2(-4, 14), Vector2(-13, 27))
+			stem.append(Vector2(13, 27))
+			bez(stem, Vector2(4, 14), Vector2(6, -2), Vector2(16, -12))
+			d.sf(stem)
+			var rib := P([[-10, 24]])
+			bez(rib, Vector2(-2, 14), Vector2(8, 4), Vector2(5, -10))
+			d.s(rib, false, 3.2)
+			var rib2 := P([[10, 24]])
+			bez(rib2, Vector2(3, 16), Vector2(-9, 2), Vector2(-6, -10))
+			d.s(rib2, false, 3.2)
+			var globe := ell(0, -27, 18, 18)
+			d.cut(globe, 2.5)
+			d.sf(globe)
+			d.s(ell(0, -27, 7.5, 18), true, 3.0)
+			d.s(P([[-18, -27], [18, -27]]), false, 3.0)
+			var foot := rr(-21, 27, 42, 17, 4)
+			d.cut(foot, 2.0)
+			d.sf(foot)
+			d.s(P([[-21, 35.5], [21, 35.5]]), false, 3.5)
+			d.ink(star(33, -38, 7, 0.4))
+			d.ink(star(-33, -14, 5, 0.4))
 		"goldStar":
 			# A plump star with a smile, and twinkles beside it.
 			var st := star(-4, 4, 38, 0.5)

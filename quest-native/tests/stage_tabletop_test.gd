@@ -1,7 +1,7 @@
 extends RefCounted
 ## Tabletops (balance, ricochet, maze): each mode builds its board; tilting the balance board
 ## with a held grip rolls Dahrooj along the bridge to the goal and wins; maze walls block and
-## the maze can be solved; a ricochet paddle turned with the grip bounces a trigger launch
+## the maze can be solved; a ricochet paddle turned with the left stick bounces a trigger launch
 ## into the goal; wins record progress as tabletop-progress.ts does; retry resets.
 
 const DT := 1.0 / 72.0
@@ -16,8 +16,8 @@ static func _tilt_rot(tx: float, tz: float) -> Quaternion:
 	return Quaternion(Vector3.UP, Vector3(tan(tx), 1, tan(tz)).normalized())
 
 
-static func _frame(st: TabletopStage, inputs: Array) -> void:
-	st.xr_frame(DT, {"inputs": inputs, "active": true, "style": "jelly", "accessory": "", "eye": Vector3(0, 1.6, 0.6), "english": true})
+static func _frame(st: TabletopStage, inputs: Array, stick := Vector2.ZERO) -> void:
+	st.xr_frame(DT, {"inputs": inputs, "active": true, "stick": stick, "style": "jelly", "accessory": "", "eye": Vector3(0, 1.6, 0.6), "english": true})
 
 
 ## Steer the ball through waypoints by tilting a held board (a simple PD driver).
@@ -62,7 +62,7 @@ static func run(check: Callable) -> void:
 	# Levels as the reference defines them.
 	var rl := TabletopGame.ricochet_levels()
 	check.call(TabletopGame.balance_levels().size() == 5 and rl.size() == 5 and TabletopGame.maze_levels().size() == 5, "tabletop: five levels per mode")
-	check.call(rl[3].mirrors.size() == 3 and rl[4].mirrors.size() == 3 and absf(rl[0].mirrors[0].angle + PI / 4) < 1e-9, "tabletop: ricochet routes and their paddles")
+	check.call(rl[3].mirrors.size() == 3 and rl[4].mirrors.size() == 4 and absf(rl[0].mirrors[0].angle + PI / 4) < 1e-9, "tabletop: ricochet routes and their paddles")
 	var mz: Dictionary = TabletopGame.maze_levels()[0]
 	check.call(mz.route.size() >= 3 and mz.walls.size() > 4 and mz.start == mz.route[0], "tabletop: a seeded maze with a route from the start")
 
@@ -167,7 +167,7 @@ static func run(check: Callable) -> void:
 	check.call(won and wins[0].mode == "maze" and wins[0].stars == 3, "maze: following the route collects the stars and reaches the goal")
 	st.free()
 
-	# Ricochet: turn the paddle with the grip, launch with the trigger, bounce into the goal.
+	# Ricochet: turn the paddle with the left stick, launch with the trigger, bounce into the goal.
 	st = TabletopStage.new("ricochet")
 	st.place_table(Transform3D.IDENTITY, 0.32)
 	sfx = []
@@ -179,12 +179,19 @@ static func run(check: Callable) -> void:
 	var l: Dictionary = g.definition()
 	var m: Dictionary = l.mirrors[0]
 	var above: Vector3 = st._board_xf() * Vector3(m.x, 2.0, m.z)
-	check.call(not st.xr_press(_hand("right", Quaternion.IDENTITY, st._board_xf() * Vector3(-1.4, 2, 1.0)), "grip"), "ricochet: a grip pointing at no paddle does nothing")
-	check.call(st.xr_press(_hand("right", Quaternion.IDENTITY, above), "grip") and st.grips.has("right"), "ricochet: the grip takes the paddle it points at")
-	var want: float = l.solution[0] - g.angles[0]
-	_frame(st, [_hand("right", Quaternion(Vector3.UP, -want), above)])
-	check.call(absf(g.angles[0] - l.solution[0]) < 1e-6 and st.mirrors[0].material_override == st.mats.honey, "ricochet: turning the hand turns the paddle in 5° steps")
-	st.xr_release(_hand("right"), false, "grip")
+	check.call(not st.xr_press(_hand("right", Quaternion.IDENTITY, above), "grip") and st.grips.is_empty(), "ricochet: the grip does not take a paddle")
+	var steps := 0
+	for i in 72 * 6:
+		var d := angle_difference(g.angles[0], l.solution[0])
+		if absf(d) < 1e-6:
+			break
+		var before: float = g.angles[0]
+		_frame(st, [], Vector2(1.0 if d > 0.0 else -1.0, 0.0))
+		if g.angles[0] != before:
+			steps += 1
+	_frame(st, [])
+	check.call(absf(g.angles[0] - l.solution[0]) < 1e-6 and st.mirrors[0].material_override == st.mats.selected and steps == 4,
+		"ricochet: the left stick turns the selected paddle in 5° steps (%d steps)" % steps)
 	var s0: Vector2 = l.start
 	var aim_at: Vector3 = st._board_xf() * Vector3(s0.x, TabletopGame.TABLE_RADIUS, s0.y - 1.0)
 	var eye: Vector3 = st._board_xf() * Vector3(s0.x, 3.0, s0.y + 0.5)

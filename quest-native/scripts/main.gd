@@ -59,6 +59,7 @@ var confetti: Confetti
 var toast: ToastCard
 var audio: GameAudio
 var intro: IntroRain
+var quick_pick: QuickPick  # A / B in play: the next shot style / accessory, shown by the hand
 var _slime_look := false
 var summit: SummitMode
 var _known_rewards := {}  # "kind:id" -> true for the rewards open when last checked (ChallengeRewards.watch)
@@ -120,12 +121,16 @@ var splash: Node3D
 var room_spots := RoomSpots.new()  # MR: spawn spots in front of the player (game units)
 ## The rare Golden Dahrooj (GoldenDahrooj): out now and then in the modes that have him.
 var golden: GoldenDahrooj
+## The finale (Finale): every challenge done, or replayed from the challenges page.
+var finale: Finale
 ## Festive texts in the game's space (the golden banner, the record, the ouch of an attack).
 var fx: Node3D
 ## The red flash at the edges of your sight when an attack takes points (HURT_T seconds).
 var hurt: MeshInstance3D
 var _hurt_mat: ShaderMaterial
 var _hurt_t := 0.0
+## When the last light «-N» sound and buzz played (ms): rapid repeats share one.
+var _nibble_ms := -1000
 const HURT_T := 0.6
 const HURT_SHADER := """
 shader_type spatial;
@@ -187,6 +192,9 @@ func _ready() -> void:
 	intro.ch_add = func(id: String): runtime.ch_add(id)
 	intro.sky_pop = func(p: Vector3): world_balls.sky_pop(to_game(p))
 	intro.cleared.connect(func():
+		_place_rain()
+		if ball.stage == null:
+			ball.set_stage(runtime.stage, runtime.mode)  # back from Dahrooj Rain
 		_anchor_vr_here()
 		stage.visible = true)
 	hud = Node3D.new()
@@ -212,14 +220,20 @@ func _ready() -> void:
 	toast = ToastCard.new()
 	add_child(toast)
 	toast.buzz.connect(func(_k): buzz("left", 0.35, 60); buzz("right", 0.35, 60))
+	quick_pick = QuickPick.new()
+	add_child(quick_pick)
 	runtime.ctx.toast = toast.show_text
 	runtime.ctx.confetti = func(p: Vector3, r: float, e: float, k: float): confetti.pop(p, r, e, k)
 	runtime.on_chime = func(): sfx("chime", 1.0, eye_game())
 	runtime.on_record = _on_record
 	runtime.on_penalty = _on_penalty
+	runtime.on_nibble = _on_nibble
 	fx = Node3D.new()
 	fx.name = "Fx"
 	game_root.add_child(fx)
+	finale = Finale.new()
+	finale.host = self
+	game_root.add_child(finale)
 	golden = GoldenDahrooj.new()
 	game_root.add_child(golden)
 	golden.sfx = sfx
@@ -613,6 +627,37 @@ func place() -> void:
 	sun.basis = Basis(Vector3.UP, yaw) * _sun_basis
 	if summit_on:
 		_place_summit()
+	_place_rain()
+
+
+## Dahrooj Rain is pinned like a court: on the floor at the pinned spot (MR, scaled by the
+## zoom the stick sets while pinning) or where the player stood (VR), turned the way the
+## court faces; it falls ahead of that spot (IntroRain.pinned). The opening stays at the
+## origin around the head.
+func _place_rain() -> void:
+	if intro == null or rig == null:
+		return
+	intro.mixed = mode == "mr"
+	if not (intro.active and intro.rain):
+		intro.pinned = false
+		intro.transform = Transform3D.IDENTITY
+		return
+	var a: Dictionary = anchor if mode == "mr" else vr_anchor
+	if a.is_empty():
+		intro.pinned = false
+		intro.transform = Transform3D.IDENTITY
+		return
+	var p: Vector3 = a.p
+	var k := ar_zoom if mode == "mr" else 1.0
+	var xf := Transform3D(Basis(Vector3.UP, -float(a.theta)).scaled(Vector3.ONE * k), Vector3(p.x, 0.0, p.z))
+	intro.transform = (rig.global_transform.affine_inverse() if rig.is_inside_tree() else rig.transform.affine_inverse()) * xf
+	intro.pinned = true
+	intro.pin_back = 1.6 if mode == "mr" else 0.0
+
+
+## The opening's rain (with its start button), not Dahrooj Rain the mode.
+func _opening() -> bool:
+	return intro.active and not intro.rain
 
 
 func to_game(p: Vector3) -> Vector3:
@@ -694,7 +739,7 @@ func _game_step(delta: float) -> void:
 		fork.global_transform = rig.grip_transform(F)
 	# Dahrooj waits by your hand (or in the slingshot) between throws; only once the
 	# headset has reported a few poses, so he doesn't appear somewhere else first.
-	if xr and state == "play" and not placing and not intro.active and table == null and not summit_on and not ball.shot and holder == "" and not parked and _frames > 3:
+	if xr and state == "play" and not placing and not _opening() and table == null and not summit_on and not ball.shot and holder == "" and not parked and _frames > 3:
 		parked = true
 		_pop_t = 0.0
 		ball.pos = to_game(_park_spot(F))
@@ -796,6 +841,13 @@ func _game_step(delta: float) -> void:
 			world_balls.mark_ball(ball.pos, ball.vel)
 		for b in ball.volley:
 			world_balls.mark_ball(b.pos, b.vel)
+		# Dahrooj Rain: a thrown Dahrooj pops the ones he meets.
+		if intro.active and intro.rain and not intro.leaving:
+			var gx := game_root.global_transform
+			if ball.shot and not ball.held:
+				intro.pop_near(gx * ball.pos, Ball.BR / scale_now)
+			for b in ball.volley:
+				intro.pop_near(gx * (b.pos as Vector3), Ball.BR / scale_now)
 		# Mixed reality: the real walls and furniture.
 		if room_active():
 			if ball.shot and not ball.held:
@@ -831,7 +883,7 @@ func _game_step(delta: float) -> void:
 	var eye := to_game(head_transform().origin)
 	# Dahrooj shows only while the trigger holds him or he flies; waiting, he's out of
 	# sight (in the slingshot he waits in the pouch).
-	var shown := not placing and not intro.active and table == null and not summit_on and ((parked and F != "") or holder != "" or ball.shot)
+	var shown := not placing and not _opening() and table == null and not summit_on and ((parked and F != "") or holder != "" or ball.shot)
 	dahrooj.visible = shown
 	if shown:
 		var d := ball.d
@@ -902,7 +954,8 @@ func _park_spot(F: String) -> Vector3:
 
 func _on_button(hand: String, name: String, down: bool) -> void:
 	# Owner's layout: the menu button opens the mode list, left X the challenges, left Y
-	# Dahrooj's look; right A jumps on the Summit, otherwise A and B (right hand) do nothing.
+	# Dahrooj's look. Right A: the Summit's jump, ricochet's next paddle, elsewhere the next
+	# open shot style; right B: the next open accessory (not on the Summit).
 	if down and (state == "play" or state == "menu") and hand == "left" and name == "by":
 		toggle_menu("appearance")
 		return
@@ -910,8 +963,16 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 		toggle_menu("challenges")
 		return
 	if hand == "right" and (name == "ax" or name == "by"):
-		if down and name == "ax" and state == "play" and summit_on and not placing:
-			summit.jump()
+		if down and state == "play" and not placing:
+			if name == "ax" and summit_on:
+				summit.jump()
+			elif name == "ax" and table != null and table.mode == "ricochet":
+				if table.next_paddle():
+					buzz("right", 0.2, 20)
+			elif name == "ax":
+				cycle_shot()
+			elif not summit_on:
+				cycle_accessory()
 		return
 	if state == "menu":
 		if name == "trigger" and down and hand == menu_hand:
@@ -983,8 +1044,9 @@ func _other_grab_down(hand: String, released: String) -> bool:
 ## Dahrooj in flight keeps going and a fresh one comes to the hand: throw them back
 ## to back. He appears straight in the hand with a little pop.
 func _press(hand: String, how: String) -> void:
-	# The opening: the start button, or a shot (holding keeps firing).
-	if intro.active and not intro.leaving:
+	# The opening: the start button, or a shot (holding keeps firing). Dahrooj Rain plays as
+	# every mode does (pinning, the trigger's shots, the grip holds Dahrooj).
+	if _opening() and not intro.leaving:
 		if how != "trigger":
 			return
 		if on_start[hand] and intro.end_intro():
@@ -1040,6 +1102,7 @@ func _release(hand: String, lost: bool) -> void:
 
 ## The left-hand blaster; holding the trigger keeps firing.
 func _fire_blast(hand: String) -> void:
+	intro.shot_hand = hand
 	_blast_from(hand)
 	auto_fire[hand] = _clock + 0.13
 
@@ -1057,6 +1120,7 @@ func begin_opening() -> void:
 	placing = false
 	stage.visible = false
 	intro.begin(false, mode == "mr")
+	_place_rain()
 
 
 func _step_intro(dt: float) -> void:
@@ -1144,6 +1208,9 @@ func _watch_rewards(dt: float) -> void:
 		toast.notify("reward", str(c.title), str(c.sub))
 		sfx("chime", 1.0, eye_game())
 		_reward_confetti()
+	# Every challenge done: the finale (once; the menu replays it).
+	if not finale.active and not menu.visible and Finale.due(Save.challenges):
+		finale.start(true)
 
 
 ## Confetti a little ahead of the eyes (in the game's units).
@@ -1166,6 +1233,41 @@ func _apply_look() -> void:
 	for r in world_balls.rests:
 		var rv: DahroojView = r.view
 		rv.set_look(rv.style, Save.jelly_color, rv.accessory)
+
+
+## Right A: the next shot style the challenges have opened (wrapping round), saved, with its
+## icon and name by the hand and a click.
+func cycle_shot() -> String:
+	var id := QuickPick.next_shot(Save.shot_style, Save.challenges)
+	Save.shot_style = id
+	Save.save()
+	var nm := QuickPick.shot_name(id)
+	_quick_feedback(str(ShotCatalog.info(id).get("icon", id)), Save.text(nm[0], nm[1]))
+	return id
+
+
+## Right B: the next accessory open to wear ("none" among them, wrapping round), put on the
+## held Dahrooj at once, with its icon and name by the hand and a click.
+func cycle_accessory() -> String:
+	var id := QuickPick.next_accessory(worn(), Save.challenges)
+	Save.accessory = id
+	Save.save()
+	_apply_look()
+	var nm := QuickPick.accessory_name(id)
+	_quick_feedback(id if id != "" else "none", Save.text(nm[0], nm[1]))
+	return id
+
+
+func _quick_feedback(icon: String, text: String) -> void:
+	var at: Vector3
+	if xr and rig.tracked("right"):
+		at = rig.aim_transform("right").origin + Vector3.UP * 0.09
+	else:
+		var head := head_transform()
+		at = head.origin - head.basis.z * 0.5 + Vector3.DOWN * 0.15
+	quick_pick.show_pick(icon, text, at)
+	sfx("bricks_tink", 0.75, to_game(at))
+	buzz("right", 0.2, 20)
 
 
 ## A shot or a hard meeting popped the ball in play: a fresh one for the hand.
@@ -1414,6 +1516,22 @@ func _on_penalty(m: String, taken: int, _asked: int, _at: Vector3) -> void:
 			score_popup.drop(int(runtime.counts.get(m, 0)))
 
 
+## A small thing got through (a meteor on the ground, a mole gone): a small grey «-N» where it
+## happened and a soft bump (one per quarter second when they come fast); no red flash.
+func _on_nibble(m: String, taken: int, _asked: int, at: Vector3) -> void:
+	if taken <= 0:
+		return
+	JuiceText.spawn(fx, "-%d" % taken, at + Vector3.UP * 0.4 * scale_now / VR_SCALE, "miss", _text_k(at, 0.4))
+	if m == runtime.mode:
+		score_popup.drop(int(runtime.counts.get(m, 0)))
+	var now := Time.get_ticks_msec()
+	if now - _nibble_ms > 250:
+		_nibble_ms = now
+		sfx("thump", 0.35, at)
+		buzz("left", 0.25, 40)
+		buzz("right", 0.25, 40)
+
+
 func _build_hurt() -> void:
 	hurt = MeshInstance3D.new()
 	hurt.name = "HurtFlash"
@@ -1602,6 +1720,12 @@ func _menu_action(i: int) -> void:
 				placing = true
 			else:
 				replace_here()
+		"finale":
+			if GameRuntime.all_done(Save.challenges):
+				set_menu(false)
+				finale.stop()
+				finale.start(false)
+			return
 		"reset":
 			if reset_arm > 0.0:
 				reset_arm = 0.0
@@ -1778,7 +1902,10 @@ func _step_table(dt: float) -> void:
 		for h in ["left", "right"]:
 			if rig.tracked(h):
 				ins.append(_table_input(h))
-	table.xr_frame(dt, {"inputs": ins, "active": state == "play" and not placing, "style": Save.style,
+	var stick := Vector2.ZERO
+	if xr:
+		stick = rig.stick("left") if rig.tracked("left") else rig.stick("right")
+	table.xr_frame(dt, {"inputs": ins, "active": state == "play" and not placing, "stick": stick, "style": Save.style,
 		"color": Save.jelly_color, "accessory": worn(), "eye": head_transform().origin, "english": not Save.arabic()})
 
 
@@ -1968,6 +2095,8 @@ func _setup_new_mode() -> void:
 	# court's scale).
 	if "spots_provider" in stage:
 		stage.set("spots_provider", room_spots_for(2 if stage is GalleryStage else 1))
+	if stage is GalleryStage:
+		stage.set("mixed", mode == "mr")
 	if mode == "mr":
 		if stage is MeteorStage:
 			stage.set("size", RoomSpots.size_for(0.15, 0.85, scale_now))
@@ -2014,8 +2143,9 @@ func _choose_mode(id: String) -> void:
 		_set_table(id)
 		place()
 	elif id == "rain":
-		stage.visible = false
 		intro.set_rain(true)
+		stage.visible = false  # (after: clearing a rain already falling shows the stage)
+		ball.set_stage(null, "rain")  # nothing to score on: Dahrooj only pops the rain
 		place()
 	else:
 		if intro.active:

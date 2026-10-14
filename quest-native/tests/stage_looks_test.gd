@@ -18,6 +18,8 @@ static func run(check: Callable) -> void:
 	_accessories(check)
 	_save(check)
 	_unlocks(check)
+	_head_cloth(check)
+	_world_cup(check)
 	_new_accessories(check)
 	_menu_pages(check)
 
@@ -297,3 +299,27 @@ static func _menu_pages(check: Callable) -> void:
 	p.navigate({"kind": "appearance", "id": "accessories"})
 	check.call(p.acc_page == 1, "menu: ... on the second page too")
 	p.free()
+
+
+## The shemagh and the ghutra (and the golden agal's ghutra) lie smooth over the crown under
+## the agal: nothing stands up above the head (no peak), full or crowd (lite).
+static func _head_cloth(check: Callable) -> void:
+	var tops: Array = []
+	var ok := true
+	for id: String in ["shemagh", "ghutra", "goldAgal"]:
+		for lite: bool in [false, true]:
+			var top := DahroojLooks.accessory_mesh(id, lite).get_aabb().end.y
+			tops.append("%s%s %.2f" % [id, " lite" if lite else "", top])
+			ok = ok and top < 1.13
+	check.call(ok and float(DahroojLooks.SAUDI_CLOTH.crest) == 0.0, "looks: the shemagh and ghutra sit smooth on the head, no peak on top %s" % [tops])
+
+
+## The World Cup: worn on the head (a hat), standing on the crown; the finale's big one is a
+## head's height of trophy, foot at its origin.
+static func _world_cup(check: Callable) -> void:
+	var bb := DahroojLooks.accessory_mesh("worldCup").get_aabb()
+	var big := DahroojLooks.world_cup_mesh(1.0).get_aabb()
+	check.call("worldCup" in DahroojLooks.ACCESSORIES and "worldCup" in DahroojLooks.HEADWEAR and bb.position.y > 0.8 and bb.end.y > 2.0 and bb.size.x < 0.8,
+		"looks: the World Cup stands on the crown (%.2f .. %.2f)" % [bb.position.y, bb.end.y])
+	check.call(absf(big.position.y) < 0.01 and absf(big.end.y - 1.1) < 0.12 and absf(big.get_center().x) < 0.01,
+		"looks: the finale's World Cup is about its height tall, foot at the origin (%s)" % [big])

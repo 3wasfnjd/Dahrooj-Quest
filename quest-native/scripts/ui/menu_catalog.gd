@@ -72,6 +72,8 @@ const ACCESSORIES := [
 	["sadu", "وشاح سدو", "Sadu scarf", "giant30"], ["medal", "ميدالية ذهبية", "Gold medal", "shots1000"],
 	["goldAgal", "غترة وعقال ذهبي", "Ghutra & gold agal", "modesAll"], ["bisht", "بشت", "Bisht", "total100k"],
 	["trophy", "كأس البطولة", "Trophy", "total250k"],
+	# The last of all: every other challenge finished (GameRuntime.ALL_DONE; the finale).
+	["worldCup", "كأس العالم", "World Cup", "allDone"],
 ]
 ## progression/challenges.ts CHALLENGES: [id, goal, ar, en] (unlock rules and their hints).
 const CHALLENGES := [
@@ -165,9 +167,10 @@ static func color_available(id: String, progress: Dictionary) -> bool:
 
 ## The Touch-controller bindings for a mode and throw style (after quest-controls.ts,
 ## with the native control scheme: in every mode the triggers fire shots and a
-## grip holds Dahrooj): {a, left_trigger, right_trigger, left_grip, right_grip,
-## grip}, each [ar, en] (grip: one line on how to throw). A (right hand) is empty but on
-## the Summit, where it jumps and a trigger throws.
+## grip holds Dahrooj): {a, b, left_trigger, right_trigger, left_grip, right_grip,
+## grip}, each [ar, en] (grip: one line on how to throw). Right A steps to the next open
+## shot style and B to the next accessory, but on the Summit A jumps (B is empty, "") and in
+## ricochet A picks the next paddle.
 static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 	var tilting := mode == "balance" or mode == "maze"
 	var tabletop := tilting or mode == "ricochet"
@@ -176,7 +179,9 @@ static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 	var left_grip := grab
 	var right_grip := grab
 	var grip := ["القبضة: امسك دحروج · اضغط للشحن وأفلت للرمي", "Grip: hold Dahrooj · hold to charge, release to throw"]
-	var a := ["", ""]
+	# Right A and B (main.gd _on_button): the next open shot style and accessory.
+	var a := ["الطلقة التالية", "Next shot"]
+	var b := ["الإكسسوار التالي", "Next accessory"]
 	if throw_style == "hand":
 		grip = ["القبضة: امسك دحروج، حرّك يدك ثم أفلت", "Grip: grab Dahrooj, swing your hand, then release"]
 	elif throw_style == "sling":
@@ -190,14 +195,17 @@ static func quest_controls(mode: String, throw_style: String) -> Dictionary:
 			left_grip = ["إمساك اللوح وإمالته", "Hold and tilt board"]
 			grip = ["القبضة: امسك اللوح وأمله · الإفلات يوقفه", "Grip: hold and tilt the board · release to pause"]
 		else:
-			left_grip = ["تدوير لوح خشبي", "Turn a paddle"]
-			grip = ["القبضة: وجّه للوح الخشبي وأدره بخطوات ٥°", "Grip: point at a wooden paddle and turn it in 5° steps"]
+			# The left stick turns the selected paddle, A picks the next one; the grips are free.
+			a = ["اللوح التالي", "Next paddle"]
+			left_grip = ["—", "—"]
+			grip = ["القير الأيسر: تدوير اللوح المحدد بخطوات ٥° · A: اللوح التالي · الزناد: وجّه وأطلق", "Left stick: turn the glowing paddle in 5° steps · A: next paddle · trigger: aim, launch"]
 		right_grip = left_grip
 	elif mode == "climb":
 		# A jumps, a trigger throws (no shots on the Summit); the grips are free.
 		a = ["قفز", "Jump"]
+		b = ["", ""]
 		fire = ["رمي كرة", "Throw a ball"]
 		left_grip = ["—", "—"]
 		right_grip = ["—", "—"]
 		grip = ["زر A: قفز · الزناد: رمي · القير الأيسر: حركة · الأيمن: حجم الجبل", "A: jump · trigger: throw · left stick: move · right stick: resize"]
-	return {"a": a, "left_trigger": fire, "right_trigger": fire, "left_grip": left_grip, "right_grip": right_grip, "grip": grip}
+	return {"a": a, "b": b, "left_trigger": fire, "right_trigger": fire, "left_grip": left_grip, "right_grip": right_grip, "grip": grip}

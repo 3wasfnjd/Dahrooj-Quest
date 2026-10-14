@@ -287,7 +287,14 @@ func layout(m: Dictionary) -> Array[Dictionary]:
 		add.call("scrollStep", "up", "أعلى", "Up", {"x": base + 838, "y": LIST_TOP, "w": 50.0, "h": 48.0}, {"disabled": challenge_offset == 0.0})
 		add.call("scrollStep", "down", "أسفل", "Down", {"x": base + 838, "y": 748.0, "w": 50.0, "h": 48.0}, {"disabled": challenge_offset == scroll_max()})
 		var armed: bool = m.get("reset_armed", false)
-		add.call("reset", "reset", "تأكيد التصفير؟" if armed else "تصفير التحديات", "Confirm reset?" if armed else "Reset challenges", {"x": base + 274, "y": 826.0, "w": 340.0, "h": 70.0}, {"color": "c8442f" if armed else ""})
+		# Every challenge done: the finale can be watched again, beside the reset.
+		var champ := all_done(m)
+		var reset_box := {"x": base + 274, "y": 826.0, "w": 340.0, "h": 70.0}
+		if champ:
+			reset_box = {"x": base + (474.0 if english else 40.0), "y": 826.0, "w": 374.0, "h": 70.0}
+			add.call("finale", "finale", "احتفال الأبطال", "Champions’ party", {"x": base + (40.0 if english else 474.0), "y": 826.0, "w": 374.0, "h": 70.0},
+				{"icon": "worldCup", "color": "c9962a", "fill": "ffd76a"})
+		add.call("reset", "reset", "تأكيد التصفير؟" if armed else "تصفير التحديات", "Confirm reset?" if armed else "Reset challenges", reset_box, {"color": "c8442f" if armed else ""})
 	elif page == "system":
 		add.call("lang", "lang", "English", "العربية", {"x": base + 100, "y": 308.0, "w": 300.0, "h": 244.0}, {"color": "5797b1", "fill": "a8d4df"})
 		add.call("exit", "exit", "الخروج من اللعب", "Exit session", {"x": base + 488, "y": 308.0, "w": 300.0, "h": 244.0}, {"color": "b8734b", "fill": "e4b081"})
@@ -316,7 +323,7 @@ func draw(m: Dictionary, hot := -1) -> void:
 		"appearance": seen = [m.get("style"), m.get("jelly_color"), m.get("accessory"), m.get("done"), m.get("challenges"), m.get("rewards")]
 		"play": seen = [m.get("throw_style"), m.get("shot_style"), m.get("mode"), m.get("kind"), m.get("done"), m.get("rewards")]
 		"world": seen = [m.get("kind"), m.get("time"), m.get("weather")]
-		"challenges": seen = [m.get("reset_armed"), m.get("challenges")]
+		"challenges": seen = [m.get("reset_armed"), m.get("challenges"), all_done(m)]
 	var next := str([page, appearance, challenge_offset, acc_page, hot, m.get("english", false), seen])
 	model = m
 	if next == _key:
@@ -640,7 +647,7 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 					_circle(ci, sc, 12, Color(1, 1, 1, 0.2), false, 1.5)
 					_icon(ci, "lock", sc, 15.6, Color(TEXT, 0.85), Color(ACCENT, 0.3))
 			_text(ci, name, c.x, r.end.y - 14, Glass.T_SMALL, label_col, lw, "center", Glass.W_LABEL)
-		"appearance", "reset":
+		"appearance", "reset", "finale":
 			# Icon and label side by side, centred as a group (icon on the reading side).
 			var isz := 44.0 if kind == "appearance" else 34.0
 			var fs := Glass.T_LABEL if kind == "appearance" else Glass.T_SMALL + 1
@@ -738,7 +745,9 @@ func _details(ci: CanvasItem) -> void:
 			{"title": _say("اليد اليمنى", "Right hand"), "rows": [["trigger", _pair(help.right_trigger)], ["grip", _pair(help.right_grip)]]},
 		]
 		if str(help.a[1]) != "":
-			(hands[1].rows as Array).append(["A", _pair(help.a)])  # the Summit: A jumps
+			(hands[1].rows as Array).append(["A", _pair(help.a)])  # next shot / paddle, the Summit's jump
+		if str(help.get("b", ["", ""])[1]) != "":
+			(hands[1].rows as Array).append(["B", _pair(help.b)])  # next accessory
 		for i in 2:
 			var hand: Dictionary = hands[i]
 			# The left hand on the left in both languages (it is the controller).
@@ -813,6 +822,16 @@ func _details(ci: CanvasItem) -> void:
 				Glass.rim(ci, box, 20, 0.12, 0.04, 1.5)
 			_text(ci, cr[0], cx, y, 30, ACCENT if i == 0 else TEXT, 720, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
 			_text(ci, _say(cr[1], cr[2]), cx, y + 38, Glass.T_SMALL + 1, SUB, 720)
+
+
+## Whether the model's challenges are all done (the final one, GameRuntime.ALL_DONE, finished).
+static func all_done(m: Dictionary) -> bool:
+	if m.get("rewards") is Dictionary:
+		return GameRuntime.all_done(m.rewards)
+	for c: Dictionary in m.get("challenges", []):
+		if str(c.get("id", "")) == GameRuntime.ALL_DONE:
+			return int(c.get("value", 0)) >= int(c.get("goal", 1))
+	return false
 
 
 func _pair(p: Array) -> String:

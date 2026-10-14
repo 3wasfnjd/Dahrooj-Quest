@@ -1,8 +1,8 @@
 extends RefCounted
 ## Dahrooj Fort (castle): ladder carriers raise a ladder and climb, shots and thrown balls
 ## knock them off for points in counts[castle]; knocking a ladder or the bottom of a living
-## tower topples everyone above (a chain bonus); who gets up plants a flag and dances (no
-## penalty, the combo resets; knocking him off takes the flag down); parachuters, catapults
+## tower topples everyone above (a chain bonus); who gets up plants a flag and dances (the
+## combo resets, FLAG_PENALTY points off; knocking him off takes the flag down); parachuters, catapults
 ## and the siege tower; endless escalating waves with no way to lose; the room's walls and
 ## ceiling in mixed reality.
 
@@ -43,6 +43,14 @@ static func run(check: Callable) -> void:
 	ctx.confetti = func(p, _r, _e, _s): extra.append(["confetti", p])
 	var buzzes: Array = []
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
+	var nibbled: Array = []
+	ctx.nibble = func(md: String, pts: int, _at: Vector3) -> int:
+		nibbled.append([md, pts])
+		return pts
+	var struck: Array = []
+	ctx.penalty = func(md: String, pts: int, _at: Vector3) -> int:
+		struck.append([md, pts])
+		return pts
 	st.ctx = ctx
 	b.set_stage(st, "castle")
 	st.F.wave = 1
@@ -107,16 +115,18 @@ static func run(check: Callable) -> void:
 	check.call(extra.any(func(e): return e[0] == "confetti"), "castle: confetti for the topple")
 	_run(st, b, 6.0)
 
-	# Getting to the top: flag up, a dance, the combo resets (no other penalty).
+	# Getting to the top: flag up, a dance, the combo resets, FLAG_PENALTY points off.
 	var j := st.spawn_ladder(0, -1.65)
 	var dj: Dictionary = st.dudes[j]
 	st.F.combo = 4
 	st.F.combo_t = 99.0
 	st.F.mult = 2
 	var score_before := _count(ctx)
+	nibbled.clear()
 	check.call(_until(st, b, func(): return dj.phase == "dance", 30.0), "castle: a climber gets over the wall and dances")
+	check.call(nibbled == [["castle", CastleStage.FLAG_PENALTY]] and CastleStage.FLAG_PENALTY == 10, "castle: planting his flag takes 10 points (light) (%s)" % [nibbled])
 	check.call(st.castle_state().planted >= 1 and st.castle_state().combo == 0 and st.castle_state().mult == 1, "castle: flag up resets the combo")
-	check.call(_count(ctx) == score_before and st.castle_state().state == "wave", "castle: no points lost, no game over")
+	check.call(_count(ctx) == score_before and st.castle_state().state == "wave", "castle: no game over (the stub takes nothing itself)")
 	check.call(dj.spot >= 0 and dj.c.y > CastleStage.H, "castle: he stands on the wall (%.2f)" % dj.c.y)
 	st.draw()
 	check.call(st._mm.poles.visible_instance_count >= 1 and st._mm.cloth.visible_instance_count >= 1, "castle: his silly flag is up")

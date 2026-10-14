@@ -2,7 +2,7 @@ extends RefCounted
 ## Dahrooj Gallery (gallery): cardboard targets flip up and down, rows roll on their rails,
 ## swingers and peekers come and go; shots and throws knock them over and score into
 ## counts[gallery]; the eyes are a bullseye, far ones pay more, a toss is a trick shot; a
-## crowned friendly one only says "ouch" and resets the streak (no loss); quick hits build a
+## crowned friendly one says "ouch" and resets the streak (its points: stage_penalty_test); quick hits build a
 ## multiplier with banners and fireworks; a drumroll brings a faster rapid round worth double;
 ## open play escalates and never ends; the cover stops shots; mixed reality uses the room.
 
@@ -42,6 +42,14 @@ static func run(check: Callable) -> void:
 	var b: Ball = made[1]
 	var ctx: GameCtx = made[2]
 	var counts := func() -> int: return int(ctx.counts.get("gallery", 0))
+	# Mixed reality: the court's booth never shows, even before the room's planes arrive.
+	var booth_vr := st.booth.visible
+	st.mixed = true
+	var hidden_now := not st.booth.visible
+	st.update(b, DT)
+	check.call(booth_vr and hidden_now and not st.booth.visible, "gallery: the booth shows in VR, never in mixed reality (no flash before the room's planes)")
+	st.mixed = false
+	st.update(b, DT)
 	check.call(st.get_node_or_null("Board") == null and not st.gallery_state().has("time") and not st.gallery_state().has("lives"), "gallery: no score board, no clock, no lives")
 	check.call(st.rows.size() == 3 and st.booth.visible and st.covers.size() == 4, "gallery: the court's booth: three carousel rows and four pieces of cover")
 	st.update(b, DT)
@@ -58,7 +66,7 @@ static func run(check: Callable) -> void:
 	st.draw()
 	check.call(st._mm.cards.visible_instance_count >= 1 and st.crowd.count() >= 1 and (T.c as Vector3).y > 0.8, "gallery: the card stands on its stick with a painted Dahrooj on it")
 	check.call(_until(st, b, i, "out", T.life + 0.5) and _until(st, b, i, "", 1.0) or not T.on, "gallery: it flips back down on a timer")
-	check.call(not T.on and counts.call() == 0, "gallery: gone, nothing lost for letting it go")
+	check.call(not T.on and counts.call() == 0, "gallery: gone (what it costs: stage_penalty_test)")
 
 	# A shot knocks a card over: points to counts[gallery], chips and a clack.
 	i = st.spawn("card", "plain", {"pos": Vector3(1, 0, -10)})
@@ -97,7 +105,7 @@ static func run(check: Callable) -> void:
 	st.targets[near].on = false
 	st.targets[far].on = false
 
-	# The friendly crowned one: "ouch", the streak resets, nothing is lost.
+	# The friendly crowned one: "ouch", the streak resets (its points: stage_penalty_test).
 	st.F.streak = 4
 	st.F.mult = GalleryStage.multiplier(4)
 	var fi := st.spawn("peek", "friendly", {"hide": Vector3(0, 1, -12), "out": Vector3(1, 1, -11.5)})
@@ -107,7 +115,7 @@ static func run(check: Callable) -> void:
 	sfx.clear()
 	before = counts.call()
 	check.call(st.shoot(Tf.proxy, Tf.c, Vector3.FORWARD) and Tf.phase == "ouch", "gallery: shooting a friendly one makes him go ouch")
-	check.call(counts.call() == before and st.gallery_state().streak == 0 and st.gallery_state().mult == 1 and st.gallery_state().ouches == 1, "gallery: no points lost, the streak and multiplier reset")
+	check.call(counts.call() == before and st.gallery_state().streak == 0 and st.gallery_state().mult == 1 and st.gallery_state().ouches == 1, "gallery: the streak and multiplier reset")
 	check.call(sfx.any(func(s): return s[0] == "squeak" and float(s[1]) > 1.3), "gallery: a funny high squeak")
 	st.draw()
 	check.call(st._mm.stars.visible_instance_count >= 3 and st._eyes(Tf) == "shut", "gallery: dizzy stars, eyes shut")

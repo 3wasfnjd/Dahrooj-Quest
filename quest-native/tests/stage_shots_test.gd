@@ -349,14 +349,34 @@ static func _boomerang(check: Callable, rig: Dictionary) -> void:
 	var s: Dictionary = wb.shots[0]
 	var far := 0.0
 	var last := O
+	# The model: a classic boomerang (two curved arms, flat), leaning into its curve and spinning
+	# flat in its own plane.
+	var nd: Node3D = s.node
+	var sp := nd.get_node_or_null("Tilt/Spin") as Node3D
+	var mesh := WorldBalls.boomerang_mesh()
+	var bb := mesh.get_aabb()
+	check.call(sp != null and sp.get_child_count() == 1 and (sp.get_child(0) as MeshInstance3D).mesh == mesh
+		and bb.size.x > 0.25 and bb.size.x < 0.36 and bb.size.y < 0.02 and bb.size.z > 0.06 and bb.size.z < bb.size.x * 0.6
+		and absf(bb.get_center().x) < 0.01,
+		"boomerang: a curved V, about 0.3 tip to tip and thin (%s)" % [bb])
+	var spins: Array = []
+	var banks: Array = []
 	for i in int(4.0 / DT):
 		wb.step_blast(DT)
+		if i % 6 == 0 and sp != null and is_instance_valid(sp):
+			spins.append(sp.rotation.y)
+			banks.append(absf(float(s.bank)))
 		last = s.p
 		far = maxf(far, (s.p as Vector3).distance_to(O))
 		if wb.shots.is_empty():
 			break
 	check.call(far > 5.0 and s.caught and last.distance_to(s.o) < 0.3 and wb.shots.is_empty(),
 		"boomerang: curves out (%.1f) and comes back to the hand (%.2f)" % [far, last.distance_to(s.o)])
+	var turned := 0.0
+	for i in range(1, spins.size()):
+		turned += absf(angle_difference(float(spins[i - 1]), float(spins[i])))
+	check.call(turned > 2.0 and banks.max() > 0.1,
+		"boomerang: it spins (%.1f rad seen) and banks into its curve (%.2f)" % [turned, banks.max()])
 	# A big target in its way: hit on the way out and again on the way back.
 	_reset(rig)
 	var st := _stage(rig)
@@ -472,6 +492,25 @@ static func _dallah(check: Callable, rig: Dictionary) -> void:
 			if s.kind == "bean":
 				beans += 1
 	check.call(beans > 0 and wb.shots.size() < WorldBalls.SHOTS_MAX, "dallah: the pot sprays coffee beans as it flies")
+	# Its ding is soft and spaced: both hands holding the trigger for two seconds.
+	_reset(rig)
+	var host: FakeHost = rig.host
+	var st := _stage(rig)
+	st.sturdy = true
+	st.add_wall(O + FWD * 2.5, Vector3(6, 4, 0.2))
+	for i in int(2.0 / DT):
+		for h: String in ["left", "right"]:
+			wb.fire(h, O + Vector3.UP, FWD)
+		wb.step_blast(DT)
+	var dings: Array = host.sounds.filter(func(x: Array) -> bool: return x[0] == "fair_ding")
+	var thumps: Array = host.sounds.filter(func(x: Array) -> bool: return x[0] == "thump")
+	var loud: Array = dings.filter(func(x: Array) -> bool: return float(x[1]) > 0.31)
+	check.call(dings.size() > 0 and dings.size() <= int(2.0 / WorldBalls.DALLAH_DING_GAP) + 1 and loud.is_empty() and thumps.size() <= int(2.0 / WorldBalls.BEAN_THUMP_GAP) + 1,
+		"dallah: its dings are soft and spaced (%d dings, %d thumps in 2 s, both hands)" % [dings.size(), thumps.size()])
+	var ga := GameAudio.new()
+	check.call(float(ga.pick("fair_ding", WorldBalls.DALLAH_FIRE_K)[1]) < -9.0 and is_zero_approx(float(ga.pick("fair_ding", 1.0)[1])),
+		"dallah: its ding plays %.1f dB under the fair's bell (which keeps its level)" % float(ga.pick("fair_ding", WorldBalls.DALLAH_FIRE_K)[1]))
+	ga.free()
 
 
 ## Mixed reality: the shots grow and shrink with the court (blast_k).

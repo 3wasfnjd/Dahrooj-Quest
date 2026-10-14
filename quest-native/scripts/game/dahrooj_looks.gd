@@ -27,14 +27,17 @@ const ACCESSORIES := ["", "party", "glasses", "cap", "flower", "crown", "headpho
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef", "dino", "halo",
 	"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
 	"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak", "sadu", "medal",
-	"goldAgal", "bisht", "trophy", "goldStar", "goldPal"]
+	"goldAgal", "bisht", "trophy", "goldStar", "goldPal", "worldCup"]
 ## A hat takes the place of the fur ball's ribbon.
 const HEADWEAR := ["party", "cap", "crown", "headphones", "aviator", "woodhat", "beanie",
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "astronaut", "pirate", "chef", "dino",
 	"bunny", "wizard", "viking", "propeller", "gradcap",
-	"umbrella", "turban", "taifRose", "farwa", "lantern", "palm", "karak", "goldAgal", "trophy", "goldPal"]
+	"umbrella", "turban", "taifRose", "farwa", "lantern", "palm", "karak", "goldAgal", "trophy", "goldPal", "worldCup"]
 ## Accessories with a see-through part (drawn by GLASS_SHADER as a second mesh).
 const GLASS := ["astronaut"]
+## The shemagh's and the ghutra's cloth (_drape): smooth over the crown, no crest standing up
+## above the head, falling to the shoulders, a little longer at the back.
+const SAUDI_CLOTH := {"R": 1.06, "crest": 0.0, "edge": 1.0471976, "side": 1.1170107, "base": 0.42, "back": 0.34, "corner": 0.18, "folds": 0.035}
 const BOW_AT := Vector3(-0.1, 0.86, 0.5)
 ## Canvas patterns drawn by ACC_SHADER (the accessories' CanvasTextures).
 enum Pattern { NONE, PARTY, CAP, BEANIE, WOOD, SCARF, UNLIT, SHEMAGH, TAQIYAH, KUFI, KUFI_TOP, GHUTRA, BAND, CHEF, DINO, SADU }
@@ -1132,10 +1135,10 @@ static func _accessory_parts(id: String, lite: bool) -> Array:
 					for j in 4:
 						list.append([cylinder(0.009, 0.009, 0.09, 6), xf(Vector3(0.3 + sd * 0.08 + (j - 1.5) * 0.035, -1.13, 0.65)), Color.WHITE, wool])
 		"shemagh", "ghutra":
-			# The red-and-white shemagh (or the white ghutra), creased to a peak over the brow,
-			# hanging to a point down the back and to corners by the cheeks, under the agal.
+			# The red-and-white shemagh (or the white ghutra) lying smooth over the crown under
+			# the agal (no peak on top), hanging down the back and to corners by the cheeks.
 			var cloth := _s(0.88, 0.0, Pattern.SHEMAGH if id == "shemagh" else Pattern.GHUTRA)
-			var c := {"R": 1.06, "crest": 0.3, "edge": deg_to_rad(60.0), "side": deg_to_rad(64.0), "base": 0.42, "back": 0.34, "corner": 0.18, "folds": 0.035}
+			var c := SAUDI_CLOTH
 			list.append([_drape(lite, c), Transform3D.IDENTITY, Color.WHITE, cloth])
 			if not lite:
 				list.append([_tube(_drape_edge(lite, c, false), 0.022, 8), Transform3D.IDENTITY, Color.WHITE, cloth])
@@ -1144,7 +1147,7 @@ static func _accessory_parts(id: String, lite: bool) -> Array:
 		"goldAgal":
 			# The white ghutra under a golden agal.
 			var cloth := _s(0.88, 0.0, Pattern.GHUTRA)
-			var c := {"R": 1.06, "crest": 0.3, "edge": deg_to_rad(60.0), "side": deg_to_rad(64.0), "base": 0.42, "back": 0.34, "corner": 0.18, "folds": 0.035}
+			var c := SAUDI_CLOTH
 			list.append([_drape(lite, c), Transform3D.IDENTITY, Color.WHITE, cloth])
 			if not lite:
 				list.append([_tube(_drape_edge(lite, c, false), 0.022, 8), Transform3D.IDENTITY, Color.WHITE, cloth])
@@ -1652,6 +1655,10 @@ static func _accessory_parts(id: String, lite: bool) -> Array:
 			for sd in [-1.0, 1.0]:
 				list.append([torus(0.13, 0.03, _q(lite, 6, 8), _q(lite, 10, 20), PI * 1.25), t * Transform3D(Basis(Vector3.UP, 0.0 if sd > 0 else PI) * Basis(Vector3.BACK, -PI * 0.62), Vector3(sd * 0.36, 0.62, 0)), gold, gs])
 			list.append([star(0.5, 0.03), t * xf(Vector3(0, 0.6, 0.31), Vector3(-0.35, 0, 0)), Color("fff1b8"), _s(0.2, 0.6, Pattern.NONE, 1.0)])
+		"worldCup":
+			# The prize for every challenge: a World Cup–style golden trophy standing on the
+			# crown, a little tipped toward you.
+			world_cup_parts(list, lite, xf(Vector3(0, 0.9, -0.02), Vector3(-0.08, 0, 0), Vector3.ONE * 1.4))
 		"goldStar":
 			# The first Golden Dahrooj's prize: a plump golden star floating over the head, tipped
 			# toward you, with a glowing rim, a little smile and twinkles around it.
@@ -1705,6 +1712,74 @@ static func _accessory_parts(id: String, lite: bool) -> Array:
 			for i in range(first, list.size()):
 				list[i][1] = grow * (list[i][1] as Transform3D)
 	return list
+
+
+## The World Cup (the worldCup accessory and the finale's big trophy): a two-tier base with
+## green malachite bands, golden ribbons spiralling up a waisted stem like arms reaching
+## up, and a golden globe held on top, engraved with its meridians. Its foot at the origin
+## of t, 1.0 tall (unit radius heads: the accessory is about a head's radius high).
+static func world_cup_parts(list: Array, lite: bool, t: Transform3D) -> void:
+	var gold := Color("f3c544")
+	var deep := Color("d39a26")
+	var green := Color("17834a")
+	var gs := _s(0.22, 0.95, Pattern.NONE, 1.3)
+	var ds := _s(0.35, 0.9, Pattern.NONE, 1.0)
+	var segs := _q(lite, 16, 48)
+	# The foot: gold, two green bands with a gold ring between, a gold lip.
+	for tier: Array in [[0.0, 0.035, 0.225, 0.235, gold, gs], [0.035, 0.085, 0.215, 0.215, green, _s(0.18, 0.15, Pattern.NONE, 0.8)],
+			[0.085, 0.1, 0.222, 0.222, gold, gs], [0.1, 0.15, 0.205, 0.205, green, _s(0.18, 0.15, Pattern.NONE, 0.8)], [0.15, 0.175, 0.19, 0.21, gold, gs]]:
+		var h := float(tier[1]) - float(tier[0])
+		list.append([cylinder(float(tier[2]), float(tier[3]), h, segs), t * xf(Vector3(0, float(tier[0]) + h / 2.0, 0)), tier[4], tier[5]])
+	# The stem: waisted, then opening up toward the globe (a lathe).
+	var prof: Array = []
+	for k in 13:
+		var q := float(k) / 12.0
+		var y := lerpf(0.175, 0.66, q)
+		var r := 0.17 - 0.1 * sin(PI * minf(q / 0.55, 1.0) * 0.5) + 0.15 * pow(maxf(0.0, (q - 0.45) / 0.55), 2.0)
+		prof.append(Vector2(r, y))
+	list.append([_lathe(prof, segs), t, gold, gs])
+	# Ribbons spiralling up the stem, as the figures' arms do.
+	var n := 3 if lite else 5
+	for k in n:
+		var path := []
+		for j in 15:
+			var q := float(j) / 14.0
+			var at := minf(q * 11.999, 11.999)
+			var pr := (prof[int(at)] as Vector2).lerp(prof[int(at) + 1], at - floorf(at))
+			var a := TAU * k / n + q * 2.3
+			path.append(Vector3(sin(a) * (pr.x + 0.012), pr.y, cos(a) * (pr.x + 0.012)))
+		list.append([_tube(path, 0.03 if lite else 0.026, _q(lite, 5, 8)), t, deep, ds])
+	# The globe, held up on top, with its meridians and parallels.
+	var gc := Vector3(0, 0.86, 0)
+	list.append([sphere(0.235, _q(lite, 16, 40), _q(lite, 12, 28)), t * xf(gc), gold, gs])
+	if not lite:
+		for k in 4:
+			list.append([torus(0.238, 0.008, 6, 48), t * Transform3D(Basis(Vector3.UP, PI * k / 4.0), gc), deep, ds])
+		for la: float in [-0.5, 0.0, 0.5]:
+			var rr := 0.238 * cos(la)
+			list.append([torus(rr, 0.007, 6, 40), t * xf(gc + Vector3(0, 0.238 * sin(la), 0), Vector3(PI / 2.0, 0, 0)), deep, ds])
+		# A gold collar where the arms meet the globe.
+		list.append([torus(0.17, 0.024, 8, 40), t * xf(Vector3(0, 0.66, 0), Vector3(PI / 2.0, 0, 0)), gold, gs])
+
+
+## The big World Cup on its own (foot at the origin, `height` tall), for the finale.
+static func world_cup_mesh(height := 1.0) -> ArrayMesh:
+	return _cached("worldcup_%f" % height, func() -> ArrayMesh:
+		var list := []
+		world_cup_parts(list, false, Transform3D(Basis.from_scale(Vector3.ONE * height), Vector3.ZERO))
+		return merge(list))
+
+
+## A surface of revolution around Y: prof [Vector2(radius, y)] from bottom to top; normals
+## from the profile's slope.
+static func _lathe(prof: Array, segs: int) -> Dictionary:
+	var n := prof.size()
+	return _grid(segs, n - 1, func(i: int, j: int) -> Array:
+		var a := TAU * i / segs
+		var pr: Vector2 = prof[j]
+		var d: Vector2 = (prof[mini(j + 1, n - 1)] as Vector2) - (prof[maxi(j - 1, 0)] as Vector2)
+		var n2 := Vector2(d.y, -d.x).normalized()
+		return [Vector3(sin(a) * pr.x, pr.y, cos(a) * pr.x), Vector2(float(i) / segs, float(j) / (n - 1)), Vector3(sin(a) * n2.x, n2.y, cos(a) * n2.x)])
 
 
 ## An aviator lens outline (lens plane, facing +Z): rounder at the top, dropping lower toward

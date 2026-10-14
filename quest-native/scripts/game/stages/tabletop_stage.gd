@@ -9,9 +9,11 @@ extends Node3D
 ## This node is the web `grp`; `board` tilts under it and carries everything else.
 ## Board units: the tray is 3.35 x 3.77, the play surface 3 x 3.4, the far end is -z.
 ##
-## Controls (owner's scheme): the GRIP holds and tilts the board (balance, maze) or turns
-## a paddle it points at (ricochet, 5-degree steps); the TRIGGER aims and launches Dahrooj
-## in ricochet. In balance and maze the stage leaves the trigger to the runtime (blaster):
+## Controls (owner's scheme): the GRIP holds and tilts the board (balance, maze). In
+## ricochet one paddle is selected (it glows, a gold arrow bobs over it): A picks the next
+## one (next_paddle) and the LEFT STICK turns it in 5-degree steps (stick_turn: one step on
+## a push, then repeating, faster the further it is pushed); the TRIGGER aims and launches
+## Dahrooj. In balance and maze the stage leaves the trigger to the runtime (blaster):
 ## xr_press returns whether the stage took the press.
 ##
 ## Ricochet hearts (TabletopGame.RICOCHET_HEARTS): a row of six glossy hearts stands on top
@@ -28,7 +30,14 @@ const TRAY_W := 3.35
 const TRAY_D := 3.77
 const HEART_SIZE := 1.25  # the ricochet hearts over the sign (about 8 cm each in VR)
 const HEART_GAP := 0.36
-const AIM_SNAP := deg_to_rad(9.0)  # ricochet: aims this close to a board axis lock onto it
+## Ricochet stick turning: a push past STICK_ON turns one step, held it repeats after
+## TURN_FIRST every TURN_SLOW (just past STICK_ON) .. TURN_FAST (all the way); back under
+## STICK_OFF it stops.
+const STICK_ON := 0.5
+const STICK_OFF := 0.3
+const TURN_FIRST := 0.34
+const TURN_SLOW := 0.16
+const TURN_FAST := 0.065
 
 static var _meshes := {}
 static var _grain: ImageTexture
@@ -74,6 +83,14 @@ var heart_row: Node3D
 var heart_lost_t: Array = []
 var hearts_refill_t := 99.0
 var hearts_shown := -1
+## Ricochet: the paddle the stick turns (A: the next one), the stick's held direction
+## (-1, 0, 1), the time to its next repeat, the time since the selection changed, and the
+## arrow over the selected paddle.
+var selected := 0
+var turn_dir := 0
+var turn_t := 0.0
+var select_t := 99.0
+var marker: MeshInstance3D
 
 
 func _init(mode_ := "balance") -> void:
@@ -625,8 +642,35 @@ func _build() -> void:
 	character = DahroojView.new(R)
 	character.name = "Dahrooj"
 	board.add_child(character)
+	if mode == "ricochet":
+		_build_marker()
 	if game.max_hearts > 0:
 		_build_hearts()
+
+
+## Ricochet: the selected paddle glows warm gold and a gold arrow bobs over it.
+func _build_marker() -> void:
+	var sel := timber(Color("ffd27a"))
+	sel.emission_enabled = true
+	sel.emission = Color("ffb52e")
+	sel.emission_energy_multiplier = 0.55
+	sel.rim_enabled = true
+	sel.rim = 0.7
+	mats.selected = sel
+	var gold := plain(Color("ffcf3f"), 0.3)
+	gold.emission_enabled = true
+	gold.emission = Color("ffb000")
+	gold.emission_energy_multiplier = 0.9
+	mats.marker = gold
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.13
+	cone.bottom_radius = 0.0
+	cone.height = 0.26
+	cone.radial_segments = 4
+	cone.rings = 1
+	marker = _mesh(pieces, cone, gold)
+	marker.name = "ricochet-selected-arrow"
+	marker.visible = false
 
 
 ## Ricochet: the hearts stand in a row on top of the sign (coral and glossy while you have
@@ -745,7 +789,7 @@ func _status(en: bool) -> void:
 	elif mode == "balance":
 		hint = _tr("امسك بالقبضة وأمل اللوح · اجمع النجوم", "Hold grip and tilt the board · collect the stars")
 	elif mode == "ricochet":
-		hint = _tr("القبضة: تدوير بخطوات ٥° · الزناد: وجّه وأطلق", "Grip: turn in 5° steps · Trigger: aim and release")
+		hint = _tr("القير الأيسر: تدوير اللوح · A: اللوح التالي · الزناد: وجّه وأطلق", "Left stick: turn the paddle · A: next paddle · Trigger: aim, release")
 	else:
 		hint = _tr("امسك بالقبضة وأمل اللوح · اجمع النجوم ثم اتجه للهدف", "Hold grip and tilt · collect the stars, then reach the goal")
 	var info: String
@@ -813,52 +857,7 @@ func _aim_at(input: Dictionary) -> void:
 	var z := o.z + d.z * t - game.ball.y
 	var dd := Vector2(x, z).length()
 	if dd > 0.08:
-		aim = snap_aim(Vector2(x / dd, z / dd))
-
-
-## Ricochet aim assist: an aim within AIM_SNAP of straight ahead, back or to a side locks onto
-## it (every route starts along the board's edges), so a steady hand is not the puzzle.
-func snap_aim(a: Vector2) -> Vector2:
-	if game == null or game.mode != "ricochet":
-		return a
-	var ang := a.angle()
-	var q := roundf(ang / (PI / 2.0)) * (PI / 2.0)
-	if absf(angle_difference(ang, q)) <= AIM_SNAP:
-		return Vector2(cos(q), sin(q))
-	return a
-
-
-## The paddle (index) the input's ray hits first, or -1 (raycast of the paddle's box itself).
-func _pick_paddle(input: Dictionary) -> int:
-	var best := INF
-	var index := -1
-	for i in mirrors.size():
-		var m: MeshInstance3D = mirrors[i]
-		if not m.visible:
-			continue
-		var r := _ray_of(input, _board_xf() * pieces.transform * m.transform)
-		var o: Vector3 = r[0]
-		var d: Vector3 = r[1]
-		var h := Vector3(0.455, 0.16, 0.045)
-		var t0 := -INF
-		var t1 := INF
-		var miss := false
-		for a in 3:
-			if absf(d[a]) < 1e-12:
-				if absf(o[a]) > h[a]:
-					miss = true
-				continue
-			var n := (-h[a] - o[a]) / d[a]
-			var f := (h[a] - o[a]) / d[a]
-			t0 = maxf(t0, minf(n, f))
-			t1 = minf(t1, maxf(n, f))
-		if miss or t0 > t1 or t1 < 0.0:
-			continue
-		var t := t0 if t0 >= 0.0 else t1
-		if t < best:
-			best = t
-			index = i
-	return index
+		aim = Vector2(x / dd, z / dd)
 
 
 static func _id(input):
@@ -878,14 +877,7 @@ func xr_press(input: Dictionary, how: String) -> bool:
 			grips[id].buttons[how] = true
 		return true
 	if how == "grip":
-		if game.phase != "ready":
-			return false
-		var index := _pick_paddle(input)
-		if index < 0:
-			return false
-		var local := _local_input(input)
-		grips[id] = {"q": local.q, "pos": local.pos, "index": index, "angle": game.angles[index]}
-		return true
+		return false  # ricochet: the paddles turn with the left stick (A picks one)
 	if trigger == null and game.phase == "ready" and grips.is_empty():
 		trigger = id
 		_aim_at(input)
@@ -918,7 +910,69 @@ func xr_release(input, lost := false, how := "") -> void:
 func xr_cancel() -> void:
 	grips.clear()
 	trigger = null
+	turn_dir = 0
 	game.set_tilt(0, 0)
+
+
+## Ricochet, A: the next paddle of this round is the one the stick turns. True when it moved.
+func next_paddle() -> bool:
+	var n := paddle_count()
+	if n <= 1:
+		return false
+	selected = (selected + 1) % n
+	select_t = 0.0
+	sfx.call("bricks_tink", 0.75, _paddle_world(selected))
+	return true
+
+
+## The round's paddles (0 outside ricochet).
+func paddle_count() -> int:
+	if mode != "ricochet":
+		return 0
+	return (game.definition().mirrors as Array).size()
+
+
+func _paddle_world(i: int) -> Vector3:
+	var l: Dictionary = game.definition()
+	if i < 0 or i >= l.mirrors.size():
+		return ball_world()
+	return _board_xf() * Vector3(l.mirrors[i].x, 0.3, l.mirrors[i].z)
+
+
+## Turns the selected paddle by `steps` 5-degree steps (a soft click each). True if it turned.
+func turn_paddle(steps: int) -> bool:
+	if selected >= paddle_count() or steps == 0:
+		return false
+	if not game.turn_mirror(selected, game.angles[selected] + steps * TabletopGame.MIRROR_ANGLE_STEP):
+		return false
+	sfx.call("bricks_tink", 0.25, _paddle_world(selected))
+	return true
+
+
+## The left stick's x this frame (ricochet): a push turns the selected paddle one 5° step
+## (right: clockwise seen from above), holding it repeats, faster the further it is pushed.
+func stick_turn(x: float, dt: float) -> void:
+	var dir := 0
+	if absf(x) >= STICK_ON:
+		dir = 1 if x > 0.0 else -1
+	elif turn_dir != 0 and absf(x) > STICK_OFF and signf(x) == float(turn_dir):
+		dir = turn_dir
+	if dir == 0 or paddle_count() == 0 or game.phase != "ready":
+		turn_dir = 0
+		return
+	if dir != turn_dir:
+		turn_dir = dir
+		turn_t = TURN_FIRST
+		turn_paddle(dir)
+		return
+	turn_t -= dt
+	var k := clampf((absf(x) - STICK_ON) / (1.0 - STICK_ON), 0.0, 1.0)
+	var guard := 0
+	while turn_t <= 0.0 and guard < 4:
+		turn_paddle(dir)
+		turn_t += lerpf(TURN_SLOW, TURN_FAST, k)
+		guard += 1
+	turn_t = maxf(turn_t, 0.0)
 
 
 func deactivate() -> void:
@@ -956,6 +1010,7 @@ func _on_heart_lost(left: int) -> void:
 ## Out of hearts: the round from the top, all six hearts back.
 func _on_restarted() -> void:
 	xr_cancel()
+	selected = 0
 	_refill_hearts()
 	sfx.call("swish", 0.6, _board_xf() * heart_row.position if heart_row else ball_world())
 
@@ -1046,14 +1101,14 @@ func xr_frame(dt: float, ctx: Dictionary) -> void:
 					var delta: Quaternion = local.q * (grip.q as Quaternion).inverse()
 					var normal := delta * Vector3.UP
 					held.append({"x": grip.tilt.x + atan2(normal.x, normal.y), "z": grip.tilt.y + atan2(normal.z, normal.y), "pos": local.pos, "base": grip.pos})
-				else:
-					var a: Vector3 = (grip.q as Quaternion) * Vector3.FORWARD
-					var b: Vector3 = (local.q as Quaternion) * Vector3.FORWARD
-					if Vector2(a.x, a.z).length() > 0.08 and Vector2(b.x, b.z).length() > 0.08:
-						var angle := atan2(b.z, b.x) - atan2(a.z, a.x)
-						game.turn_mirror(grip.index, grip.angle + angle)
 			if not tilting and (trigger == null or trigger == input.get("id")) and grip == null and game.phase == "ready":
 				_aim_at(input)
+	if mode == "ricochet":
+		var stick: Vector2 = ctx.get("stick", Vector2.ZERO)
+		if active:
+			stick_turn(stick.x, dt)
+		else:
+			turn_dir = 0
 	if not held.is_empty():
 		var x := 0.0
 		var z := 0.0
@@ -1071,11 +1126,14 @@ func xr_frame(dt: float, ctx: Dictionary) -> void:
 	game.step(dt, active and (not tilting or not grips.is_empty() or game.phase == "won" or game.phase == "falling"))
 	if level_shown != game.level:
 		xr_cancel()
+		selected = 0
+		select_t = 99.0
 	board.rotation = Vector3(game.tilt.y, 0, -game.tilt.x)
 	_level_art()
 	_status(bool(ctx.get("english", english)))
 	_frame_pieces()
 	_frame_hearts(dt if active else 0.0)
+	_frame_marker(dt if active else 0.0)
 	var style := str(ctx.get("style", Save.style))
 	character.set_look(style, str(ctx.get("color", Save.jelly_color)), str(ctx.get("accessory", "")))
 	var pos := Vector3(game.ball.x, R - game.fall, game.ball.y)
@@ -1097,11 +1155,10 @@ func _frame_pieces() -> void:
 		var m: MeshInstance3D = mirrors[i]
 		if m.visible:
 			m.rotation.y = -game.angles[i]
-			var held := false
-			for g in grips.values():
-				if g.get("index", -1) == i:
-					held = true
-			m.material_override = mats.honey if held or game.bounces.has(i) else (mats.walnut if i % 2 else mats.wood)
+			if i == selected and mats.has("selected"):
+				m.material_override = mats.selected
+			else:
+				m.material_override = mats.honey if game.bounces.has(i) else (mats.walnut if i % 2 else mats.wood)
 	var g := game.gate()
 	if gate_mesh.visible and not g.is_empty():
 		gate_mesh.position = Vector3(g.x, 0.135, g.z)
@@ -1115,3 +1172,23 @@ func _frame_pieces() -> void:
 			var t := 0.24 + i * 0.10
 			d.position = Vector3(game.ball.x + aim.x * t, 0.07, game.ball.y + aim.y * t)
 			d.visible = absf(d.position.x) < 1.45 and absf(d.position.z) < 1.65
+
+
+## The gold arrow over the selected paddle: it bobs and spins slowly, and pops when A picks
+## a new paddle.
+func _frame_marker(dt: float) -> void:
+	if marker == null:
+		return
+	select_t += dt
+	var n := paddle_count()
+	if selected >= n:
+		selected = 0
+	marker.visible = n > 0 and selected < mirrors.size() and (mirrors[selected] as MeshInstance3D).visible
+	if not marker.visible:
+		return
+	var m: MeshInstance3D = mirrors[selected]
+	var pop := 1.0
+	if select_t < 0.3:
+		pop = 1.0 + 0.5 * sin(PI * select_t / 0.3)
+	marker.position = Vector3(m.position.x, 0.62 + 0.05 * sin(time * 4.0), m.position.z)
+	marker.basis = Basis(Vector3.UP, time * 1.6) * Basis.from_scale(Vector3.ONE * pop)

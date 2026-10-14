@@ -73,7 +73,11 @@ const CHALLENGES := [
 	["total100k", "اجمع ١٠٠٬٠٠٠ نقطة بالمجموع", "Score 100,000 points in all", 100000],
 	["score25k", "اجمع ٢٥٬٠٠٠ نقطة في نمط واحد", "Score 25,000 in one mode", 25000],
 	["total250k", "اجمع ٢٥٠٬٠٠٠ نقطة بالمجموع", "Score 250,000 points in all", 250000],
+	# The last one: every challenge above finished (its goal is their count; all_done_count()).
+	["allDone", "أتمّ كل التحديات", "Complete every challenge", 64],
 ]
+## The final challenge (the World Cup and the finale): done when all the others are.
+const ALL_DONE := "allDone"
 ## The big-number challenges fed by the runtime rather than a stage:
 ## - the best score of one mode this session (counts) and the lifetime total (Save.total_score);
 const SCORE_ONE := ["score1k", "score5k", "score10k", "score25k"]
@@ -111,6 +115,9 @@ var on_record: Callable = func(_m, _s, _p): pass
 ## penalty(mode: String, taken: int, asked: int, at: Vector3): an attack took points (main's
 ## feedback: the ouch text, the red flash, the bump and the buzz).
 var on_penalty: Callable = func(_m, _t, _a, _p): pass
+## nibble(mode: String, taken: int, asked: int, at: Vector3): a small thing got through and
+## took points (main's light feedback: a grey «-10» where it happened, a soft bump).
+var on_nibble: Callable = func(_m, _t, _a, _p): pass
 ## The modes whose record this session has already passed once (celebrated or not).
 var _record_seen := {}
 
@@ -126,9 +133,12 @@ func _init(b: Ball, stage_parent: Node3D) -> void:
 	ctx.ch_progress = ch_progress
 	ctx.tally = tally
 	ctx.penalty = penalty
+	ctx.nibble = nibble
 	ball.event.connect(_on_ball)
 	for id in ["hoop3", "fair25"]:
 		ch_progress(id, 0)
+	# A save that finished everything before the final challenge existed counts it now.
+	sync_all_done(Save.challenges)
 
 
 static func challenge(id: String) -> Array:
@@ -163,6 +173,29 @@ func ch_progress(id: String, value: int) -> void:
 	if before < c[3] and value >= c[3]:
 		ctx.toast.call("✓ " + (c[2] if ctx.lang == "en" else c[1]))
 		on_chime.call()
+		if id != ALL_DONE:
+			ch_progress(ALL_DONE, all_done_count(Save.challenges))
+
+
+## The challenges finished other than the final one (its progress).
+static func all_done_count(progress: Dictionary) -> int:
+	var n := 0
+	for c: Array in CHALLENGES:
+		if c[0] != ALL_DONE and int(progress.get(c[0], 0)) >= int(c[3]):
+			n += 1
+	return n
+
+
+## Whether every challenge, the final one too, is finished.
+static func all_done(progress: Dictionary) -> bool:
+	return int(progress.get(ALL_DONE, 0)) >= int(challenge(ALL_DONE)[3])
+
+
+## Brings the final challenge's progress up to date quietly (no card): a save from before it.
+static func sync_all_done(progress: Dictionary) -> void:
+	var n := all_done_count(progress)
+	if n > int(progress.get(ALL_DONE, 0)):
+		progress[ALL_DONE] = n
 
 
 func ch_add(id: String) -> void:
@@ -255,6 +288,16 @@ func penalty(m: String, pts: int, at := Vector3.ZERO) -> int:
 	var take := clampi(pts, 0, have)
 	counts[m] = have - take
 	on_penalty.call(m, take, pts, at)
+	return take
+
+
+## A small, frequent loss (GameCtx.nibble): taken exactly like penalty() (never below 0;
+## records, the lifetime total and the challenges keep theirs), with the light feedback.
+func nibble(m: String, pts: int, at := Vector3.ZERO) -> int:
+	var have := int(counts.get(m, 0))
+	var take := clampi(pts, 0, have)
+	counts[m] = have - take
+	on_nibble.call(m, take, pts, at)
 	return take
 
 

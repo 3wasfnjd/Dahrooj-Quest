@@ -9,7 +9,8 @@ extends Node3D
 ##   a shot or a thrown Dahrooj on one makes him flinch and wobble and knocks a chunk out of
 ##   the big hit-points ring around him (shots on the body only chip it).
 ## - Phases by what is left of the ring: (1) he bounces and stomps: dust rings, nearby props
-##   jump; (2) he spits waves of little Dahroojs at you: pop them (if one reaches you it
+##   jump, and each stomp's shockwave takes STOMP_PENALTY points (a little one left unpopped
+##   until it gives up takes ESCAPE_PENALTY); (2) he spits waves of little Dahroojs at you: pop them (if one reaches you it
 ##   bounces off, the combo breaks and it takes MINION_PENALTY points off the score); (3) he melts into slime and splits into three medium
 ##   ones that merge back later; (4) rage: red glow, faster, more spots. The three stay
 ##   hidden while he collapses, then pop up out of the top of the puddle (small, growing on
@@ -55,6 +56,10 @@ const NEAR_MIN := 1.2  # metres to his near side at the very least (mixed realit
 const REACH := 1.6
 ## Points a little one that reaches you takes off the score (ctx.penalty: never below 0).
 const MINION_PENALTY := 25
+## Points his stomp (a big hop landing: the shockwave rolls out to you) takes off the score, and
+## a little one that hops about unpopped until it gives up (ctx.nibble, the light touch).
+const STOMP_PENALTY := 15
+const ESCAPE_PENALTY := 5
 const COMBO_T := 1.8
 const COMBO_STEPS := [3, 6, 10, 15]
 const BANNER_T := 2.4
@@ -1097,6 +1102,7 @@ func _start_hop(b: Dictionary, big: bool) -> void:
 	if b.big:
 		h = minf(h, room.max_h)
 	b.hop_h = maxf(h, r * 0.06)
+	b["stomp"] = big
 	var to: Vector3 = b.g
 	if not big:
 		if b.big:
@@ -1483,6 +1489,9 @@ func _step_minion(mi: Dictionary, dt: float) -> void:
 				if ctx:
 					ctx.penalty.call("giant", MINION_PENALTY, mi.p)
 	if mi.life > 18.0:
+		# Left unpopped all that time (and never bounced off you: that took its points).
+		if int(mi.bounces) == 0 and ctx:
+			ctx.nibble.call("giant", ESCAPE_PENALTY, mi.p)
 		_pop_minion(mi, Vector3.UP, false)
 
 
@@ -1585,8 +1594,12 @@ func _landed(b: Dictionary, speed: float) -> void:
 	b.sv -= clampf(speed * 0.3, 1.5, 5.0)
 	if b.big:
 		_shake(b.g, b.r, k)
+		# A stomp (a big hop, not his entrance or the knock-out): the shockwave reaches you.
+		if b.get("stomp", false) and b.land == "" and ctx:
+			ctx.nibble.call("giant", STOMP_PENALTY, (b.g as Vector3) + Vector3.UP * float(b.r) * 0.4)
 	else:
 		_shake(b.g, b.r * 0.6, k * 0.5)
+	b["stomp"] = false
 	var cb: String = b.land
 	b.land = ""
 	if b.act == "air":

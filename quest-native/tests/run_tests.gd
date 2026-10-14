@@ -288,11 +288,16 @@ func _scene() -> void:
 	check(main.state == "play" and main.mode == "vr", "choosing VR starts the game")
 	await _world(main)
 	_summit_buttons(main)
+	_ab_buttons(main)
+	await _rain_mode(main)
 	await _room_play(main)
 	_reward_cards(main)
 	await _roomscale(main)
 	await _golden_scene(main)
 	await _challenge_cards(main)
+	var keep_finale := _save_keep()
+	load("res://tests/stage_finale_test.gd").call("scene", main, check)
+	_save_restore(keep_finale)
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -333,9 +338,12 @@ func _summit_buttons(main: Node) -> void:
 	main._choose_mode("goal")
 	main.state = "play"
 	calm.call()
+	var shot0: String = Save.shot_style
 	main._on_button("right", "ax", true)
 	main._on_button("right", "ax", false)
-	check(not main.summit_on and float(s.input.buffer) == 0.0 and main.holder == "" and main.state == "play", "A does nothing outside the Summit")
+	check(not main.summit_on and float(s.input.buffer) == 0.0 and main.holder == "" and main.state == "play" and Save.shot_style != shot0,
+		"outside the Summit A no longer jumps (it picks the next shot)")
+	Save.shot_style = shot0
 
 
 ## Mixed reality out in the room (main.gd room_play): the arcade modes take RoomSpots in front
@@ -786,3 +794,191 @@ func _roomscale(main: Node) -> void:
 	cam.global_transform = keep
 	main.replace_here()
 	main._choose_mode("goal")
+
+
+## Right A and B in play: A steps to the next shot style the challenges have opened and B to
+## the next accessory ("none" among them), both wrapping round and skipping locked ones; the
+## pick shows its icon and name by the hand with a click. The Summit keeps A for its jump (B
+## does nothing there); ricochet's A picks the next paddle.
+func _ab_buttons(main: Node) -> void:
+	var keep := _save_keep()
+	var shot0: String = Save.shot_style
+	main._choose_mode("goal")
+	main.state = "play"
+	main.placing = false
+	Save.challenges.clear()
+	Save.shot_style = "bolt"
+	Save.accessory = ""
+	var press := func(name: String) -> void:
+		main._on_button("right", name, true)
+		main._on_button("right", name, false)
+	var seen: Array = []
+	main.sounds_played.clear()
+	for i in 5:
+		press.call("ax")
+		seen.append(Save.shot_style)
+	check(seen == ["mini", "bubble", "firework", "bolt", "mini"], "A: the next open shot style, locked ones skipped, wrapping round (%s)" % [seen])
+	check(main.quick_pick.icon_line.visible and main.quick_pick.last_icon == "mini" and main.quick_pick.last_text == Save.text("دحروج", "Dahrooj")
+		and not JuiceText.showing(main.quick_pick).is_empty() and main.sounds_played.any(func(e): return e[0] == "bricks_tink"),
+		"A: the pick's icon and name by the hand, and a click (%s)" % main.quick_pick.last_text)
+	Save.challenges["shot:rocket"] = 1
+	Save.shot_style = "firework"
+	press.call("ax")
+	var after_fw: String = Save.shot_style
+	press.call("ax")
+	check(after_fw == "rocket" and Save.shot_style == "bolt", "A: an opened style joins the round (firework → %s → %s)" % [after_fw, Save.shot_style])
+	var open := QuickPick.open_accessories({"keeper3": 3, "cansOne": 1})
+	check(open == ["", "party", "glasses"], "B: the accessories open now, none first (%s)" % [open])
+	Save.challenges.clear()
+	Save.challenges.merge({"keeper3": 3, "cansOne": 1})
+	var worn: Array = []
+	for i in 4:
+		press.call("by")
+		worn.append(Save.accessory)
+	check(worn == ["party", "glasses", "", "party"], "B: the next open accessory, none among them, wrapping round (%s)" % [worn])
+	check(main.dahrooj.accessory == "party" and main.worn() == "party" and main.quick_pick.last_icon == "party", "B: the held Dahrooj wears it at once")
+	Save.accessory = "crown"  # locked: worn() reads none, so B goes on from none
+	press.call("by")
+	check(Save.accessory == "party", "B: from a locked accessory it starts at the first open one")
+	# Ricochet: A picks the next paddle, the shot stays; B still changes the accessory.
+	main._choose_mode("ricochet")
+	main.state = "play"
+	main.table.game.reset(1)
+	main._step_table(1.0 / 72.0)
+	var style_before: String = Save.shot_style
+	press.call("ax")
+	check(main.table.selected == 1 and Save.shot_style == style_before, "ricochet: A picks the next paddle (not a shot style)")
+	press.call("by")
+	check(Save.accessory == "glasses", "ricochet: B changes the accessory")
+	main._choose_mode("goal")
+	Save.shot_style = shot0
+	_save_restore(keep)
+	main._apply_look()
+
+
+## Dahrooj Rain plays like the other modes: pinned (VR where the player stands, MR on the
+## pinned spot and resized with the stick) and set again by a recenter or a new pin; the
+## trigger fires shots and the grip holds Dahrooj (nothing to score on: he only pops the
+## rain); rockets home onto the rain's Dahroojs and lightning chains to them.
+func _rain_mode(main: Node) -> void:
+	var keep := _save_keep()
+	var shot0: String = Save.shot_style
+	Save.challenges.merge({"shot:rocket": 1, "shot:lightning": 1}, true)
+	var ir: IntroRain = main.intro
+	var wb: WorldBalls = main.world_balls
+	main.set_mode("vr")
+	main._choose_mode("rain")
+	main.state = "play"
+	main.placing = false
+	var va: Dictionary = main.vr_anchor
+	var o: Vector3 = ir.global_transform.origin
+	check(ir.active and ir.rain and ir.pinned and not main.stage.visible and main.ball.stage == null
+		and Vector2(o.x, o.z).distance_to(Vector2((va.p as Vector3).x, (va.p as Vector3).z)) < 1e-3 and absf(o.y) < 1e-4,
+		"rain VR: pinned where the player stands, nothing to score on")
+	for i in 72 * 3:
+		main._step_intro(1.0 / 72.0)
+	var live := ir.target_drops()
+	var ahead := 0
+	for d in live:
+		if d.p.z < 0.0:
+			ahead += 1
+	check(live.size() > 20 and ahead >= live.size() * 0.9, "rain VR: they fall ahead of the pinned spot (%d of %d)" % [ahead, live.size()])
+	# The controls of every mode.
+	wb.clear_blast()
+	main.auto_fire.clear()
+	main.ball.respawn()
+	main.holder = ""
+	Save.shot_style = "bolt"
+	wb.last_shot.clear()
+	main._press("left", "trigger")
+	check(wb.shots.size() > 0 and main.holder == "", "rain: the trigger fires shots")
+	main.auto_fire.clear()
+	wb.clear_blast()
+	main._press("right", "grip")
+	check(main.holder == "right", "rain: the grip holds Dahrooj")
+	main._release("right", true)
+	check(main.holder == "", "rain: letting go puts him back")
+	# A thrown Dahrooj pops the ones he meets.
+	var hit: IntroRain.Drop = ir.target_drops()[0]
+	var pc := ir.popped
+	main.ball.respawn()
+	main.parked = false
+	main.ball.pos = main.to_game(ir.drop_world(hit))
+	main.ball.throw_with(Vector3(0, 0, -0.1))
+	main._game_step(1.0 / 72.0)
+	check(hit.popped and ir.popped > pc, "rain: a thrown Dahrooj pops the rain's Dahroojs he meets")
+	main.ball.respawn()
+	main.holder = ""
+	# Rockets home: one drop left, a rocket fired 25° off it turns and pops it.
+	var target: IntroRain.Drop = ir.target_drops()[0]
+	var only: Array[IntroRain.Drop] = [target]
+	ir.balls = only
+	var popped0 := ir.popped
+	var at: Vector3 = main.to_game(ir.drop_world(target))
+	var from: Vector3 = main.eye_game()
+	var straight := (at - from).normalized()
+	Save.shot_style = "rocket"
+	wb.last_shot.clear()
+	wb.fire("right", from, Basis(Vector3.UP, deg_to_rad(25.0)) * straight)
+	var locked := false
+	for i in 72 * 3:
+		if not wb.shots.is_empty() and String((wb.shots[0].target as Dictionary).get("kind", "")) == "i":
+			locked = true
+		wb.step_blast(1.0 / 72.0)
+		if target.popped:
+			break
+	check(locked and target.popped and ir.popped == popped0 + 1, "rain: a rocket fired 25° off homes onto a rain Dahrooj and pops it")
+	wb.clear_blast()
+	# Lightning chains to them.
+	for i in 72:
+		main._step_intro(1.0 / 72.0)  # the rain tops itself up
+	var near: IntroRain.Drop = ir.target_drops()[0]
+	var p1 := ir.popped
+	Save.shot_style = "lightning"
+	wb.last_shot.clear()
+	wb.fire("right", from, (main.to_game(ir.drop_world(near)) - from).normalized())
+	check(near.popped and ir.popped > p1, "rain: lightning strikes the rain's Dahroojs (%d popped)" % (ir.popped - p1))
+	wb.clear_blast()
+	# A recenter sets it again where the player stands.
+	main.replace_here()
+	check(ir.pinned and ir.global_transform.origin.distance_to(Vector3((main.vr_anchor.p as Vector3).x, 0, (main.vr_anchor.p as Vector3).z)) < 1e-3, "rain VR: a recenter pins it again")
+	# Mixed reality: pinned on the spot, a new pin moves it, the stick resizes it; the trigger pins.
+	main.set_mode("mr")
+	main.state = "play"
+	var ap: Vector3 = main.anchor.p
+	o = ir.global_transform.origin
+	check(ir.pinned and ir.mixed and Vector2(o.x, o.z).distance_to(Vector2(ap.x, ap.z)) < 1e-3 and absf(o.y) < 1e-4 and absf(ir.pin_back - 1.6) < 1e-6,
+		"rain MR: on the floor at the pinned spot, falling ahead of it")
+	main.placing = true
+	main.anchor = main.anchor_from(Vector3(1.2, 0.0, -2.5), Vector3.UP)
+	main.place()
+	o = ir.global_transform.origin
+	check(Vector2(o.x, o.z).distance_to(Vector2(1.2, -2.5)) < 1e-3, "rain MR: placing moves it with the reticle")
+	main.ar_zoom = 2.0
+	main.place()
+	var k := ir.global_transform.basis.get_scale().x
+	check(absf(k - 2.0) < 1e-3, "rain MR: the stick makes it bigger (×%.2f)" % k)
+	main.ar_zoom = 0.5
+	main.place()
+	k = ir.global_transform.basis.get_scale().x
+	check(absf(k - 0.5) < 1e-3 and ir.drop_radius_world(ir.target_drops()[0]) < IntroRain.INTRO_R * 0.8, "rain MR: and smaller (×%.2f), the Dahroojs with it" % k)
+	main.ar_zoom = 1.0
+	main.place()
+	wb.clear_blast()
+	main.auto_fire.clear()
+	main._press("right", "trigger")
+	check(not main.placing and wb.shots.is_empty(), "rain MR: the trigger pins it (no shot)")
+	wb.last_shot.clear()
+	Save.shot_style = "bolt"
+	main._press("right", "trigger")
+	check(wb.shots.size() > 0, "rain MR: then the trigger fires again")
+	main.auto_fire.clear()
+	wb.clear_blast()
+	main.set_mode("vr")
+	main._choose_mode("goal")
+	check(not ir.active and not ir.pinned and ir.transform == Transform3D.IDENTITY and main.ball.stage == main.stage and main.stage.visible,
+		"rain: leaving it brings the court back")
+	Save.shot_style = shot0
+	wb.last_shot.clear()
+	_save_restore(keep)
+	await get_tree().process_frame

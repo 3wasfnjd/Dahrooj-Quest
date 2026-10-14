@@ -13,13 +13,14 @@ extends Node3D
 ## - peekers: Dahroojs that lean out from behind cover (crates, a bush, a tree, barrels) and
 ##   duck back; the cover is solid, so shots and throws stop on it.
 ## - trick shots: a Dahrooj tossed up from behind cover for a split second (big bonus).
-## - crowned Dahroojs are friendly: hitting one only makes it go "ouch!" (dizzy stars) and
-##   resets the streak; no points are lost.
+## - crowned Dahroojs are friendly: hitting one makes it go "ouch!" (dizzy stars), resets the
+##   streak and takes FRIEND_PENALTY points; a card, peeker or swinger that goes away unhit
+##   takes AWAY_PENALTY (the score never drops below 0).
 ## - bonuses: the eyes are the bullseye (+15), far targets give a distance bonus, a streak of
 ##   quick hits raises the multiplier (×2 .. ×6) with big banners, fireworks from ×3 on.
 ## - every minute or so a rapid round: a drumroll, then for ten seconds everything comes faster
 ##   and every hit counts double.
-## - open play: no lives, no timer, no board, no losing; a lull only lets the streak run out.
+## - open play: no lives, no timer, no board, no game over; a lull lets the streak run out.
 ##   Endless and slowly escalating (more targets, faster). Points go to ctx.counts["gallery"]
 ##   (the jelly score popup).
 ##
@@ -60,6 +61,11 @@ const BANNER_T := 2.2
 const PTS := {"card": 10, "rail": 10, "swing": 15, "peek": 15, "toss": 30}
 const GOLD_K := 3
 const BULLSEYE_PTS := 15
+## Points a pop-up target (card, peeker, swinger) that goes away unhit takes off the score, and a
+## friendly (crowned) one that is hit (ctx.nibble, the light touch). The carousel rows and the
+## trick tosses are free to let go.
+const AWAY_PENALTY := 5
+const FRIEND_PENALTY := 15
 const FRIENDLY_P := 0.16
 const GOLD_P := 0.07
 const EYES := [Vector2(-0.3, 0.08), Vector2(0.3, 0.08)]  # in the Dahrooj's unit frame (crowd.gd)
@@ -173,6 +179,13 @@ var spots_provider: Callable
 var unit := 2.0
 ## Size of the targets and their effects (mixed reality wants 2).
 var size := 1.0
+## Mixed reality: the court's booth never shows, even before the room's planes arrive (it used
+## to stand there a moment and vanish); without a scan the targets float in the room.
+var mixed := false:
+	set(v):
+		mixed = v
+		if booth != null:
+			booth.visible = not room() and not mixed
 ## The player's eye (game units): targets face it. Main keeps it current.
 var viewer := VIEW_VR
 ## buzz(hand: String, amp: float, ms: float): haptics (main's buzz).
@@ -890,7 +903,8 @@ func _streak_up(at: Vector3) -> void:
 		_confetti(banner_at(), 1.0 + 0.2 * m)
 
 
-## A friendly (crowned) one was hit: "ouch!", dizzy stars, the streak resets; no points lost.
+## A friendly (crowned) one was hit: "ouch!", dizzy stars, the streak resets and it takes
+## FRIEND_PENALTY points.
 func _ouch(T: Dictionary) -> void:
 	T.phase = "ouch"
 	T.t = 0.0
@@ -910,6 +924,8 @@ func _ouch(T: Dictionary) -> void:
 		_sfx("bowling_clack", 0.4, c)
 	_buzz2(0.5, 90)
 	_fx(c, Vector3.ZERO, 0.25, _lin("ffb3d1"), 1.0 * size, 0)
+	if ctx:
+		ctx.nibble.call("gallery", FRIEND_PENALTY, top)
 
 
 func _off(T: Dictionary) -> void:
@@ -936,7 +952,7 @@ func _refresh_room() -> void:
 	for pl in _planes:
 		var p: Vector3 = pl.pos
 		sig += "|%d,%d,%d" % [roundi(p.x), roundi(p.y), roundi(p.z)]
-	booth.visible = not room()
+	booth.visible = not room() and not mixed
 	if sig != _room_sig:
 		_room_sig = sig
 		_build_rows()
@@ -1554,6 +1570,8 @@ func _step_target(T: Dictionary, dt0: float) -> void:
 					T.t = 0.0
 					if T.flat:
 						_sfx("bowling_clack", 0.35, T.base)
+					if T.kind != "friendly" and ctx:
+						ctx.nibble.call("gallery", AWAY_PENALTY, T.c)
 		"out":
 			var ot := SWING_IN if T.mover == "swing" else OUT_T
 			T.e = 1.0 - clampf(t / ot, 0.0, 1.0)

@@ -13,8 +13,9 @@ extends Node3D
 ## - every half minute or so a meteor shower: a banner, then a burst of meteors along parallel
 ##   streaks from one side of the sky.
 ## - open play: no hearts, no game over, no timer, no board. One that lands leaves a glowing
-##   crater with a shockwave and a dust cloud; it breaks the combo, and one that lands right
-##   at the player's feet (within HIT_R) takes LAND_PENALTY points off the score. Quick blasts build a
+##   crater with a shockwave and a dust cloud; it breaks the combo and takes GROUND_PENALTY
+##   points (by size), and one that lands right at the player's feet (within HIT_R) takes
+##   LAND_PENALTY more off the score. Quick blasts build a
 ##   combo (×2 .. ×6). The points go to ctx.counts["meteor"] (the jelly score popup).
 ## - endless and escalating: they come more often, faster and bigger as the minutes go by.
 ## Game units, like the other stages (VR: 2 per metre; mixed reality: 8 per metre, size 2).
@@ -61,6 +62,9 @@ const CRATER_T := 7.0
 ## LAND_PENALTY points (ctx.penalty: never below 0; records and totals keep theirs).
 const HIT_R := 6.0
 const LAND_PENALTY := 25
+## Every meteor that reaches the ground unpopped takes these points too (ctx.nibble: a small grey
+## «-N» at the crater), by kind; a shower's take them one by one.
+const GROUND_PENALTY := {"big": 20, "mid": 15, "small": 10}
 const LAND_T := 0.9  # the dazed Dahrooj sinks into its crater
 const BANNER_T := 2.4
 const LEVEL_T := 30.0  # play seconds per level of intensity
@@ -989,8 +993,8 @@ static func predict_land(m: Dictionary) -> Vector3:
 	return Vector3(c.x + v.x * t, float(m.floor), c.z + v.z * t)
 
 
-## One reached the floor: a glowing crater, a shockwave, a dust cloud; the combo breaks, and
-## right at the player's feet it takes LAND_PENALTY points.
+## One reached the floor: a glowing crater, a shockwave, a dust cloud; the combo breaks, it
+## takes GROUND_PENALTY points, and right at the player's feet LAND_PENALTY more.
 func _impact(m: Dictionary) -> void:
 	var r: float = m.r
 	var p := Vector3(m.c.x, float(m.floor), m.c.z)
@@ -1013,6 +1017,8 @@ func _impact(m: Dictionary) -> void:
 	_fx(p + Vector3.UP * r * 0.5, Vector3.ZERO, 0.3, _lin("ffd9a0"), r * 3.5, K_FLASH)
 	_sfx("thump", 1.0, p)
 	_sfx("boom", 0.35 + 0.35 * r / size, p)
+	if ctx:
+		ctx.nibble.call("meteor", int(GROUND_PENALTY.get(m.kind, 10)), p + Vector3.UP * r)
 	if Vector2(p.x - viewer.x, p.z - viewer.z).length() < hit_r():
 		_buzz2(0.2, 45)
 		if ctx:

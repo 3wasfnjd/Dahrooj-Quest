@@ -1,22 +1,25 @@
 extends RefCounted
-## Ricochet (tabletop): every round can be solved the way a player can, with room to spare,
-## and the six hearts.
+## Ricochet (tabletop): the five original rounds (as before 0.10: no aim snapping) can each be
+## solved the way a player can, the paddles turn with the left stick and A picks the next
+## one, and the six hearts.
 ##
 ## The solver plays by the game's own rules: the paddles snap to 5° steps (turn_mirror), a
 ## launch always has the same speed (no power: only the aim direction is chosen), and the
 ## fixed-step physics decide (TabletopGame.step). With each paddle at its designed angle it
 ## sweeps the aim all the way round and measures the widest run of aims that win: a round
 ## that needs a pixel-perfect aim fails here. Then each round is won through the stage
-## itself: grip-turn every paddle, aim with the trigger at the middle of that run, release.
+## itself: A to each paddle in turn, the left stick until it sits at its designed angle, aim
+## with the trigger at the middle of that run, release.
 ##
 ## Hearts: a miss costs one (a squeak, an "ouch", the heart empties); a cleared round
 ## refills them; out of hearts the round starts over with six (no game over, the score
 ## stays); balance and maze have none.
 
 const DT := 1.0 / 72.0
-## The narrowest aim window (degrees) any round may need; the last round gets more room.
+## The narrowest aim window (degrees) any round may need. The original rounds measure about
+## 7.0°, 4.4°, 3.8°, 3.6° and 3.65° (round 5, the four-paddle route).
 const MIN_WINDOW := 3.5
-const LAST_WINDOW := 4.5
+const LAST_WINDOW := 3.5
 
 
 static func _launch(level: int, angles: Array, deg: float) -> TabletopGame:
@@ -69,26 +72,34 @@ static func _hand(id: String, rot := Quaternion.IDENTITY, origin := Vector3(0, 1
 	return {"id": id, "ray": {"origin": origin, "dir": dir.normalized()}, "position": Vector3(0.2, 0.9, 0.3), "rotation": rot}
 
 
-static func _frame(st: TabletopStage, inputs: Array, english := true) -> void:
-	st.xr_frame(DT, {"inputs": inputs, "active": true, "style": "jelly", "accessory": "", "eye": Vector3(0, 1.6, 0.6), "english": english})
+static func _frame(st: TabletopStage, inputs: Array, english := true, stick := Vector2.ZERO) -> void:
+	st.xr_frame(DT, {"inputs": inputs, "active": true, "stick": stick, "style": "jelly", "accessory": "", "eye": Vector3(0, 1.6, 0.6), "english": english})
 
 
-## The player's way: grip each paddle from above and turn the hand until it sits at the
+## Holds the left stick toward the designed angle of the selected paddle until it sits there
+## (full push: one step at once, then repeating), then lets go. True when it got there.
+static func stick_to(st: TabletopStage, want: float) -> bool:
+	var g := st.game
+	for n in 72 * 12:
+		var d := angle_difference(g.angles[st.selected], TabletopGame.snap_mirror_angle(want))
+		if absf(d) < 1e-6:
+			_frame(st, [])
+			return true
+		_frame(st, [], true, Vector2(1.0 if d > 0.0 else -1.0, 0.0))
+	return false
+
+
+## The player's way: A to each paddle in turn and the left stick until it sits at the
 ## designed angle, then aim with the trigger toward deg and let go. True on a win.
 static func play(st: TabletopStage, deg: float) -> bool:
 	var g := st.game
 	var l: Dictionary = g.definition()
 	_frame(st, [])
 	for i in l.mirrors.size():
-		var m: Dictionary = l.mirrors[i]
-		var above: Vector3 = st._board_xf() * Vector3(m.x, 2.0, m.z)
-		if not st.xr_press(_hand("right", Quaternion.IDENTITY, above), "grip"):
+		if i > 0 and not st.next_paddle():
 			return false
-		var want: float = l.solution[i] - g.angles[i]
-		want = atan2(sin(want), cos(want))
-		_frame(st, [_hand("right", Quaternion(Vector3.UP, -want), above)])
-		st.xr_release(_hand("right"), false, "grip")
-		_frame(st, [])
+		if st.selected != i or not stick_to(st, l.solution[i]):
+			return false
 	var a := deg_to_rad(deg)
 	var b: Vector2 = g.ball
 	var aim_at: Vector3 = st._board_xf() * Vector3(b.x + cos(a), TabletopGame.TABLE_RADIUS, b.y + sin(a))
@@ -109,14 +120,13 @@ static func play(st: TabletopStage, deg: float) -> bool:
 
 
 static func run(check: Callable) -> void:
-	# Aim assist: a hand a few degrees off straight ahead still launches straight ahead.
-	var snap_st := TabletopStage.new("ricochet")
-	var off := Vector2(cos(deg_to_rad(263.0)), sin(deg_to_rad(263.0)))
-	var wide := Vector2(cos(deg_to_rad(250.0)), sin(deg_to_rad(250.0)))
-	check.call(snap_st.snap_aim(off).distance_to(Vector2(0, -1)) < 1e-6 and snap_st.snap_aim(wide).distance_to(wide) < 1e-6,
-		"ricochet: an aim within 9° of straight ahead locks onto it; a wider one stays")
-	snap_st.free()
+	_controls(check)
 	var levels := TabletopGame.ricochet_levels()
+	# The original five rounds (before 0.10): 1, 2, 3, 3 and 4 paddles; round 5 the long
+	# four-paddle route round a block.
+	var counts: Array = levels.map(func(l): return (l.mirrors as Array).size())
+	check.call(levels.size() == 5 and counts == [1, 2, 3, 3, 4] and (levels[4].start as Vector2).is_equal_approx(Vector2(-0.9, 1.32)),
+		"ricochet: the original rounds are back (paddles %s)" % [counts])
 	var windows: Array = []
 	var st := TabletopStage.new("ricochet")
 	st.place_table(Transform3D.IDENTITY, 0.32)
@@ -134,11 +144,12 @@ static func run(check: Callable) -> void:
 		var need := LAST_WINDOW if lv == levels.size() - 1 else MIN_WINDOW
 		check.call(reachable and w.y - w.x >= need,
 			"ricochet solver: round %d can be solved with room to spare (aims %.2f°..%.2f°, a %.2f° window, needs %.1f°)" % [lv + 1, w.x, w.y, w.y - w.x, need])
-		# Through the stage: turn every paddle with the grip, aim with the trigger, release.
+		# Through the stage: A and the left stick for every paddle, aim with the trigger, release.
 		st.game.reset(lv)
+		_frame(st, [])
 		var ok := w.y > w.x and play(st, (w.x + w.y) * 0.5)
 		check.call(ok and won_rounds.size() > 0 and int(won_rounds[won_rounds.size() - 1].level) == lv,
-			"ricochet: round %d won the player's way (grip-turned paddles, a trigger aim at %.1f°)" % [lv + 1, (w.x + w.y) * 0.5])
+			"ricochet: round %d won the player's way (A and the left stick turn the paddles, a trigger aim at %.1f°)" % [lv + 1, (w.x + w.y) * 0.5])
 		# A paddle left as the round starts it misses that aim.
 		check.call(not wins(lv, [], (w.x + w.y) * 0.5), "ricochet: round %d is a puzzle (the starting paddles miss)" % (lv + 1))
 	check.call(windows.all(func(w): return w >= MIN_WINDOW), "ricochet: every round's aim window in degrees %s" % [windows])
@@ -219,3 +230,72 @@ static func run(check: Callable) -> void:
 		t.game._fail()
 		check.call(t.game.max_hearts == 0 and t.game.hearts == 0 and t.hearts.is_empty() and t.heart_row == null, "%s: no hearts (only ricochet has them)" % m)
 		t.free()
+
+
+## The paddle controls: one paddle is selected (it glows, the arrow over it); A steps to the
+## next one and wraps; the left stick turns it in 5° steps (one on a push, repeating when
+## held, faster pushed all the way, nothing under the dead zone, never while he rolls); the
+## grip no longer takes a paddle; the trigger still aims and launches.
+static func _controls(check: Callable) -> void:
+	var st := TabletopStage.new("ricochet")
+	st.place_table(Transform3D.IDENTITY, 0.32)
+	var sfx: Array = []
+	st.sfx = func(n, k, _p): sfx.append([n, k])
+	var g := st.game
+	g.reset(2)  # three paddles
+	_frame(st, [])
+	check.call(st.selected == 0 and st.paddle_count() == 3 and st.mirrors[0].material_override == st.mats.selected
+		and st.mirrors[1].material_override != st.mats.selected and st.marker.visible
+		and absf(st.marker.position.x - st.mirrors[0].position.x) < 1e-4, "ricochet controls: the first paddle starts selected (it glows, the arrow over it)")
+	var picks: Array = []
+	for k in 3:
+		st.next_paddle()
+		_frame(st, [])
+		picks.append(st.selected)
+	check.call(picks == [1, 2, 0] and st.mirrors[1].material_override != st.mats.selected and sfx.any(func(e): return e[0] == "bricks_tink"),
+		"ricochet controls: A steps through the paddles and wraps round (%s), a click each" % [picks])
+	var step := TabletopGame.MIRROR_ANGLE_STEP
+	var others := [g.angles[1], g.angles[2]]
+	var a0: float = g.angles[0]
+	_frame(st, [], true, Vector2(0.4, 0))
+	check.call(absf(g.angles[0] - a0) < 1e-6, "ricochet controls: a light touch of the stick (dead zone) does nothing")
+	_frame(st, [], true, Vector2(0.8, 0))
+	var one := angle_difference(a0, g.angles[0])
+	for i in int(0.25 / DT):
+		_frame(st, [], true, Vector2(0.8, 0))
+	var still := angle_difference(a0, g.angles[0])
+	check.call(absf(one - step) < 1e-6 and absf(still - step) < 1e-6, "ricochet controls: pushing the left stick right turns the selected paddle one 5° step (%.1f°, %.1f° after .25 s)" % [rad_to_deg(one), rad_to_deg(still)])
+	for i in int(0.75 / DT):
+		_frame(st, [], true, Vector2(0.55, 0))
+	var slow := roundi(angle_difference(a0, g.angles[0]) / step)
+	_frame(st, [])
+	var b0: float = g.angles[0]
+	_frame(st, [], true, Vector2(-1, 0))
+	for i in int(1.0 / DT) - 1:
+		_frame(st, [], true, Vector2(-1, 0))
+	var fast := roundi(-angle_difference(b0, g.angles[0]) / step)
+	check.call(slow >= 3 and fast > slow + 3, "ricochet controls: held, it repeats, faster pushed all the way (%d steps in 1 s eased, %d steps in 1 s full left)" % [slow, fast])
+	_frame(st, [])
+	check.call([g.angles[1], g.angles[2]] == others, "ricochet controls: only the selected paddle turns")
+	st.next_paddle()
+	var c0: float = g.angles[1]
+	_frame(st, [], true, Vector2(1, 0))
+	_frame(st, [])
+	check.call(absf(angle_difference(c0, g.angles[1]) - step) < 1e-6, "ricochet controls: after A the stick turns the next paddle")
+	# The grip no longer turns a paddle; the trigger still aims and launches.
+	var m: Dictionary = g.definition().mirrors[1]
+	var above: Vector3 = st._board_xf() * Vector3(m.x, 2.0, m.z)
+	check.call(not st.xr_press(_hand("right", Quaternion.IDENTITY, above), "grip") and st.grips.is_empty(), "ricochet controls: the grip leaves the paddles alone")
+	var s0: Vector2 = g.ball
+	var aim_at: Vector3 = st._board_xf() * Vector3(s0.x + 0.08, TabletopGame.TABLE_RADIUS, s0.y - 1.0)
+	var eye: Vector3 = st._board_xf() * Vector3(s0.x, 3.0, s0.y + 0.5)
+	var hand := _hand("right", Quaternion.IDENTITY, eye, aim_at - eye)
+	check.call(st.xr_press(hand, "trigger"), "ricochet controls: the trigger aims")
+	_frame(st, [hand])
+	var aim := st.aim
+	st.xr_release(hand, false, "trigger")
+	check.call(g.phase == "playing" and aim.x > 0.05, "ricochet controls: and launches where the hand points, 4.6° off straight ahead stays off (no aim snapping: %.3f, %.3f)" % [aim.x, aim.y])
+	var d0: float = g.angles[1]
+	_frame(st, [], true, Vector2(1, 0))
+	check.call(g.angles[1] == d0, "ricochet controls: the paddles hold still while he rolls")
+	st.free()

@@ -12,12 +12,15 @@ extends XROrigin3D
 ## Controller mapping (Godot default OpenXR action map), as main.gd reads it:
 ##   right "primary" stick y -> resize: the MR court while pinning, the Summit's mountain;
 ##                              scrolls the open menu
-##   left  "primary" stick x -> the Summit: Dahrooj climbs left / right (the right stick
-##                              when the left controller is away)
+##   left  "primary" stick x -> the Summit: Dahrooj climbs left / right; ricochet: turns
+##                              the selected paddle (the right stick when the left
+##                              controller is away)
 ##   No stick moves or turns the player.
 ##   "trigger_click"         -> shoot / select (either hand; the Summit: throw)
 ##   "grip_click"            -> hold Dahrooj (tabletops: the board; nothing on the Summit)
-##   right "ax_button" (A)   -> the Summit: jump (nothing elsewhere)
+##   right "ax_button" (A)   -> the Summit: jump; ricochet: next paddle; elsewhere the
+##                              next open shot style
+##   right "by_button" (B)   -> the next open accessory (not on the Summit)
 ##   left "menu_button"      -> the mode menu; the system recenter (pose_recentered)
 ##                              re-places the court in front of the player
 

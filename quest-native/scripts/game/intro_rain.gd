@@ -10,7 +10,15 @@ extends Node3D
 ## Lives at the XR origin: room metres, y = 0 is the floor. Every ball is drawn by one
 ## Crowd (a handful of instanced draws).
 ##
-## Per frame: step(dt, camera.global_transform). Shots: pop_along() / pop_near().
+## Per frame: step(dt, camera.global_transform). Shots: pop_along() / pop_near(); the
+## homing and chaining shots (WorldBalls.targets) aim at target_drops() and pop one with
+## pop_ball().
+##
+## Rain as a mode (main.gd _place_rain): pinned like the other modes' courts. Main sets this
+## node's transform (the pinned spot on the floor, turned the way the court faces, scaled by
+## the MR zoom) and `pinned`: the drops then fall in the fan ahead of a fixed point pin_back
+## behind that spot (VR: where the player stood; MR: 1.6 m before the pin), not ahead of
+## wherever the head turns. The opening is never pinned.
 ## Callbacks (set by main; any may stay empty): sfx(name, k, pos_world),
 ## buzz(hand, amp, ms), ch_add(id), sky_pop(pos_world).
 
@@ -71,6 +79,10 @@ var mixed := false
 ## The start button also shows 3.2 s of wall-clock time after the first spawn (as the original).
 var use_wall_clock := true
 var rng := RandomNumberGenerator.new()
+## Rain pinned to this node's frame (see above), and how far behind its origin (local
+## metres, +z) the fan's viewpoint stands.
+var pinned := false
+var pin_back := 0.0
 
 var crowd: Crowd
 var _accessories: Array[String] = []  # every accessory, for the crowd to wear
@@ -288,6 +300,12 @@ func step(dt: float, head: Transform3D) -> void:
 	var hl := _head_local(head)
 	var hpos: Vector3 = hl[0]
 	var dir: Vector3 = hl[1]
+	# Where the rain's fan is measured from: the head, or (pinned) a fixed spot facing -z.
+	var fan := hpos
+	var fan_dir := dir
+	if rain and pinned:
+		fan = Vector3(0.0, hpos.y, pin_back)
+		fan_dir = Vector3(0, 0, -1)
 	if leaving > 0.0:
 		leaving += dt
 		if leaving >= 0.35:
@@ -319,7 +337,7 @@ func step(dt: float, head: Transform3D) -> void:
 			live.append(b)
 	for b in live:
 		if b.pending:
-			b.p = rain_spawn(b.p, hpos, dir, ROOM, rng.randf(), rng.randf())
+			b.p = rain_spawn(b.p, fan, fan_dir, ROOM, rng.randf(), rng.randf())
 			b.p.y = hpos.y + 0.6 + rng.randf() * 1.8
 			b.pending = false
 		var r := b.R
@@ -352,7 +370,7 @@ func step(dt: float, head: Transform3D) -> void:
 				b.v.y = 0.0
 		if rain:
 			# Keep most of the crowd ahead while allowing gentle sideways wandering and physical bounces.
-			guide_rain(b, hpos, dir, ROOM)
+			guide_rain(b, fan, fan_dir, ROOM)
 		else:
 			var ox := b.p.x - c.x
 			var oz := b.p.z - c.z
@@ -545,6 +563,32 @@ func pop_near(p_world: Vector3, radius_world: float, by_player := true) -> int:
 			pop_ball(b, by_player)
 			n += 1
 	return n
+
+
+## The drops a homing or chaining shot can go for: come down, drawn and not popped.
+func target_drops() -> Array[Drop]:
+	var out: Array[Drop] = []
+	if not active or leaving > 0.0:
+		return out
+	for b in balls:
+		if t >= b.born and not b.pending and not b.popped:
+			out.append(b)
+	return out
+
+
+## Whether a drop is still there to hit.
+func has_drop(b: Drop) -> bool:
+	return active and leaving <= 0.0 and b != null and not b.popped and balls.has(b)
+
+
+## A drop's centre (global).
+func drop_world(b: Drop) -> Vector3:
+	return _world() * b.p
+
+
+## A drop's radius (global units).
+func drop_radius_world(b: Drop) -> float:
+	return b.R * _world().basis.get_scale().x
 
 
 ## Balls that have come down (and are drawn).

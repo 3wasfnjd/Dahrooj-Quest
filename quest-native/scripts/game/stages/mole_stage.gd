@@ -5,7 +5,8 @@ extends Node3D
 ## with a thrown Dahrooj or a blaster shot. Open play: no round, no clock, no score board;
 ## they keep popping up at a steady, comfortable pace (PACE) and the points go to
 ## ctx.counts["mole"], which the jelly score popup shows. A golden one (crown) is worth 3; a
-## sleepy one (eyes shut, Zzz) costs 2 and breaks the streak. Every 5 in a row: confetti.
+## sleepy one (eyes shut, Zzz) costs 2 and breaks the streak; one that gets away unwhacked
+## takes ESCAPE points (1, a golden one 2). Every 5 in a row: confetti.
 ## Game units, like the other stages.
 ##
 ## Spawn spots: on the court's ground in a loose 5 x 4 field in front of the player, or, when
@@ -30,6 +31,9 @@ const CLOSE_T := 0.24
 const HIT_T := 0.8
 const ROOM_UP_K := 1.6  # moles from room spots (out in the room) stay up longer
 const POINTS := {"plain": 1, "gold": 3, "sleepy": -2}
+## Points one that ducks back into its hole unwhacked takes off the score (ctx.nibble, the light
+## touch; scaled to the points a whack gives). Letting a sleepy one go is right: nothing.
+const ESCAPE := {"plain": 1, "gold": 2, "sleepy": 0}
 const STREAK := 5
 const COLORS := ["ff69b4", "b36bff", "ff9b3d", "6fa8d6", "7bbf8a", "e2603f", "f1ebe1", "cfe8ff", "ffd166", "46aaa9"]
 const ACCS := ["", "", "", "party", "glasses", "cap", "flower", "headphones", "scarf"]
@@ -335,6 +339,15 @@ func whack(m: Dictionary, dir: Vector3) -> void:
 	_score(m)
 
 
+## One ducked back into its hole unwhacked: it takes ESCAPE points (never below 0).
+func _got_away(m: Dictionary) -> void:
+	var pts: int = ESCAPE.get(m.kind, 1)
+	if pts <= 0 or ctx == null:
+		return
+	var took: int = ctx.nibble.call("mole", pts, (m.spot as Vector3) + (m.n as Vector3) * R * size)
+	F.score = maxi(0, F.score - took)
+
+
 ## The mole can be hit: up out of its hole and not already hit.
 static func hittable(m: Dictionary) -> bool:
 	return m.on and (m.phase == "up" or (m.phase in ["rise", "duck"] and m.e > 0.4))
@@ -508,6 +521,8 @@ func _step_mole(m: Dictionary, dt: float) -> void:
 		"duck":
 			if t >= DUCK_T:
 				_phase(m, "close")
+				if not m.woke:
+					_got_away(m)
 		"close":
 			if t >= CLOSE_T:
 				m.on = false

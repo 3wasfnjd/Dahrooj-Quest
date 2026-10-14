@@ -16,6 +16,7 @@ static func run(check: Callable) -> void:
 	_migrate(check)
 	_page(check)
 	_big(check)
+	_final(check)
 
 
 static func _ids() -> Array:
@@ -247,7 +248,7 @@ static func _big(check: Callable) -> void:
 	for id: String in big:
 		late = late and ids.find(id) > ids.find("mazeClean")
 	var tiers := [GameRuntime.challenge("score1k")[3], GameRuntime.challenge("score5k")[3], GameRuntime.challenge("score10k")[3], GameRuntime.challenge("score25k")[3]]
-	check.call(late and ids.size() == 64 and ids.slice(44) == big and tiers == [1000, 5000, 10000, 25000]
+	check.call(late and ids.size() == 65 and ids.slice(44, 64) == big and tiers == [1000, 5000, 10000, 25000]
 		and int(GameRuntime.challenge("total250k")[3]) == 250000 and int(GameRuntime.challenge("modesAll")[3]) == MenuCatalog.MODES.size(),
 		"big challenges: 20 more after the tabletops, easiest first (1,000 .. 25,000 in one mode; 250,000 in all; all %d modes)" % MenuCatalog.MODES.size())
 	check.call(ChallengeRewards.reward_of("score1k").id == "umbrella" and ChallengeRewards.reward_of("score25k").id == "gold"
@@ -363,3 +364,55 @@ static func _big(check: Callable) -> void:
 			p.draw(m, -1)
 	check.call(bad.is_empty() and counts >= 2, "menu: finished big rows fit, counts and all (%d) %s" % [counts, bad.slice(0, 6)])
 	p.free()
+
+
+## The final challenge «أتمّ كل التحديات»: last, its goal the count of all the others, its
+## reward the World Cup; the runtime finishes it with the last of the others (its card, once),
+## an old save that had finished everything counts it quietly, and the finale is then due once.
+static func _final(check: Callable) -> void:
+	var ids := _ids()
+	var last: Array = GameRuntime.CHALLENGES[GameRuntime.CHALLENGES.size() - 1]
+	var r := ChallengeRewards.reward_of(GameRuntime.ALL_DONE)
+	check.call(ids[ids.size() - 1] == GameRuntime.ALL_DONE and int(last[3]) == ids.size() - 1 and last[1] == "أتمّ كل التحديات"
+		and last[2] == "Complete every challenge" and r.kind == "acc" and r.id == "worldCup" and ChallengeRewards.rewards_for(GameRuntime.ALL_DONE).size() == 1,
+		"final challenge: «أتمّ كل التحديات» last, goal %d (every other one), its one reward the World Cup" % int(last[3]))
+	var path: String = Save.PATH
+	var had := FileAccess.file_exists(path)
+	var before := FileAccess.get_file_as_string(path) if had else ""
+	var keep: Dictionary = Save.challenges.duplicate(true)
+	Save.challenges.clear()
+	for c: Array in GameRuntime.CHALLENGES:
+		if c[0] != GameRuntime.ALL_DONE and c[0] != "wall1":
+			Save.challenges[c[0]] = c[3]
+	var b := Ball.new()
+	var parent := Node3D.new()
+	var rt := GameRuntime.new(b, parent)
+	var toasts: Array = []
+	rt.ctx.toast = func(t: String) -> void: toasts.append(t)
+	var almost := int(Save.challenges.get(GameRuntime.ALL_DONE, 0))
+	check.call(almost == ids.size() - 2 and not GameRuntime.all_done(Save.challenges) and not Finale.due(Save.challenges)
+		and not MenuCatalog.accessory_available("worldCup", DahroojLooks.done_count(Save.challenges), Save.challenges),
+		"final challenge: one left, it stands at %d of %d, the World Cup still locked" % [almost, ids.size() - 1])
+	rt.ch_progress("wall1", 1)
+	var en := toasts.has("✓ Complete every challenge") or toasts.has("✓ أتمّ كل التحديات")
+	check.call(GameRuntime.all_done(Save.challenges) and en and toasts.size() == 2 and Finale.due(Save.challenges)
+		and MenuCatalog.accessory_available("worldCup", DahroojLooks.done_count(Save.challenges), Save.challenges),
+		"final challenge: the last of the others finishes it too (its card), the World Cup opens, the finale is due %s" % [toasts])
+	Save.challenges[Finale.SEEN] = 1
+	check.call(not Finale.due(Save.challenges), "final challenge: the finale is due once")
+	# An old save that had finished everything before the final challenge existed.
+	var old := {}
+	for c: Array in GameRuntime.CHALLENGES:
+		if c[0] != GameRuntime.ALL_DONE:
+			old[c[0]] = c[3]
+	GameRuntime.sync_all_done(old)
+	check.call(GameRuntime.all_done(old) and Finale.due(old), "final challenge: an old save with everything done counts it (and gets the finale)")
+	parent.free()
+	Save.challenges.clear()
+	Save.challenges.merge(keep)
+	if had:
+		var f := FileAccess.open(path, FileAccess.WRITE)
+		f.store_string(before)
+		f.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(path))

@@ -17,7 +17,8 @@ extends Node3D
 ##   piece by piece (each floor you break drops the ones above; break the base and it all
 ##   comes down).
 ## Who reaches the top plants a silly flag (the Dahrooj's own colour, with eyes) and dances:
-## no penalty, the combo just resets; knock the dancer off and the flag comes down too.
+## the combo resets and it takes FLAG_PENALTY points; knock the dancer off and the flag comes
+## down too. The siege tower docking against the wall takes SIEGE_PENALTY.
 ## Tumbling Dahroojs bounce off like rag dolls, see stars on the ground and pop; a fast one
 ## that lands on another knocks him too (domino).
 ##
@@ -66,6 +67,11 @@ const BREAK_T := 2.6
 const FIRST_BREAK_T := 1.8
 const SIEGE_EVERY := 4
 const PTS := {"climber": 10, "air": 15, "flag": 20, "ladder": 5, "cat": 30, "piece": 20, "siege": 150, "tick": 2}
+## Points off the score when one gets onto the fort and plants his flag (however he got up:
+## ladder, tower, catapult, parachute or siege ramp; ctx.nibble, the light touch), and when the
+## siege tower docks against the wall (ctx.penalty, the full hit). Never below 0.
+const FLAG_PENALTY := 10
+const SIEGE_PENALTY := 25
 const WALK := 1.7
 const CLIMB := 1.3
 const PARA_V := 1.3
@@ -1097,6 +1103,8 @@ func _land_top(i: int) -> void:
 	d.ladder = -1
 	F.planted += 1
 	_break_combo()
+	if ctx:
+		ctx.nibble.call("castle", FLAG_PENALTY, to_game((d.c as Vector3) + Vector3.UP * R * 2.0))
 	_sfx("thump", 0.4, d.c)
 	_sfx("squeak", 1.45, d.c)
 	_dust(d.c - Vector3.UP * R, 6)
@@ -2150,6 +2158,8 @@ func _step_siege(dt: float) -> void:
 					siege.t = 0.0
 					_sfx("thump", 0.8, siege.p)
 					_buzz2(0.3, 80)
+					if ctx:
+						ctx.penalty.call("castle", SIEGE_PENALTY, to_game(siege.p))
 				else:
 					_siege_off()
 					return

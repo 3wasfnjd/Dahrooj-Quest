@@ -67,6 +67,10 @@ static func run(check: Callable) -> void:
 		ctx.counts[md] = have - t
 		taken.append([md, pts, t])
 		return t
+	var nibbled: Array = []
+	ctx.nibble = func(md: String, pts: int, _at: Vector3) -> int:
+		nibbled.append([md, pts])
+		return pts
 	st.ctx = ctx
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
 	b.set_stage(st, "invasion")
@@ -169,9 +173,12 @@ static func run(check: Callable) -> void:
 	m = st.invaders[i]
 	m.slam_cd = 0.0
 	_until(st, b, func(): return m.act == "air", 2.0)
+	nibbled.clear()
 	var n0 := st.invaders.filter(func(q): return q.on and q.kind == "mini").size()
 	check.call(_until(st, b, func(): return m.act == "", 2.0) and m.p.z > -15.0, "invasion: unstopped, he slams down nearer (z %.1f)" % m.p.z)
 	check.call(st.invaders.filter(func(q): return q.on and q.kind == "mini").size() == n0 + 2 and st._rings.size() >= 2, "invasion: with a shockwave and two little ones")
+	check.call(nibbled == [["invasion", InvasionStage.SLAM_PENALTY]] and InvasionStage.SLAM_PENALTY == 15,
+		"invasion: his shockwave takes 15 points (light) (%s)" % [nibbled])
 
 	# One that reaches the line just pops: a flash and a buzz, nothing lost, the game goes on.
 	_fresh(st, b)

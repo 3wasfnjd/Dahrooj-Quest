@@ -8,7 +8,8 @@ extends Node3D
 ## - plain ones wobble and zig-zag; fast little ones dart; tanks take several hits and split
 ##   into two small ones; every 5th wave a boss (giant, crown, hit-points bar) that jumps and
 ##   slams: hit it 3 times in the air to knock it down (stunned, double damage), or it lands
-##   with a shockwave, leaps closer and shakes out two little ones.
+##   with a shockwave (SLAM_PENALTY points off the score), leaps closer and shakes out two
+##   little ones.
 ## - quick successive pops build a combo (×2 .. ×5).
 ## - popped ones may drop a power-up (a floating bubble): shoot or hit it to collect:
 ##   triple shot (shot_fan() = 3), slow motion (time_scale 0.4 for 4 s; main multiplies it into
@@ -33,6 +34,8 @@ const KINDS := {
 }
 ## Points one that reaches the line takes off the score (ctx.penalty), by kind.
 const PENALTY := {"plain": 50, "fast": 25, "tank": 75, "mini": 25, "boss": 100}
+## Points the boss's slam (his shockwave) takes off the score (ctx.nibble, the light touch).
+const SLAM_PENALTY := 15
 const BASE_SPEED := 2.1
 const SLOTS := 40
 const PU_SLOTS := 4
@@ -1065,6 +1068,8 @@ func _slam(m: Dictionary) -> void:
 	_ring(Vector3(p.x, 0.05, p.z), m.r, 10.0 * size, 0.9, Color("ff5a3a"))
 	_ring(Vector3(p.x, 0.08, p.z), m.r * 0.5, 6.0 * size, 0.6, Color("ffd23f"))
 	_dirt(p, Vector3.UP, 24, 1.6)
+	if ctx:
+		ctx.nibble.call("invasion", SLAM_PENALTY, p + Vector3.UP * float(m.r))
 	# He shakes out two little ones.
 	var d: Vector3 = m.dir
 	var side := Vector3(-d.z, 0, d.x)

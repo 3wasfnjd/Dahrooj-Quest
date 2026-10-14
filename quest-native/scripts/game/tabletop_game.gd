@@ -201,10 +201,7 @@ static func ricochet_levels() -> Array:
 			{"start": p(-0.82, 1.25), "goal": p(0.82, 1.25), "mirrors": [a, b], "solution": [a.angle, b.angle], "obstacles": [{"x": 0.0, "z": 0.08, "hx": 0.30, "hz": 0.62}], "required": 2},
 			{"start": p(-0.82, 1.25), "goal": p(-0.42, 1.02), "mirrors": [a, b, c], "solution": [a.angle, b.angle, c.angle], "obstacles": [{"x": 0.0, "z": 0.0, "hx": 0.30, "hz": 0.55}], "required": 3},
 			reflection_route([p(-0.95, 1.25), p(-0.95, -1.06), p(0.9, -1.06), p(0.9, 0.8), p(-0.7, 0.8)], [{"x": 0.0, "z": -0.1, "hx": 0.27, "hz": 0.40}], 0.7),
-			# Three long paddles in a short hook: up the left, across, back toward the player and in
-			# to the goal around a small block. (Earlier fours were too fiddly on the headset; this
-			# keeps a wide aim window, ricochet_solver_test.)
-			reflection_route([p(-0.7, 1.2), p(-0.7, -0.3), p(0.6, -0.3), p(0.6, 0.6), p(-0.1, 0.6)], [{"x": 0.0, "z": 0.15, "hx": 0.2, "hz": 0.2}], 0.9),
+			reflection_route([p(-0.9, 1.32), p(-0.9, -1.15), p(0.9, -1.15), p(0.9, 1), p(-0.2, 1), p(-0.2, -0.35)], [{"x": 0.44, "z": 0.0, "hx": 0.14, "hz": 0.42}], 0.73),
 		]
 	return _levels.ricochet
 
