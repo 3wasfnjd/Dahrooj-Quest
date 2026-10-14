@@ -15,7 +15,8 @@ extends Node3D
 ##   the game dt and may lower the audio pitch with audio_pitch()), bomb (pops everything near).
 ## - open-ended: no hearts, no game over, no score board. One that reaches the line around you
 ##   just pops there (a red flash around the head, a buzz, the combo broken; the boss leaps
-##   back instead); the waves keep coming. The points go to ctx.counts["invasion"], which the
+##   back instead) and takes points off the score (PENALTY by kind, through ctx.penalty: never
+##   below 0, records and the lifetime total keep theirs); the waves keep coming. The points go to ctx.counts["invasion"], which the
 ##   jelly score popup shows; it starts on its own when the mode is shown.
 ## Game units, like the other stages. The blaster finds the invaders and power-ups through
 ## hidden (layers = 0) sphere MeshInstance3Ds; every effect is a MultiMesh or a JuiceText, so
@@ -30,6 +31,8 @@ const KINDS := {
 	"mini": {"r": 0.28, "hp": 1, "speed": 1.5, "hop": 0.34, "hop_h": 1.1, "zig": 1.6, "pts": 5, "drop": 0.04},
 	"boss": {"r": 1.7, "hp": 18, "speed": 0.42, "hop": 1.25, "hop_h": 0.35, "zig": 0.0, "pts": 300, "drop": 1.0},
 }
+## Points one that reaches the line takes off the score (ctx.penalty), by kind.
+const PENALTY := {"plain": 50, "fast": 25, "tank": 75, "mini": 25, "boss": 100}
 const BASE_SPEED := 2.1
 const SLOTS := 40
 const PU_SLOTS := 4
@@ -460,8 +463,9 @@ func _wave_cleared() -> void:
 
 
 ## One got through to the line: it pops there with a red flash around the head and a buzz,
-## and the combo breaks. Nothing else is lost; the game goes on.
-func _breach(at: Vector3) -> void:
+## the combo breaks and it takes its PENALTY off the score (main shows the drop); the game
+## goes on.
+func _breach(at: Vector3, kind := "plain") -> void:
 	F.breaches += 1
 	F.flash_t = 0.5
 	F.combo = 0
@@ -472,6 +476,8 @@ func _breach(at: Vector3) -> void:
 	_buzz2(1.0, 160)
 	_burst(at + Vector3.UP * 0.5 * size, Color("ff3d63"), 22, 1.4)
 	_ring(Vector3(at.x, 0.05, at.z), 0.3 * size, 3.0 * size, 0.5, Color("ff3d63"))
+	if ctx:
+		ctx.penalty.call("invasion", int(PENALTY.get(kind, 50)), at)
 
 
 # ---- spawning ----
@@ -771,7 +777,7 @@ func pop(m: Dictionary, dir: Vector3, scored := true) -> void:
 func _reach(m: Dictionary) -> void:
 	var c: Vector3 = m.c
 	if m.kind == "boss":
-		_breach(c)
+		_breach(c, "boss")
 		# He laughs and leaps back to the far end.
 		m.act = "retreat"
 		m.act_t = 0.0
@@ -782,7 +788,7 @@ func _reach(m: Dictionary) -> void:
 	(m.proxy as MeshInstance3D).visible = false
 	_burst(c, Color(m.color), 14, 0.9)
 	_sfx("start_pop", 0.8, c)
-	_breach(c)
+	_breach(c, str(m.kind))
 
 
 # ---- power-ups ----

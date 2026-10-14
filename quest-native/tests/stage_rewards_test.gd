@@ -242,14 +242,14 @@ static func _page(check: Callable) -> void:
 static func _big(check: Callable) -> void:
 	var ids := _ids()
 	var big := ["score1k", "mole100", "modes10", "bricks100", "castle200", "score5k", "frenzy500", "meteor500", "combo25", "pop500",
-		"total50k", "score10k", "invasion25", "giant30", "shots1000", "modesAll", "total100k", "score25k", "total250k"]
+		"golden25", "total50k", "score10k", "invasion25", "giant30", "shots1000", "modesAll", "total100k", "score25k", "total250k"]
 	var late := true
 	for id: String in big:
 		late = late and ids.find(id) > ids.find("mazeClean")
 	var tiers := [GameRuntime.challenge("score1k")[3], GameRuntime.challenge("score5k")[3], GameRuntime.challenge("score10k")[3], GameRuntime.challenge("score25k")[3]]
-	check.call(late and ids.size() == 62 and ids.slice(43) == big and tiers == [1000, 5000, 10000, 25000]
+	check.call(late and ids.size() == 64 and ids.slice(44) == big and tiers == [1000, 5000, 10000, 25000]
 		and int(GameRuntime.challenge("total250k")[3]) == 250000 and int(GameRuntime.challenge("modesAll")[3]) == MenuCatalog.MODES.size(),
-		"big challenges: 19 more after the tabletops, easiest first (1,000 .. 25,000 in one mode; 250,000 in all; all %d modes)" % MenuCatalog.MODES.size())
+		"big challenges: 20 more after the tabletops, easiest first (1,000 .. 25,000 in one mode; 250,000 in all; all %d modes)" % MenuCatalog.MODES.size())
 	check.call(ChallengeRewards.reward_of("score1k").id == "umbrella" and ChallengeRewards.reward_of("score25k").id == "gold"
 		and ChallengeRewards.reward_of("total250k").id == "trophy" and ChallengeRewards.reward_of("mole100").kind == "color",
 		"big challenges: the umbrella hat first, the gold colour at 25,000, the trophy last")

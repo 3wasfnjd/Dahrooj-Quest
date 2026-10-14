@@ -18,6 +18,7 @@ const CHALLENGES := [
 	["curve3", "سجّل ٣ أهداف برمية ملتفة في النظارة", "Score 3 curved goals in the headset", 3],
 	["bouncy3", "طلقة نطّاطة وحدة تصيب ٣ أهداف", "Hit 3 targets with one bouncy ball", 3],
 	["pop20", "فجّر ٢٠ دحروج بالطلقات", "Pop 20 Dahroojs with your shots", 20],
+	["golden1", "اصطد أول دحروج ذهبي", "Catch your first Golden Dahrooj", 1],
 	["crates5", "فجّر ٥ صناديق في عالم النظارة", "Blow up 5 crates in the headset world", 5],
 	["laser30", "اصب ٣٠ هدف بالليزر", "Hit 30 targets with the laser", 30],
 	["modes5", "العب ٥ أنماط مختلفة", "Play 5 different modes", 5],
@@ -62,6 +63,7 @@ const CHALLENGES := [
 	["meteor500", "فجّر ٥٠٠ نيزك", "Blast 500 meteors", 500],
 	["combo25", "كومبو ٢٥ في نيازك الدحاريج", "A 25-blast combo in Dahrooj Meteors", 25],
 	["pop500", "فجّر ٥٠٠ دحروج بالطلقات", "Pop 500 Dahroojs with your shots", 500],
+	["golden25", "اصطد ٢٥ دحروج ذهبي", "Catch 25 Golden Dahroojs", 25],
 	["total50k", "اجمع ٥٠٬٠٠٠ نقطة بالمجموع", "Score 50,000 points in all", 50000],
 	["score10k", "اجمع ١٠٬٠٠٠ نقطة في نمط واحد", "Score 10,000 in one mode", 10000],
 	["invasion25", "اصمد ٢٥ موجة", "Survive 25 waves", 25],
@@ -78,11 +80,13 @@ const SCORE_ONE := ["score1k", "score5k", "score10k", "score25k"]
 const SCORE_TOTAL := ["total50k", "total100k", "total250k"]
 ## - lifetime tallies: every progress call of the first counts one more toward the second
 ##   (each is one whack, knock, brick, pop, blast or knockout);
-const FEEDS := {"mole20": "mole100", "castle25": "castle200", "bricks20": "bricks100", "pop20": "pop500", "meteor50": "meteor500", "giant3": "giant30"}
+const FEEDS := {"mole20": "mole100", "castle25": "castle200", "bricks20": "bricks100", "pop20": "pop500", "meteor50": "meteor500", "giant3": "giant30", "golden1": "golden25"}
 ## - a longer run of the same thing (the value passes on, the best is kept).
 const BESTS := {"combo10": "combo25", "invasion10": "invasion25"}
 ## Seconds between saves of the quiet (fast-moving) progress.
 const FLUSH_T := 2.0
+## Points for catching a Golden Dahrooj (GoldenDahrooj), added to the mode's score.
+const GOLDEN_POINTS := 500
 const MODES := ["goal", "hoop", "window", "cans", "bowling", "bricks", "fair", "mole", "invasion", "slime", "meteor", "giant", "frenzy", "castle", "gallery"]
 
 var ball: Ball
@@ -101,6 +105,14 @@ var _dirty := false
 var _flush_t := FLUSH_T
 ## chime(): a challenge was completed (the runtime plays the chime).
 var on_chime: Callable = func(): pass
+## record(mode: String, score: int, previous: int): this session's score just beat the mode's
+## best for the first time (once per mode and session, when there was a best to beat).
+var on_record: Callable = func(_m, _s, _p): pass
+## penalty(mode: String, taken: int, asked: int, at: Vector3): an attack took points (main's
+## feedback: the ouch text, the red flash, the bump and the buzz).
+var on_penalty: Callable = func(_m, _t, _a, _p): pass
+## The modes whose record this session has already passed once (celebrated or not).
+var _record_seen := {}
 
 
 func _init(b: Ball, stage_parent: Node3D) -> void:
@@ -113,6 +125,7 @@ func _init(b: Ball, stage_parent: Node3D) -> void:
 	ctx.add_count = add_count
 	ctx.ch_progress = ch_progress
 	ctx.tally = tally
+	ctx.penalty = penalty
 	ball.event.connect(_on_ball)
 	for id in ["hoop3", "fair25"]:
 		ch_progress(id, 0)
@@ -214,6 +227,42 @@ func track_scores() -> void:
 		_best_one = best
 		for id: String in SCORE_ONE:
 			quiet_progress(id, best)
+	track_records()
+
+
+## Personal records (Save.records): a mode's best grows with its score, quietly saved. The first
+## time this session's score passes the best there was (more than 0), on_record celebrates it;
+## after that the best keeps up silently. A score that drops never lowers a record.
+func track_records() -> void:
+	for m: String in counts:
+		var v := int(counts[m])
+		var rec := Save.record(m)
+		if v <= rec:
+			continue
+		Save.records[m] = v
+		_dirty = true
+		if not _record_seen.has(m):
+			_record_seen[m] = true
+			if rec > 0:
+				on_record.call(m, v, rec)
+
+
+## Something attacking the player got through (GameCtx.penalty): the mode's score this
+## session drops by up to `pts`, never below 0. Records and the lifetime total only ever take
+## gains (track_scores), and earned challenges stay. Returns the points taken.
+func penalty(m: String, pts: int, at := Vector3.ZERO) -> int:
+	var have := int(counts.get(m, 0))
+	var take := clampi(pts, 0, have)
+	counts[m] = have - take
+	on_penalty.call(m, take, pts, at)
+	return take
+
+
+## A Golden Dahrooj caught in mode m: GOLDEN_POINTS on its score, and one more toward the
+## golden challenges (golden1 feeds golden25).
+func golden_caught(m: String) -> void:
+	counts[m] = int(counts.get(m, 0)) + GOLDEN_POINTS
+	ch_add("golden1")
 
 
 func reset_streak() -> void:

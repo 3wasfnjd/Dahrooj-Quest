@@ -291,6 +291,8 @@ func _scene() -> void:
 	await _room_play(main)
 	_reward_cards(main)
 	await _roomscale(main)
+	await _golden_scene(main)
+	await _challenge_cards(main)
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -475,6 +477,250 @@ func _reward_cards(main: Node) -> void:
 	toast.cards.clear()
 	Save.challenges.clear()
 	Save.challenges.merge(keep)
+
+
+## Keeps the save (file and memory) around a scene test that changes progress.
+func _save_keep() -> Dictionary:
+	var path: String = Save.PATH
+	return {"had": FileAccess.file_exists(path), "file": FileAccess.get_file_as_string(path) if FileAccess.file_exists(path) else "",
+		"ch": Save.challenges.duplicate(true), "rec": Save.records.duplicate(true), "total": Save.total_score, "acc": Save.accessory}
+
+
+func _save_restore(k: Dictionary) -> void:
+	Save.challenges.clear()
+	Save.challenges.merge(k.ch)
+	Save.records.clear()
+	Save.records.merge(k.rec)
+	Save.total_score = int(k.total)
+	Save.accessory = str(k.acc)
+	if bool(k.had):
+		var f := FileAccess.open(Save.PATH, FileAccess.WRITE)
+		f.store_string(str(k.file))
+		f.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(Save.PATH))
+
+
+func _juice_texts(main: Node) -> Array:
+	var out: Array = []
+	for it: JuiceText in JuiceText.showing(main.fx):
+		out.append(it.text)
+	return out
+
+
+## The Golden Dahrooj in the real scene: he turns up ahead in VR and in the room, a blaster shot
+## and a thrown Dahrooj catch him (+500, the gold banner, the ching, confetti), never in
+## Whack-a-Dahrooj; a beaten record gets its rainbow banner; the reset keeps the records; an
+## attack takes points with its red flash and the score sinking.
+func _golden_scene(main: Node) -> void:
+	var keep := _save_keep()
+	var g: GoldenDahrooj = main.golden
+	main.set_mode("vr")
+	main._choose_mode("meteor")
+	main.state = "play"
+	main.stage.paused = true
+	g.wait = 0.0
+	main._step_golden(1.0 / 72.0)
+	var eye: Vector3 = main.eye_game()
+	var u: float = main.scale_now
+	var d_m := Vector2(g.pos.x - eye.x, g.pos.z - eye.z).length() / u
+	check(g.active and RoomSpots.ahead(eye, g.pos, RoomSpots.MIN_DIST * u, main.play_forward()) and d_m >= 2.5,
+		"golden VR: he turns up in front of the player, %.1f m away" % d_m)
+	# A blaster shot straight at him.
+	var c0 := int(main.runtime.counts.get("meteor", 0))
+	var caught0 := g.caught
+	main.sounds_played.clear()
+	main.world_balls.fire("right", eye, (g.pos - eye).normalized())
+	for i in 90:
+		main.world_balls.step_blast(1.0 / 72.0)
+		if g.caught > caught0:
+			break
+	check(g.caught == caught0 + 1 and not g.active and int(main.runtime.counts.get("meteor", 0)) == c0 + 500, "golden VR: a blaster shot catches him: +500 (%d)" % (int(main.runtime.counts.get("meteor", 0)) - c0))
+	var texts := _juice_texts(main)
+	var names: Array = []
+	for snd: Array in main.sounds_played:
+		names.append(snd[0])
+	check(Save.text("دحروج ذهبي! +٥٠٠", "Golden Dahrooj! +500") in texts and "fair_ding" in names and main.confetti.active_count() > 0 and int(Save.challenges.get("golden1", 0)) == 1,
+		"golden VR: «دحروج ذهبي! +٥٠٠» in gold, the ching, confetti, golden1 counted %s" % [texts])
+	# A thrown Dahrooj.
+	main._choose_mode("goal")
+	main.state = "play"
+	g.wait = 0.0
+	main._step_golden(1.0 / 72.0)
+	var on_course := g.active
+	var b: Ball = main.ball
+	b.held = false
+	b.shot = true
+	b.pos = g.pos + Vector3(0, 0, g.radius())
+	var goal0 := int(main.runtime.counts.get("goal", 0))
+	main._step_golden(1.0 / 72.0)
+	check(on_course and not g.active and int(main.runtime.counts.get("goal", 0)) == goal0 + 500, "golden: over the goal, a thrown Dahrooj catches him too (+500)")
+	b.respawn()
+	# Not in Whack-a-Dahrooj (its own golden moles), not on the Summit.
+	main._choose_mode("mole")
+	main.state = "play"
+	g.wait = 0.0
+	main._step_golden(1.0 / 72.0)
+	var mole_none := not g.active
+	main._choose_mode("climb")
+	g.wait = 0.0
+	main._step_golden(1.0 / 72.0)
+	check(mole_none and not g.active, "golden: none in Whack-a-Dahrooj or on the Summit")
+	# Mixed reality: out in the room, ahead, at room size.
+	main.set_mode("mr")
+	main._choose_mode("invasion")
+	main.state = "play"
+	main.placing = false
+	main.stage.paused = true
+	g.wait = 0.0
+	main._step_golden(1.0 / 72.0)
+	eye = main.eye_game()
+	u = main.scale_now
+	var r_m: float = g.radius() / u
+	check(g.active and RoomSpots.ahead(eye, g.pos, RoomSpots.MIN_DIST * u, main.play_forward()) and absf(r_m - GoldenDahrooj.R_MR) < 1e-3,
+		"golden MR: in the room ahead of the player, %.0f cm across" % (r_m * 200.0))
+	g.escape()
+	# Attacks: the score drops with the flash, the bump and the sinking score.
+	main.runtime.counts["invasion"] = 120
+	main.score_popup.observe("invasion", 120.0)
+	main.sounds_played.clear()
+	main.stage._breach(Vector3(0, 0, -2), "plain")
+	main._step_hurt(0.01)
+	main.score_popup.observe("invasion", float(main.runtime.counts.invasion))
+	texts = _juice_texts(main)
+	names.clear()
+	for snd: Array in main.sounds_played:
+		names.append(snd[0])
+	check(int(main.runtime.counts.invasion) == 70 and main.hurt.visible and "-50" in texts and "thump" in names and main.score_popup.showing() and main.score_popup.value == 70 and main.score_popup.dropping,
+		"attack: one through takes 50 (120 → 70): «-50», a red flash, a bump, the score sinks %s" % [texts])
+	main._step_hurt(1.0)
+	check(not main.hurt.visible, "attack: the flash fades")
+	# A record beaten: the rainbow banner and fireworks, once.
+	main.set_mode("vr")
+	main._choose_mode("frenzy")
+	main.state = "play"
+	Save.records["frenzy"] = 50
+	main.runtime._record_seen.erase("frenzy")
+	main.runtime.counts["frenzy"] = 60
+	main.sounds_played.clear()
+	main.runtime.track_scores()
+	texts = _juice_texts(main)
+	names.clear()
+	for snd: Array in main.sounds_played:
+		names.append(snd[0])
+	check(Save.text("رقم قياسي جديد!", "New record!") in texts and "firework_launch" in names and Save.record("frenzy") == 60, "record: beaten: «رقم قياسي جديد!», fireworks and a fanfare %s" % [texts])
+	JuiceText.clear(main.fx)
+	main.runtime.counts["frenzy"] = 90
+	main.runtime.track_scores()
+	check(_juice_texts(main).is_empty() and Save.record("frenzy") == 90, "record: once a session, then quietly kept up")
+	# The menu shows it; resetting the challenges keeps the records.
+	main.set_menu(true, "modes")
+	var found := false
+	for bt: Dictionary in main.menu.buttons:
+		if bt.kind == "mode" and bt.id == "frenzy" and str(bt.best) == MenuPanel.best_text(90, Save.arabic()):
+			found = true
+	check(found, "record: the Pop Frenzy card shows its best (%s)" % MenuPanel.best_text(90, Save.arabic()))
+	main.set_menu(true, "challenges")
+	var reset_i := -1
+	for i in main.menu.buttons.size():
+		if main.menu.buttons[i].kind == "reset":
+			reset_i = i
+	main._menu_action(reset_i)
+	main._menu_action(reset_i)
+	check(reset_i >= 0 and Save.challenges.is_empty() and Save.record("frenzy") == 90, "record: resetting the challenges keeps the records")
+	main.set_menu(false)
+	main.toast.cards.clear()
+	main.toast.now = {}
+	JuiceText.clear(main.fx)
+	_save_restore(keep)
+	await get_tree().process_frame
+
+
+## Challenge cards end to end in the real scene, VR and MR: completions from the runtime
+## (ch_progress), quiet progress (a score), main.gd (modes played) and the Golden Dahrooj each
+## show their challenge card on screen, in front of the eyes and over everything, followed
+## by its reward card.
+func _challenge_cards(main: Node) -> void:
+	var keep := _save_keep()
+	var toast: ToastCard = main.toast
+	toast.auto_step = false
+	var lang_ar := Save.arabic()
+	for view: String in ["vr", "mr"]:
+		main.set_mode(view)
+		main._choose_mode("goal")
+		main.state = "play"
+		main.placing = false
+		Save.challenges.clear()
+		main.runtime.forget_scores()
+		for m: String in main.runtime.counts:
+			main.runtime.counts[m] = 0
+		main.runtime.track_scores()
+		toast.cards.clear()
+		toast.now = {}
+		main._known_rewards = {}
+		main._reward_check = 0.0
+		main._watch_rewards(1.0)
+		var steps: Array = [
+			["keeper3", func() -> void:
+				for k in 3:
+					main.runtime.add_count("goal", false)],
+			["score1k", func() -> void:
+				main.runtime.counts["meteor"] = 1000
+				main.runtime.track_scores()],
+			["modes5", func() -> void:
+				for m: String in ["hoop", "window", "cans", "bowling", "fair"]:
+					main._choose_mode(m)
+				main.state = "play"],
+			["golden1", func() -> void:
+				main._choose_mode("meteor")
+				main.state = "play"
+				main.stage.paused = true
+				main.golden.wait = 0.0
+				main._step_golden(1.0 / 72.0)
+				main.golden.catch("shot")],
+		]
+		for st: Array in steps:
+			var id: String = st[0]
+			var c := GameRuntime.challenge(id)
+			var want_c: String = c[1] if lang_ar else c[2]
+			var want_r: String = ChallengeRewards.card(ChallengeRewards.reward_of(id), lang_ar).title
+			(st[1] as Callable).call()
+			var seen: Array = []
+			var placed := true
+			var t := 0.0
+			while t < 12.0:
+				main._process(1.0 / 30.0)
+				toast.step(1.0 / 30.0)
+				t += 1.0 / 30.0
+				if toast.visible and toast.opacity > 0.9 and not toast.now.is_empty():
+					var key := "%s:%s" % [toast.now.kind, toast.now.title]
+					if seen.is_empty() or seen[seen.size() - 1] != key:
+						seen.append(key)
+						var head: Transform3D = main.head_transform()
+						var rel: Vector3 = head.affine_inverse() * toast.global_position
+						placed = placed and rel.z < -0.6 and rel.z > -1.0 and rel.y > 0.15 and absf(rel.x) < 0.1
+						for l: Label3D in toast._labels:
+							placed = placed and l.no_depth_test and not ("✓" in l.text)
+				if t > 1.0 and toast.now.is_empty() and toast.cards.is_empty() and seen.has("reward:" + want_r):
+					break
+			var ci := seen.find("challenge:" + want_c)
+			var ri := seen.find("reward:" + want_r)
+			check(ci >= 0 and ri > ci and placed, "%s cards: «%s» shows on screen, then its reward «%s» (%s)" % [view.to_upper(), want_c, want_r, seen])
+	check(ToastCard.CARD_SHADER.contains("depth_test_disabled"), "cards: the card draws over the room and the court")
+	# Many at once: every challenge card waits its turn (none dropped).
+	toast.cards.clear()
+	toast.now = {}
+	for i in 7:
+		toast.show_text("✓ title %d" % i)
+		toast.notify("reward", "reward %d" % i)
+	toast.show_text("✓ title 0")
+	check(toast.cards.size() == 15, "cards: seven challenges at once keep all their cards (%d)" % toast.cards.size())
+	toast.cards.clear()
+	toast.now = {}
+	toast.auto_step = true
+	main._choose_mode("goal")
+	_save_restore(keep)
+	await get_tree().process_frame
 
 
 ## Roomscale (Stage space): the headset's origin is the middle of the play area, so the VR court

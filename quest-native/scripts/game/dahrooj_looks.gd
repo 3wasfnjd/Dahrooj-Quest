@@ -27,12 +27,12 @@ const ACCESSORIES := ["", "party", "glasses", "cap", "flower", "crown", "headpho
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef", "dino", "halo",
 	"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
 	"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak", "sadu", "medal",
-	"goldAgal", "bisht", "trophy"]
+	"goldAgal", "bisht", "trophy", "goldStar", "goldPal"]
 ## A hat takes the place of the fur ball's ribbon.
 const HEADWEAR := ["party", "cap", "crown", "headphones", "aviator", "woodhat", "beanie",
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "astronaut", "pirate", "chef", "dino",
 	"bunny", "wizard", "viking", "propeller", "gradcap",
-	"umbrella", "turban", "taifRose", "farwa", "lantern", "palm", "karak", "goldAgal", "trophy"]
+	"umbrella", "turban", "taifRose", "farwa", "lantern", "palm", "karak", "goldAgal", "trophy", "goldPal"]
 ## Accessories with a see-through part (drawn by GLASS_SHADER as a second mesh).
 const GLASS := ["astronaut"]
 const BOW_AT := Vector3(-0.1, 0.86, 0.5)
@@ -1652,6 +1652,58 @@ static func _accessory_parts(id: String, lite: bool) -> Array:
 			for sd in [-1.0, 1.0]:
 				list.append([torus(0.13, 0.03, _q(lite, 6, 8), _q(lite, 10, 20), PI * 1.25), t * Transform3D(Basis(Vector3.UP, 0.0 if sd > 0 else PI) * Basis(Vector3.BACK, -PI * 0.62), Vector3(sd * 0.36, 0.62, 0)), gold, gs])
 			list.append([star(0.5, 0.03), t * xf(Vector3(0, 0.6, 0.31), Vector3(-0.35, 0, 0)), Color("fff1b8"), _s(0.2, 0.6, Pattern.NONE, 1.0)])
+		"goldStar":
+			# The first Golden Dahrooj's prize: a plump golden star floating over the head, tipped
+			# toward you, with a glowing rim, a little smile and twinkles around it.
+			var gold := Color("f5c542")
+			var gs := _s(0.2, 0.9, Pattern.NONE, 1.3)
+			var glow := _s(1.0, 0.0, Pattern.UNLIT)
+			var s := xf(Vector3(0.12, 1.42, 0.05), Vector3(-0.25, 0.0, -0.18))
+			list.append([star(1.5, 0.16), s * xf(Vector3(0, 0, -0.08)), gold, gs])
+			list.append([star(1.05, 0.02), s * xf(Vector3(0, 0.0, 0.08)), Color("ffe58a"), gs])
+			list.append([torus(0.43, 0.018, _q(lite, 4, 6), _q(lite, 20, 48)), s * xf(Vector3(0, 0, -0.01)), Color("fff3b8"), glow])
+			for sd in [-1.0, 1.0]:
+				list.append([sphere(0.035, _q(lite, 6, 12), _q(lite, 4, 8)), s * xf(Vector3(sd * 0.075, 0.03, 0.11)), Color("2a1d10"), _s(0.2)])
+			list.append([torus(0.05, 0.012, _q(lite, 4, 6), _q(lite, 6, 12), PI), s * xf(Vector3(0, -0.02, 0.11), Vector3(0, 0, PI)), Color("2a1d10"), _s(0.4)])
+			if not lite:
+				for sd in [-1.0, 1.0]:
+					list.append([sphere(0.03, 10, 8), s * xf(Vector3(sd * 0.13, -0.035, 0.105), Vector3.ZERO, Vector3(1, 0.6, 0.4)), Color("ff8f8f"), _s(0.8)])
+				for k in 4:
+					var a := TAU * k / 4.0 + 0.5
+					list.append([octahedron(0.045), xf(Vector3(sin(a) * 0.62, 1.38 + 0.12 * sin(a * 2.0), cos(a) * 0.62), Vector3(0, a, 0.3), Vector3(0.6, 1.5, 0.6)), Color("fff1b8"), glow])
+		"goldPal":
+			# Twenty-five Golden Dahroojs later: a little golden Dahrooj of his own sits on top of
+			# his head, beaming, with rosy cheeks and a tiny crown.
+			var gold := Color("ffd84a")
+			var gs := _s(0.3, 0.35, Pattern.NONE, 1.0)
+			var c := Vector3(0.0, 1.27, 0.02)
+			var first := list.size()
+			list.append([sphere(0.36, _q(lite, 14, 32), _q(lite, 10, 22)), xf(c, Vector3.ZERO, Vector3(1.0, 0.94, 1.0)), gold, gs])
+			# Little feet hugging the head.
+			for sd in [-1.0, 1.0]:
+				list.append([sphere(0.11, _q(lite, 8, 14), _q(lite, 6, 10)), xf(c + Vector3(sd * 0.2, -0.3, 0.14), Vector3.ZERO, Vector3(1.0, 0.6, 1.3)), Color("e0a326"), gs])
+				var e := c + Vector3(sd * 0.12, 0.06, 0.31)
+				list.append([sphere(0.07, _q(lite, 8, 14), _q(lite, 6, 10)), xf(e, Vector3.ZERO, Vector3(1, 1.15, 0.6)), Color("fffdf8"), _s(0.4)])
+				list.append([sphere(0.042, _q(lite, 6, 12), _q(lite, 4, 8)), xf(e + Vector3(0, -0.005, 0.035), Vector3.ZERO, Vector3(1, 1.15, 0.6)), Color("1d1c24"), _s(0.15, 0.0, Pattern.NONE, 1.0)])
+				if not lite:
+					list.append([sphere(0.013, 8, 6), xf(e + Vector3(-0.012, 0.018, 0.06)), Color.WHITE, _s(1.0, 0.0, Pattern.UNLIT)])
+					list.append([sphere(0.05, 10, 8), xf(c + Vector3(sd * 0.21, -0.06, 0.27), Vector3(0, sd * 0.6, 0), Vector3(1, 0.6, 0.35)), Color("ff8a8a"), _s(0.8)])
+			list.append([torus(0.06, 0.014, _q(lite, 4, 6), _q(lite, 6, 14), PI), xf(c + Vector3(0, -0.06, 0.33), Vector3(0.25, 0, PI)), Color("6a3b16"), _s(0.4)])
+			# The tiny crown.
+			var cr := xf(c + Vector3(0.0, 0.33, -0.02), Vector3(-0.15, 0, 0.12))
+			list.append([cylinder(0.13, 0.15, 0.08, _q(lite, 10, 20), true), cr, Color("ffd76a"), gs])
+			for i in 5:
+				var a := i / 5.0 * TAU
+				list.append([cylinder(0.0, 0.035, 0.09, _q(lite, 4, 8)), cr * xf(Vector3(sin(a) * 0.14, 0.08, cos(a) * 0.14)), Color("ffd76a"), gs])
+			list.append([sphere(0.025, _q(lite, 6, 10), _q(lite, 4, 8)), cr * xf(Vector3(0, 0, 0.15)), Color("d8452f"), _s(0.15)])
+			if not lite:
+				for k in 3:
+					var a := TAU * k / 3.0 + 1.0
+					list.append([octahedron(0.035), xf(c + Vector3(sin(a) * 0.5, 0.25 + 0.08 * k, cos(a) * 0.5), Vector3(0, a, 0.3), Vector3(0.6, 1.5, 0.6)), Color("fff1b8"), _s(1.0, 0.0, Pattern.UNLIT)])
+			# A size that reads on the head: everything a quarter bigger, standing on the crown.
+			var grow := Transform3D(Basis.from_scale(Vector3.ONE * 1.25), c * -0.25 + Vector3(0, 0.08, 0))
+			for i in range(first, list.size()):
+				list[i][1] = grow * (list[i][1] as Transform3D)
 	return list
 
 

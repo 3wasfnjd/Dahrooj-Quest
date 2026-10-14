@@ -62,7 +62,7 @@ static func run(check: Callable) -> void:
 	# Levels as the reference defines them.
 	var rl := TabletopGame.ricochet_levels()
 	check.call(TabletopGame.balance_levels().size() == 5 and rl.size() == 5 and TabletopGame.maze_levels().size() == 5, "tabletop: five levels per mode")
-	check.call(rl[3].mirrors.size() == 3 and rl[4].mirrors.size() == 4 and absf(rl[0].mirrors[0].angle + PI / 4) < 1e-9, "tabletop: ricochet routes and their paddles")
+	check.call(rl[3].mirrors.size() == 3 and rl[4].mirrors.size() == 3 and absf(rl[0].mirrors[0].angle + PI / 4) < 1e-9, "tabletop: ricochet routes and their paddles")
 	var mz: Dictionary = TabletopGame.maze_levels()[0]
 	check.call(mz.route.size() >= 3 and mz.walls.size() > 4 and mz.start == mz.route[0], "tabletop: a seeded maze with a route from the start")
 

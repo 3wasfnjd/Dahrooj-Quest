@@ -17,6 +17,9 @@ var challenges := {}  # challenge id -> value (store.data.challenges)
 var styles_used: Array = []
 ## Every point scored in every mode, ever (GameRuntime.track_scores; the lifetime challenges).
 var total_score := 0
+## Personal records: mode id -> the best score ever reached there (GameRuntime.track_scores).
+## A save from before them loads every record as 0. Resetting the challenges keeps them.
+var records := {}
 ## Dahrooj's look (store.ts defaults: fur, pink, nothing worn): jelly | fur | bubble; an
 ## appearance.ts DAHROOJ_COLOR_CHOICES id; an accessory id ("" for none).
 var style := "fur"
@@ -60,6 +63,13 @@ func load_data() -> void:
 	challenges = d.get("challenges", {}) if typeof(d.get("challenges", {})) == TYPE_DICTIONARY else {}
 	styles_used = d.get("styles_used", []) if typeof(d.get("styles_used", [])) == TYPE_ARRAY else []
 	best = d.get("best", {}) if typeof(d.get("best", {})) == TYPE_DICTIONARY else {}
+	records = {}
+	var recs: Variant = d.get("records", {})
+	if typeof(recs) == TYPE_DICTIONARY:
+		for k: Variant in (recs as Dictionary):
+			var v: Variant = recs[k]
+			if typeof(v) in [TYPE_INT, TYPE_FLOAT] and int(v) > 0:
+				records[str(k)] = int(v)
 	var total: Variant = d.get("total_score", 0)
 	total_score = maxi(0, int(total)) if typeof(total) in [TYPE_INT, TYPE_FLOAT] else 0
 	if int(d.get("rewards_version", 1)) < REWARDS_VERSION:
@@ -74,10 +84,15 @@ func load_data() -> void:
 	accessory = look.accessory
 
 
+## The best score of a mode (0 when it has none yet).
+func record(mode_id: String) -> int:
+	return int(records.get(mode_id, 0))
+
+
 func save() -> void:
 	var f := FileAccess.open(PATH, FileAccess.WRITE)
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"version": VERSION, "language": language, "mode": mode, "haptics": haptics,
 		"quality": quality, "muted": muted, "throw_style": throw_style, "shot_style": shot_style, "best": best, "challenges": challenges, "styles_used": styles_used,
-		"total_score": total_score, "rewards_version": REWARDS_VERSION, "style": style, "jelly_color": jelly_color, "accessory": accessory}))
+		"total_score": total_score, "records": records, "rewards_version": REWARDS_VERSION, "style": style, "jelly_color": jelly_color, "accessory": accessory}))

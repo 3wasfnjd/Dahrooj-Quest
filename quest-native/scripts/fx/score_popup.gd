@@ -43,6 +43,8 @@ var material: StandardMaterial3D
 var viewport: SubViewport
 var value := -1  # the number painted (root.userData.value)
 var opacity := 0.0
+## The number shown fell (drop()): it sinks as it fades.
+var dropping := false
 
 var _scope := ""
 var _previous := 0
@@ -222,11 +224,23 @@ func observe(next_scope: String, v: float) -> void:
 	if n > _previous:
 		paint(n)
 		_age = 0.0
+		dropping = false
 		root.visible = true
 	elif n < _previous:
 		_age = DURATION
 		root.visible = false
 	_previous = n
+
+
+## An attack took points: the lower score pops in and sinks instead of drifting up (observe()
+## then takes it as the count seen, so it stays shown).
+func drop(v: int) -> void:
+	var n := maxi(0, v)
+	paint(n)
+	_previous = n
+	_age = 0.0
+	dropping = true
+	root.visible = true
 
 
 func showing() -> bool:
@@ -250,7 +264,7 @@ func step(dt: float) -> void:
 	var sc := 0.42 + 0.58 * pop
 	var fade := clampf((_age - 1.05) / 0.6, 0.0, 1.0)
 	root.scale = Vector3(sc * (1.0 + wobble), sc * (1.0 - wobble), 1.0)
-	root.position.y = _age * 0.045
+	root.position.y = _age * (-0.06 if dropping else 0.045)
 	root.rotation.z = sin(t * 12.0) * exp(-t * 6.0) * 0.025
 	opacity = minf(1.0, _age / 0.07) * (1.0 - fade * fade * (3.0 - 2.0 * fade))
 	material.albedo_color = Color(opacity, opacity, opacity, opacity)  # premultiplied

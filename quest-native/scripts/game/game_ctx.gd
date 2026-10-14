@@ -21,6 +21,11 @@ var ch_progress: Callable = func(_id, _v): pass
 ## tally(id: String, n: int) — n more toward a lifetime challenge, saved a little later
 ## (for counts that move fast).
 var tally: Callable = func(_id, _n): pass
+## penalty(mode: String, points: int, at: Vector3) -> int — something attacking the player got
+## through (an invader at the line, a minion bouncing off you, a meteor landing at your feet):
+## the session score drops by up to `points` (never below 0; records, the lifetime total and
+## the challenges keep what they have). Returns the points taken. at: game units.
+var penalty: Callable = func(_m, _p, _a): return 0
 ## toast(text: String) — ctx.toast (a notification card).
 var toast: Callable = func(_t): pass
 ## confetti(pos: Vector3, radius: float, elevation: float, scale: float) — confetti.pop.

@@ -47,6 +47,9 @@ const SUB := Glass.SUB
 const ACCENT := Glass.ACCENT
 const INK := Glass.INK
 const SLATE := Glass.ICON_REST
+## A mode card's record line.
+const BEST_SIZE := 16
+const ACCENT_BEST := Color(1.0, 0.82, 0.42)
 ## The header rule and the footer bar.
 const RULE_Y := 150.0
 const FOOTER_Y := 916.0
@@ -209,7 +212,8 @@ func layout(m: Dictionary) -> Array[Dictionary]:
 	if page == "modes":
 		for i in MenuCatalog.MODES.size():
 			var c: Array = MenuCatalog.MODES[i]
-			add.call("mode", c[0], c[1], c[2], mode_cell(i, english), {"selected": c[0] == m.get("mode", ""), "icon": c[0]})
+			add.call("mode", c[0], c[1], c[2], mode_cell(i, english), {"selected": c[0] == m.get("mode", ""), "icon": c[0],
+				"best": best_text(int((m.get("records", {}) as Dictionary).get(c[0], 0)) if m.get("records") is Dictionary else 0, not english)})
 	elif page == "appearance":
 		for i in MenuCatalog.APPEARANCE.size():
 			var c: Array = MenuCatalog.APPEARANCE[i]
@@ -308,7 +312,7 @@ func set_page(p: String) -> void:
 func draw(m: Dictionary, hot := -1) -> void:
 	var seen: Array = []
 	match page:
-		"modes": seen = [m.get("mode")]
+		"modes": seen = [m.get("mode"), m.get("records")]
 		"appearance": seen = [m.get("style"), m.get("jelly_color"), m.get("accessory"), m.get("done"), m.get("challenges"), m.get("rewards")]
 		"play": seen = [m.get("throw_style"), m.get("shot_style"), m.get("mode"), m.get("kind"), m.get("done"), m.get("rewards")]
 		"world": seen = [m.get("kind"), m.get("time"), m.get("weather")]
@@ -671,6 +675,11 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 			var tall := r.size.y >= 150.0
 			var fs := Glass.T_LABEL if tall else Glass.T_SMALL
 			var label_y := r.end.y - (22.0 if tall else 14.0)
+			# A mode's personal record: a small line under its name (the name and icon move up).
+			var best := str(b.get("best", ""))
+			if best != "":
+				_text(ci, best, c.x, r.end.y - 12.0, BEST_SIZE, Color(ACCENT_BEST, 0.95 if on or hot else 0.8), lw, "center", Glass.W_LABEL)
+				label_y -= BEST_SIZE + 4.0
 			var top := r.position.y + 10.0
 			var bottom := label_y - fs - 8.0
 			# A tall card's label that would shrink a lot breaks onto two lines instead.
@@ -843,6 +852,14 @@ func _paint_list(ci: CanvasItem) -> void:
 		var w := clampf(value / maxf(1.0, goal), 0.0, 1.0) * 776.0
 		if w > 0.5:
 			_rect(ci, Rect2(24.0 if english else 800.0 - w, y + 64, w, 7), 3.5, ACCENT if done else Color(ACCENT, 0.75))
+
+
+## A mode card's personal record (Save.records), grouped like the challenge counts: "Best: 12,340",
+## in Arabic «الأفضل: ١٢٬٣٤٠»; "" before the mode has one.
+static func best_text(best: int, arabic: bool) -> String:
+	if best <= 0:
+		return ""
+	return ("الأفضل: %s" if arabic else "Best: %s") % GameCtx.grouped(best, arabic)
 
 
 ## A row's count, its big numbers grouped: "1,250 / 10,000", in Arabic "١٬٢٥٠ / ١٠٬٠٠٠".

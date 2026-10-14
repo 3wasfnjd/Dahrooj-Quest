@@ -53,6 +53,10 @@ static func run(check: Callable) -> void:
 	ctx.toast = func(t): extra.append(["toast", t])
 	ctx.ch_progress = func(id, v): extra.append(["ch", id, v])
 	ctx.confetti = func(p, _r, _e, _s): extra.append(["confetti", p])
+	var taken: Array = []
+	ctx.penalty = func(md: String, pts: int, _at: Vector3) -> int:
+		taken.append([md, pts])
+		return pts
 	st.ctx = ctx
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
 	b.set_stage(st, "giant")
@@ -121,7 +125,9 @@ static func run(check: Callable) -> void:
 	st.F.combo = 4
 	st.update(b, DT)
 	check.call(near.bounces == 1 and near.ph == "fly" and near.v.y > 0.0 and st.F.combo == 0 and st.F.bounced >= 1 and st.F.state == "fight",
-		"giant: a little one bounces off you harmlessly (combo broken, no fail)")
+		"giant: a little one bounces off you (combo broken, no fail)")
+	check.call(taken.size() == 1 and taken[0][0] == "giant" and int(taken[0][1]) == GiantStage.MINION_PENALTY and GiantStage.MINION_PENALTY == 25,
+		"giant: ... and takes 25 points off the score (%s)" % [taken])
 	check.call(_until(st, b, func(): return st.giant_state().minions == 0, 25.0), "giant: the little ones don't pile up forever")
 	# A thrown Dahrooj hits him.
 	_until(st, b, func(): return not st.giant.air, 3.0)

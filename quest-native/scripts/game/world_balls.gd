@@ -844,10 +844,14 @@ func _ch(id: String, value: int) -> void:
 # --- what the homing and chaining shots go for -----------------------------------------
 
 ## Everything a rocket or a lightning arc can go for: [{kind, ref, p}] — leftovers ("r"),
-## earlier throws ("v"), the throw in flight ("b") and the stage's hidden hit spheres ("s":
-## the layers = 0 MeshInstance3Ds the blaster's ray finds).
+## earlier throws ("v"), the throw in flight ("b"), the Golden Dahrooj ("g", main's
+## GoldenDahrooj while he is out) and the stage's hidden hit spheres ("s": the layers = 0
+## MeshInstance3Ds the blaster's ray finds).
 func targets() -> Array:
 	var out: Array = []
+	var g := golden()
+	if g != null:
+		out.append({"kind": "g", "ref": g, "p": g.pos})
 	for r in rests:
 		out.append({"kind": "r", "ref": r, "p": r.p})
 	for v in ball.volley:
@@ -861,6 +865,21 @@ func targets() -> Array:
 			if m.layers == 0 and m.mesh != null and m.is_visible_in_tree():
 				out.append({"kind": "s", "ref": m, "p": _proxy_center(m)})
 	return out
+
+
+## The Golden Dahrooj while he is out (main's `golden`), or null.
+func golden() -> GoldenDahrooj:
+	var g = host.get("golden") if host != null else null
+	if g is GoldenDahrooj and (g as GoldenDahrooj).active:
+		return g as GoldenDahrooj
+	return null
+
+
+## How close a shot must pass a target of this kind (beyond its own radius R).
+func _target_r(t: Dictionary) -> float:
+	if String(t.kind) == "g":
+		return (t.ref as GoldenDahrooj).radius() * 1.15
+	return Ball.BR
 
 
 func _proxy_center(m: MeshInstance3D) -> Vector3:
@@ -887,6 +906,9 @@ func target_at(t: Dictionary) -> Variant:
 			return ball.volley[i].pos if i >= 0 else null
 		"b":
 			return ball.pos if ball.shot and not ball.held else null
+		"g":
+			var g := golden()
+			return g.pos if g != null and is_same(g, t.ref) else null
 		"s":
 			var m = t.ref
 			if is_instance_valid(m) and (m as MeshInstance3D).is_visible_in_tree():
@@ -917,6 +939,12 @@ func hit_target(t: Dictionary, dir: Vector3) -> bool:
 			burst(ball.pos, Save.style)
 			host.ball_popped()
 			return true
+		"g":
+			var g := golden()
+			if g == null or not is_same(g, t.ref):
+				return false
+			impact(g.pos, -dir if dir.length_squared() > 0.0 else Vector3.BACK, Color("ffc928"))
+			return g.catch("shot")
 		"s":
 			var m = t.ref
 			var st: Node3D = host.stage
@@ -947,6 +975,11 @@ func pop_radius(c: Vector3, RR: float) -> int:
 		if (ball.volley[j].pos as Vector3).distance_to(c) < RR + BR:
 			burst(ball.volley[j].pos, Save.style)
 			ball.volley.remove_at(j)
+			n += 1
+	var g := golden()
+	if g != null and g.pos.distance_to(c) < RR + g.radius():
+		var gd := g.pos - c
+		if hit_target({"kind": "g", "ref": g, "p": g.pos}, gd.normalized() if gd.length_squared() > 1e-8 else Vector3.FORWARD):
 			n += 1
 	for t in targets():
 		if t.kind == "s" and (t.p as Vector3).distance_to(c) < RR + _proxy_radius(t.ref):
@@ -1011,7 +1044,6 @@ func _beam_reach(p: Vector3, dir: Vector3, far: float, R: float) -> float:
 ## stopping at a wall; a glowing line that fades.
 func _laser(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
 	var R: float = P.r * k
-	var BR := Ball.BR
 	var end := _beam_reach(p, dir, P.range * k, R)
 	var cur := 0.0
 	var hits := 0
@@ -1029,7 +1061,7 @@ func _laser(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
 			var along := ((t.p as Vector3) - p).dot(dir)
 			if along < cur or along > best_d:
 				continue
-			if (p + dir * along).distance_to(t.p) < BR + R:
+			if (p + dir * along).distance_to(t.p) < _target_r(t) + R:
 				best_d = along
 				best = t
 		# ... or the first thing of the stage before it.
@@ -1499,6 +1531,11 @@ func step_blast(dt: float) -> void:
 			burst(ball.pos, Save.style)
 			host.ball_popped()
 			popped_n += 1
+		# The Golden Dahrooj: any shot that reaches him catches him.
+		var gold := golden()
+		if gold != null and near_seg.call(gold.pos, gold.radius() * 1.15):
+			if hit_target({"kind": "g", "ref": gold, "p": gold.pos}, dir_n):
+				popped_n += 1
 		# A rocket goes off right by its target.
 		if s.kind == "rocket" and not done:
 			var tp = target_at(s.target)

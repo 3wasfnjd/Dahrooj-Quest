@@ -50,7 +50,8 @@ const COLORS := [
 ## (ChallengeRewards). In the order the challenges give them, easiest first.
 const ACCESSORIES := [
 	["", "بدون", "None", 0], ["party", "قبعة حفلة", "Party hat", "keeper3"], ["glasses", "نظارة شمسية", "Sunglasses", "cansOne"],
-	["ghutra", "غترة وعقال", "Ghutra & agal", "strike1"], ["cap", "كاب", "Cap", "curve3"], ["taqiyah", "طاقية", "Taqiyah", "crates5"],
+	["ghutra", "غترة وعقال", "Ghutra & agal", "strike1"], ["cap", "كاب", "Cap", "curve3"],
+	["goldStar", "نجمة ذهبية", "Golden star", "golden1"], ["taqiyah", "طاقية", "Taqiyah", "crates5"],
 	["shemagh", "شماغ وعقال", "Shemagh & agal", "modes5"], ["chef", "قبعة طباخ", "Chef’s hat", "bricks20"], ["flower", "وردة", "Flower", "wall1"],
 	["jasmine", "طوق ياسمين", "Jasmine crown", "fair25"], ["headphones", "سماعات", "Headphones", "bell3"], ["bunny", "آذان أرنب", "Bunny ears", "mole20"],
 	["kufi", "طاقية مطرزة", "Embroidered cap", "dallah15"], ["wizard", "قبعة ساحر", "Wizard hat", "combo10"],
@@ -66,6 +67,7 @@ const ACCESSORIES := [
 	["turban", "عمامة", "Turban", "bricks100"], ["taifRose", "طوق ورد طائفي", "Taif rose crown", "castle200"],
 	["farwa", "قبعة فروة", "Fleece hat", "frenzy500"], ["diving", "نظارة غوص", "Diving mask", "meteor500"],
 	["lantern", "فانوس رمضان", "Ramadan lantern", "combo25"], ["palm", "تاج سعف", "Palm-frond crown", "pop500"],
+	["goldPal", "دحروج ذهبي صغير", "Little golden Dahrooj", "golden25"],
 	["misbaha", "مسبحة", "Misbaha", "total50k"], ["karak", "كوب كرك", "Karak cup", "score10k"],
 	["sadu", "وشاح سدو", "Sadu scarf", "giant30"], ["medal", "ميدالية ذهبية", "Gold medal", "shots1000"],
 	["goldAgal", "غترة وعقال ذهبي", "Ghutra & gold agal", "modesAll"], ["bisht", "بشت", "Bisht", "total100k"],

@@ -9,8 +9,8 @@ extends Node3D
 ##   a shot or a thrown Dahrooj on one makes him flinch and wobble and knocks a chunk out of
 ##   the big hit-points ring around him (shots on the body only chip it).
 ## - Phases by what is left of the ring: (1) he bounces and stomps: dust rings, nearby props
-##   jump; (2) he spits waves of little Dahroojs at you: pop them (if one reaches you it just
-##   bounces off, the combo breaks); (3) he melts into slime and splits into three medium
+##   jump; (2) he spits waves of little Dahroojs at you: pop them (if one reaches you it
+##   bounces off, the combo breaks and it takes MINION_PENALTY points off the score); (3) he melts into slime and splits into three medium
 ##   ones that merge back later; (4) rage: red glow, faster, more spots. The three stay
 ##   hidden while he collapses, then pop up out of the top of the puddle (small, growing on
 ##   the way out); merging back, each one splashes into him as it reaches the puddle, and
@@ -53,6 +53,8 @@ const MINIONS := 28
 const MIN_R := 0.42
 const NEAR_MIN := 1.2  # metres to his near side at the very least (mixed reality, a small room)
 const REACH := 1.6
+## Points a little one that reaches you takes off the score (ctx.penalty: never below 0).
+const MINION_PENALTY := 25
 const COMBO_T := 1.8
 const COMBO_STEPS := [3, 6, 10, 15]
 const BANNER_T := 2.4
@@ -1463,7 +1465,7 @@ func _step_minion(mi: Dictionary, dt: float) -> void:
 			var u: float = mi.t / (mi.hop_p / sqrt(k))
 			mi.p.y = fl + r + absf(sin(u * PI)) * r * 2.6
 			if d < REACH * size + r:
-				# He bounces off you: harmless, but the combo breaks.
+				# He bounces off you: the combo breaks and he takes a few points.
 				mi.ph = "fly"
 				mi.t = 0.0
 				mi.bounces += 1
@@ -1478,6 +1480,8 @@ func _step_minion(mi: Dictionary, dt: float) -> void:
 				_buzz2(0.35, 70)
 				giant.face = "laugh"
 				giant.face_t = 0.8
+				if ctx:
+					ctx.penalty.call("giant", MINION_PENALTY, mi.p)
 	if mi.life > 18.0:
 		_pop_minion(mi, Vector3.UP, false)
 

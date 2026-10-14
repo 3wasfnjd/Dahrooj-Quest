@@ -109,6 +109,13 @@ static func play(st: TabletopStage, deg: float) -> bool:
 
 
 static func run(check: Callable) -> void:
+	# Aim assist: a hand a few degrees off straight ahead still launches straight ahead.
+	var snap_st := TabletopStage.new("ricochet")
+	var off := Vector2(cos(deg_to_rad(263.0)), sin(deg_to_rad(263.0)))
+	var wide := Vector2(cos(deg_to_rad(250.0)), sin(deg_to_rad(250.0)))
+	check.call(snap_st.snap_aim(off).distance_to(Vector2(0, -1)) < 1e-6 and snap_st.snap_aim(wide).distance_to(wide) < 1e-6,
+		"ricochet: an aim within 9° of straight ahead locks onto it; a wider one stays")
+	snap_st.free()
 	var levels := TabletopGame.ricochet_levels()
 	var windows: Array = []
 	var st := TabletopStage.new("ricochet")

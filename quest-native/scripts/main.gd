@@ -118,6 +118,27 @@ var auto_fire := {}  # hand -> next shot time while the left trigger is held
 var sounds_played: Array = []  # [name, k, pos] (tests; the audio player plays them)
 var splash: Node3D
 var room_spots := RoomSpots.new()  # MR: spawn spots in front of the player (game units)
+## The rare Golden Dahrooj (GoldenDahrooj): out now and then in the modes that have him.
+var golden: GoldenDahrooj
+## Festive texts in the game's space (the golden banner, the record, the ouch of an attack).
+var fx: Node3D
+## The red flash at the edges of your sight when an attack takes points (HURT_T seconds).
+var hurt: MeshInstance3D
+var _hurt_mat: ShaderMaterial
+var _hurt_t := 0.0
+const HURT_T := 0.6
+const HURT_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_test_disabled, depth_draw_never, cull_front, shadows_disabled, fog_disabled;
+uniform float strength = 0.0;
+void fragment() {
+	vec3 d = normalize(VERTEX);
+	float e = length(d.xy);
+	float a = smoothstep(0.42, 0.95, e);
+	ALBEDO = mix(vec3(1.0, 0.1, 0.18), vec3(0.75, 0.0, 0.08), a);
+	ALPHA = a * 0.7 * strength;
+}
+"""
 var _spots_sig := ""
 var _spots_t := 0.0
 
@@ -194,6 +215,16 @@ func _ready() -> void:
 	runtime.ctx.toast = toast.show_text
 	runtime.ctx.confetti = func(p: Vector3, r: float, e: float, k: float): confetti.pop(p, r, e, k)
 	runtime.on_chime = func(): sfx("chime", 1.0, eye_game())
+	runtime.on_record = _on_record
+	runtime.on_penalty = _on_penalty
+	fx = Node3D.new()
+	fx.name = "Fx"
+	game_root.add_child(fx)
+	golden = GoldenDahrooj.new()
+	game_root.add_child(golden)
+	golden.sfx = sfx
+	golden.on_caught = _on_golden_caught
+	_build_hurt()
 	panel = Panel3D.new()
 	panel.visible = false
 	add_child(panel)
@@ -795,6 +826,8 @@ func _game_step(delta: float) -> void:
 				var r: Dictionary = park.collide(rr.p, rr.v, Ball.BR)
 				rr.p = r.p
 				rr.v = r.v
+	_step_golden(dt)
+	_step_hurt(delta)
 	var eye := to_game(head_transform().origin)
 	# Dahrooj shows only while the trigger holds him or he flies; waiting, he's out of
 	# sight (in the slingshot he waits in the pouch).
@@ -1266,6 +1299,150 @@ func _on_ball_event(kind: String, data: Dictionary) -> void:
 				rig.pulse("right", 0.3 * data.k, 0.025)
 
 
+# --- the Golden Dahrooj, records and attacks ------------------------------------------
+
+## The Golden Dahrooj can be out: a mode that has him (GoldenDahrooj.MODES), its court shown,
+## not the Summit, a tabletop or the opening's rain.
+func golden_on() -> bool:
+	return runtime != null and runtime.mode in GoldenDahrooj.MODES and stage != null and stage.visible \
+		and not summit_on and table == null and not intro.active
+
+
+## His clock runs only in active play; a thrown Dahrooj (or one of a volley) that reaches him
+## catches him (the blaster's shots: WorldBalls).
+func _step_golden(dt: float) -> void:
+	golden.unit = scale_now
+	golden.mr = mode == "mr"
+	golden.eye = eye_game()
+	if golden.active and not golden_on():
+		golden.clear()
+	golden.step(dt, golden_on() and state == "play" and not placing, _golden_spot)
+	if not golden.active:
+		return
+	if ball.shot and not ball.held and golden.hit_by(ball.pos, Ball.BR):
+		golden.catch("throw")
+		return
+	for b: Dictionary in ball.volley:
+		if golden.hit_by(b.pos, Ball.BR):
+			golden.catch("throw")
+			return
+
+
+## Where the Golden Dahrooj turns up (game units), always in front of the player and far
+## (GoldenDahrooj.settle: the forward arc, 2.5 m away or more): over the target of a throwing
+## course; in mixed reality out of the room (RoomSpots: off a wall or furniture, or in the
+## air ahead without a scan); in VR up in the air far ahead.
+func _golden_spot() -> Variant:
+	var eye := eye_game()
+	var fwd := play_forward()
+	var u := scale_now
+	if runtime.mode in GoldenDahrooj.COURSES:
+		return GoldenDahrooj.course_spot(eye, fwd, u, float(stage.aim_z), golden.rng)
+	var floor_y := to_game(Vector3.ZERO).y if mode == "mr" else 0.0
+	if room_play():
+		_refresh_room_spots(false)
+		if room_spots.has_room():
+			var sp := room_spots.pick(eye, ["wall", "top", "air"])
+			if not sp.is_empty():
+				var p: Vector3 = (sp.pos as Vector3) + (sp.normal as Vector3) * 0.45 * u
+				p.y = maxf(p.y, floor_y + 0.9 * u)
+				return GoldenDahrooj.settle(eye, p, fwd, u)
+	if mode == "mr":
+		return GoldenDahrooj.air_spot(eye, fwd, u, floor_y, golden.rng, Vector2(2.6, 3.6), Vector2(1.0, 1.8))
+	return GoldenDahrooj.air_spot(eye, fwd, u, 0.0, golden.rng)
+
+
+## How big a festive text at `at` (game units) is drawn: the same size in metres in VR and in
+## mixed reality, a little bigger far away.
+func _text_k(at: Vector3, base := 0.6) -> float:
+	var dist_m := at.distance_to(eye_game()) / scale_now
+	return base * scale_now / VR_SCALE * maxf(1.0, dist_m / 4.5)
+
+
+## A point ahead of the eyes (game units): metres out along the head's level forward, raised.
+func _ahead_game(metres: float, up := 0.0) -> Vector3:
+	var head := head_transform()
+	var f := -head.basis.z
+	f.y = 0.0
+	f = f.normalized() if f.length_squared() > 1e-6 else Vector3.FORWARD
+	return to_game(head.origin + f * metres + Vector3.UP * up)
+
+
+## Caught! +500 on this mode's score with a big gold banner, confetti, a golden firework,
+## the ching and a buzz in both hands; the golden challenges count one more.
+func _on_golden_caught(at: Vector3, _how: String) -> void:
+	var m: String = runtime.mode
+	runtime.golden_caught(m)
+	var pts := GameRuntime.GOLDEN_POINTS
+	var text := Save.text("دحروج ذهبي! +%s" % GameCtx.ar_digits(pts), "Golden Dahrooj! +%d" % pts)
+	JuiceText.spawn(fx, text, at + Vector3.UP * golden.radius() * 2.4, "banner", _text_k(at), GoldenDahrooj.GOLD)
+	confetti.celebrate(at, eye_game())
+	world_balls.bloom(at)
+	sfx("fair_ding", 1.0, at)
+	sfx("chime", 1.0, eye_game())
+	buzz("left", 0.85, 180)
+	buzz("right", 0.85, 180)
+
+
+## This session just beat the mode's best for the first time: fireworks and confetti ahead, a
+## big rainbow «رقم قياسي جديد!», a fanfare and a buzz (once per mode and session).
+func _on_record(_m: String, score: int, _previous: int) -> void:
+	# Below the score board (its digits pop up there), rising toward it.
+	var at := _ahead_game(2.4, -0.5)
+	JuiceText.spawn(fx, Save.text("رقم قياسي جديد!", "New record!"), at, "banner", _text_k(at, 0.7))
+	JuiceText.spawn(fx, Save.text("الأفضل: %s" % GameCtx.grouped(score, true), "Best: %s" % GameCtx.grouped(score)), at - Vector3.UP * 0.36 * scale_now, "sub", _text_k(at, 0.7))
+	confetti.celebrate(_ahead_game(1.6, -0.3), eye_game())
+	for i in 3:
+		world_balls.bloom(_ahead_game(3.2, 1.0 + 0.35 * i) + Vector3((i - 1) * 1.1 * scale_now, 0, 0))
+	sfx("firework_launch", 1.0, at)
+	sfx("chime", 1.0, eye_game())
+	buzz("left", 0.7, 220)
+	buzz("right", 0.7, 220)
+
+
+## An attack got through and took points: the score sinks to its new value, a soft «-50» in
+## front of you, a red flash at the edges of your sight, a bump and a buzz in both hands.
+func _on_penalty(m: String, taken: int, _asked: int, _at: Vector3) -> void:
+	_hurt_t = HURT_T
+	sfx("thump", 1.0, eye_game())
+	buzz("left", 0.8, 140)
+	buzz("right", 0.8, 140)
+	if taken > 0:
+		var at := _ahead_game(1.5, -0.1)
+		JuiceText.spawn(fx, "-%d" % taken, at, "ouch", _text_k(at, 0.55))
+		if m == runtime.mode:
+			score_popup.drop(int(runtime.counts.get(m, 0)))
+
+
+func _build_hurt() -> void:
+	hurt = MeshInstance3D.new()
+	hurt.name = "HurtFlash"
+	var sm := SphereMesh.new()
+	sm.radius = 0.25
+	sm.height = 0.5
+	sm.radial_segments = 24
+	sm.rings = 12
+	hurt.mesh = sm
+	_hurt_mat = ShaderMaterial.new()
+	var sh := Shader.new()
+	sh.code = HURT_SHADER
+	_hurt_mat.shader = sh
+	_hurt_mat.render_priority = 10
+	hurt.material_override = _hurt_mat
+	hurt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	hurt.visible = false
+	add_child(hurt)
+
+
+func _step_hurt(dt: float) -> void:
+	_hurt_t = maxf(0.0, _hurt_t - dt)
+	hurt.visible = _hurt_t > 0.0
+	if hurt.visible:
+		hurt.global_position = head_transform().origin
+		var k := _hurt_t / HURT_T
+		_hurt_mat.set_shader_parameter("strength", k * k * (3.0 - 2.0 * k))
+
+
 # --- splash, start screen and menu ---------------------------------------------------
 
 func _show_splash() -> void:
@@ -1362,7 +1539,7 @@ func _menu_model() -> Dictionary:
 	return {"english": not Save.arabic(), "kind": mode, "mode": "climb" if summit_on else "rain" if intro.active and intro.rain else (String(table.name).trim_prefix("Table_") if table else runtime.mode),
 		"style": Save.style, "jelly_color": Save.jelly_color, "throw_style": Save.throw_style, "shot_style": Save.shot_style,
 		"time": sky.time, "weather": sky.weather, "accessory": worn(), "done": done, "reset_armed": reset_arm > 0.0,
-		"rewards": Save.challenges, "challenges": list}
+		"rewards": Save.challenges, "challenges": list, "records": Save.records}
 
 
 func _step_menu(dt: float) -> void:
@@ -1805,6 +1982,8 @@ func _setup_new_mode() -> void:
 ## A mode card (xr-runtime.js choosePlaza).
 func _choose_mode(id: String) -> void:
 	var sound_pos := to_game(menu.global_position)
+	if golden:
+		golden.clear()
 	if id == "climb":
 		set_menu(false)
 		_set_table("")

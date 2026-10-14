@@ -4,7 +4,9 @@ extends Node3D
 ## a slim card (0.46 m wide, 1024 x 220 layout) that drops in near the top of your
 ## view, about 0.8 m ahead and tilted with your head, follows your gaze, then slides
 ## back up and fades. A challenge done ("✓ " prefix) shows a check badge for 3.4 s,
-## anything else a "!" badge for 2.4 s; up to four wait in line. The frosted-glass
+## anything else a "!" badge for 2.4 s. Challenge and reward cards always wait their turn
+## (several finished at once each get theirs); at most QUEUE_INFO plain notes wait, the
+## oldest note giving way. The frosted-glass
 ## style of Glass (a translucent tint with a vertical gradient, a sheen and a rim
 ## light bright at the top, a slim accent bar on the reading side, Baloo text
 ## fitted to the card).
@@ -17,7 +19,11 @@ const CW := 1024
 const CH := 220
 const WIDTH := 0.46
 const PX := WIDTH / CW  # metres per layout pixel
-const TOAST_HOLD := 2.3  # complete-game.js toast(): the text stays up 2.3 s
+const TOAST_HOLD := 2.3
+## Plain notes ("!") that may wait; challenge and reward cards are never dropped (up to
+## QUEUE_MAX in all, far more than ever finish at once).
+const QUEUE_INFO := 4
+const QUEUE_MAX := 32  # complete-game.js toast(): the text stays up 2.3 s
 const CHALLENGE := Color("3f8f5a")
 const REWARD := Color("e5ad2e")
 const PAPER := Color(1, 1, 1)
@@ -139,27 +145,42 @@ func place(head: Transform3D) -> void:
 func show_text(text: String) -> void:
 	if text == "":
 		return
+	# A finished challenge always gets its card: each completion happens once (GameRuntime),
+	# so the same title again is a new completion (after a reset), never a repeat to fold.
+	if text.begins_with("✓ "):
+		_last = text
+		_last_left = TOAST_HOLD
+		notify("challenge", text.substr(2))
+		return
 	if text == _last and _last_left > 0.0:
 		_last_left = TOAST_HOLD
 		return
 	_last = text
 	_last_left = TOAST_HOLD
-	if text.begins_with("✓ "):
-		notify("challenge", text.substr(2))
-	else:
-		var queued := false
-		for n in cards:
-			if n.title == text:
-				queued = true
-		if not queued and String(now.get("title", "")) != text:
-			notify("info", text)
+	var queued := false
+	for n in cards:
+		if n.title == text:
+			queued = true
+	if not queued and String(now.get("title", "")) != text:
+		notify("info", text)
 
 
-## kind: "challenge" | "reward" | "info"; at most four wait.
+## kind: "challenge" | "reward" | "info". Challenge and reward cards always wait their turn;
+## past QUEUE_INFO waiting notes (or QUEUE_MAX cards) the oldest plain note gives way.
 func notify(kind: String, title: String, sub := "") -> void:
 	cards.append({"kind": kind, "title": title, "sub": sub})
-	if cards.size() > 4:
-		cards.pop_front()
+	var infos := cards.filter(func(n: Dictionary) -> bool: return n.kind == "info").size()
+	while infos > QUEUE_INFO or cards.size() > QUEUE_MAX:
+		var drop := -1
+		for i in cards.size():
+			if cards[i].kind == "info":
+				drop = i
+				break
+		if drop < 0:
+			drop = 0
+		if cards[drop].kind == "info":
+			infos -= 1
+		cards.remove_at(drop)
 
 
 func _arabic() -> bool:

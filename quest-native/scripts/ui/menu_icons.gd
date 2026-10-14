@@ -27,7 +27,7 @@ const IDS := [
 	"shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef",
 	"dino", "halo", "bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
 	"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak",
-	"sadu", "medal", "goldAgal", "bisht", "trophy",
+	"sadu", "medal", "goldAgal", "bisht", "trophy", "goldStar", "goldPal",
 ]
 ## The start screen's large icons, baked again at HI_CELL pixels.
 const HI_IDS := ["mr", "vr", "lang", "world"]
@@ -1498,6 +1498,25 @@ static func shapes(id: String) -> Array:
 			d.s(P([[0, 4], [0, 22]]), false, 6.0)
 			d.sf(rr(-20, 22, 40, 12, 4))
 			d.ink(star(0, -13, 9, 0.45))
+		"goldStar":
+			# A plump star with a smile, and twinkles beside it.
+			var st := star(-4, 4, 38, 0.5)
+			d.cut(st, 3.0)
+			d.sf(st)
+			d.ink(ell(-12, 2, 3.5, 4.5))
+			d.ink(ell(4, 2, 3.5, 4.5))
+			d.s(arc(-4, 8, 7, 0.2, PI - 0.2), false, 3.5)
+			d.ink(star(34, -32, 10, 0.35))
+			d.ink(star(36, 30, 7, 0.35))
+		"goldPal":
+			# Dahrooj with a little crowned Dahrooj sitting on his head.
+			d.face(0, 18, 28, 4.0)
+			var pal := ell(0, -24, 15, 14)
+			d.cut(pal, 3.0)
+			d.sf(pal)
+			d.ink(ell(-5, -25, 2.5, 3.2))
+			d.ink(ell(5, -25, 2.5, 3.2))
+			d.sf(P([[-11, -37], [-11, -46], [-5, -41], [0, -48], [5, -41], [11, -46], [11, -37]]))
 		_:
 			d.sf(star(0, 0, 36, 0.46))
 	return d.ops

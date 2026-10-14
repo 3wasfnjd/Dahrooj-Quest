@@ -28,6 +28,7 @@ const TRAY_W := 3.35
 const TRAY_D := 3.77
 const HEART_SIZE := 1.25  # the ricochet hearts over the sign (about 8 cm each in VR)
 const HEART_GAP := 0.36
+const AIM_SNAP := deg_to_rad(9.0)  # ricochet: aims this close to a board axis lock onto it
 
 static var _meshes := {}
 static var _grain: ImageTexture
@@ -812,7 +813,19 @@ func _aim_at(input: Dictionary) -> void:
 	var z := o.z + d.z * t - game.ball.y
 	var dd := Vector2(x, z).length()
 	if dd > 0.08:
-		aim = Vector2(x / dd, z / dd)
+		aim = snap_aim(Vector2(x / dd, z / dd))
+
+
+## Ricochet aim assist: an aim within AIM_SNAP of straight ahead, back or to a side locks onto
+## it (every route starts along the board's edges), so a steady hand is not the puzzle.
+func snap_aim(a: Vector2) -> Vector2:
+	if game == null or game.mode != "ricochet":
+		return a
+	var ang := a.angle()
+	var q := roundf(ang / (PI / 2.0)) * (PI / 2.0)
+	if absf(angle_difference(ang, q)) <= AIM_SNAP:
+		return Vector2(cos(q), sin(q))
+	return a
 
 
 ## The paddle (index) the input's ray hits first, or -1 (raycast of the paddle's box itself).

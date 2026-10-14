@@ -215,7 +215,11 @@ static func run(check: Callable) -> void:
 	p.draw(_model(true), -1)
 	var cap: Dictionary = p.buttons[_find(p, "acc", "cap")]
 	var glasses: Dictionary = p.buttons[_find(p, "acc", "glasses")]
-	p.acc_page = 1
+	var av_i := 0
+	for i in MenuCatalog.ACCESSORIES.size():
+		if MenuCatalog.ACCESSORIES[i][0] == "aviator":
+			av_i = i
+	p.acc_page = floori(av_i / float(MenuPanel.ACC_PER_PAGE))
 	p.draw(_model(true), -1)
 	var aviator: Dictionary = p.buttons[_find(p, "acc", "aviator")]
 	p.acc_page = 0

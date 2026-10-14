@@ -60,6 +60,13 @@ static func run(check: Callable) -> void:
 	ctx.toast = func(t): extra.append(["toast", t])
 	ctx.ch_progress = func(id, v): extra.append(["ch", id, v])
 	ctx.confetti = func(p, _r, _e, _s): extra.append(["confetti", p])
+	var taken: Array = []
+	ctx.penalty = func(md: String, pts: int, _at: Vector3) -> int:
+		var have := int(ctx.counts.get(md, 0))
+		var t := clampi(pts, 0, have)
+		ctx.counts[md] = have - t
+		taken.append([md, pts, t])
+		return t
 	st.ctx = ctx
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
 	b.set_stage(st, "invasion")
@@ -175,14 +182,19 @@ static func run(check: Callable) -> void:
 	check.call(_until(st, b, func(): return not m.on, 2.0) and st.invasion_state().breaches == 1, "invasion: reaching the line pops it (%d through)" % st.invasion_state().breaches)
 	st.draw()
 	check.call(st.F.flash_t > 0.0 and (st._mm.flash as MultiMesh).visible_instance_count == 1 and buzzes.size() >= 2, "invasion: a red flash around the head and a buzz in both hands")
-	# Open-ended: however many get through, no game over; the score is never taken away.
-	var counted := int(ctx.counts.get("invasion", 0))
+	check.call(taken.size() == 1 and taken[0][0] == "invasion" and int(taken[0][1]) == InvasionStage.PENALTY.plain and int(InvasionStage.PENALTY.plain) == 50,
+		"invasion: one through takes 50 points off the score (%s)" % [taken])
+	# Open-ended: however many get through, no game over; the score drops but never below 0.
+	ctx.counts["invasion"] = 120
+	taken.clear()
 	for k in 6:
 		var q := st.spawn("plain", _ground(g.x + (k % 3) * 1.2 - 1.2, g.z - st.reach_r() - 0.4))
 		st.invaders[q].hop_u = 0.5
 	_steps(st, b, 1.5)
 	check.call(st.invasion_state().breaches == 7 and st.invasion_state().state == "wave" and st.banner.text != "انتهت اللعبة", "invasion: seven through and still playing (%s)" % st.invasion_state().state)
-	check.call(int(ctx.counts.get("invasion", 0)) == counted, "invasion: nothing comes off the score")
+	check.call(int(ctx.counts.get("invasion", 0)) == 0 and taken.size() == 6 and int(taken[0][2]) == 50 and int(taken[2][2]) == 20 and int(taken[5][2]) == 0,
+		"invasion: each one through takes its points, the score stops at 0 (%s)" % [taken])
+	check.call(int(InvasionStage.PENALTY.mini) == 25 and int(InvasionStage.PENALTY.boss) == 100 and int(InvasionStage.PENALTY.tank) == 75, "invasion: a little one takes 25, a tank 75, the boss 100")
 	_steps(st, b, 5.0)
 	check.call(st.invasion_state().state == "wave" and st.invasion_state().wave == 1, "invasion: no game over later either")
 

@@ -153,7 +153,7 @@ static func _new_accessories(check: Callable) -> void:
 	var added := ["shemagh", "ghutra", "taqiyah", "kufi", "falcon", "jasmine", "headband", "astronaut", "pirate", "chef", "dino", "halo",
 		"bunny", "wizard", "viking", "propeller", "bowtie", "gradcap",
 		"umbrella", "goldShades", "turban", "taifRose", "farwa", "diving", "lantern", "palm", "misbaha", "karak", "sadu", "medal",
-		"goldAgal", "bisht", "trophy"]
+		"goldAgal", "bisht", "trophy", "goldStar", "goldPal"]
 	var v := DahroojView.new()
 	var bad: Array = []
 	for id: String in added:

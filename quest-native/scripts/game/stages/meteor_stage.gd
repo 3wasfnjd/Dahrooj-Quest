@@ -13,7 +13,8 @@ extends Node3D
 ## - every half minute or so a meteor shower: a banner, then a burst of meteors along parallel
 ##   streaks from one side of the sky.
 ## - open play: no hearts, no game over, no timer, no board. One that lands leaves a glowing
-##   crater with a shockwave and a dust cloud; it only breaks the combo. Quick blasts build a
+##   crater with a shockwave and a dust cloud; it breaks the combo, and one that lands right
+##   at the player's feet (within HIT_R) takes LAND_PENALTY points off the score. Quick blasts build a
 ##   combo (×2 .. ×6). The points go to ctx.counts["meteor"] (the jelly score popup).
 ## - endless and escalating: they come more often, faster and bigger as the minutes go by.
 ## Game units, like the other stages (VR: 2 per metre; mixed reality: 8 per metre, size 2).
@@ -56,6 +57,10 @@ const SHOWER_EVERY := 32.0
 const SHOWER_T := 4.5
 const CRACK_T := 0.9  # a ceiling cracks this long before the meteor comes through
 const CRATER_T := 7.0
+## A meteor landing this close to the player (across the floor, × size) hits them: it takes
+## LAND_PENALTY points (ctx.penalty: never below 0; records and totals keep theirs).
+const HIT_R := 6.0
+const LAND_PENALTY := 25
 const LAND_T := 0.9  # the dazed Dahrooj sinks into its crater
 const BANNER_T := 2.4
 const LEVEL_T := 30.0  # play seconds per level of intensity
@@ -678,6 +683,12 @@ func _ceiling_above(ceilings: Array, p: Vector3) -> Variant:
 	return null
 
 
+## A landing this close to the player hits them (game units): HIT_R, or the nearest band of
+## landings in the room (they never land nearer than near_d()).
+func hit_r() -> float:
+	return maxf(HIT_R * size, near_d() * 1.4)
+
+
 ## How near the player a meteor may land (game units): RoomSpots.MIN_DIST, and LAND_MIN.
 func near_d() -> float:
 	return maxf(LAND_MIN * size, RoomSpots.MIN_DIST * unit)
@@ -978,7 +989,8 @@ static func predict_land(m: Dictionary) -> Vector3:
 	return Vector3(c.x + v.x * t, float(m.floor), c.z + v.z * t)
 
 
-## One reached the floor: a glowing crater, a shockwave, a dust cloud. No penalty but the combo.
+## One reached the floor: a glowing crater, a shockwave, a dust cloud; the combo breaks, and
+## right at the player's feet it takes LAND_PENALTY points.
 func _impact(m: Dictionary) -> void:
 	var r: float = m.r
 	var p := Vector3(m.c.x, float(m.floor), m.c.z)
@@ -1001,8 +1013,10 @@ func _impact(m: Dictionary) -> void:
 	_fx(p + Vector3.UP * r * 0.5, Vector3.ZERO, 0.3, _lin("ffd9a0"), r * 3.5, K_FLASH)
 	_sfx("thump", 1.0, p)
 	_sfx("boom", 0.35 + 0.35 * r / size, p)
-	if Vector2(p.x - viewer.x, p.z - viewer.z).length() < 6.0 * size:
+	if Vector2(p.x - viewer.x, p.z - viewer.z).length() < hit_r():
 		_buzz2(0.2, 45)
+		if ctx:
+			ctx.penalty.call("meteor", LAND_PENALTY, p)
 
 
 # ---- moving ----

@@ -57,6 +57,10 @@ static func run(check: Callable) -> void:
 	ctx.add_count = func(md, r): extra.append(["count", md, r])
 	ctx.ch_progress = func(id, v): extra.append(["ch", id, v])
 	ctx.confetti = func(p, _r, _e, _s): extra.append(["confetti", p])
+	var taken: Array = []
+	ctx.penalty = func(md: String, pts: int, _at: Vector3) -> int:
+		taken.append([md, pts])
+		return pts
 	st.ctx = ctx
 	st.buzz = func(h, a, ms): buzzes.append([h, a, ms])
 	b.set_stage(st, "meteor")
@@ -96,6 +100,12 @@ static func run(check: Callable) -> void:
 	check.call(Vector2(m.c.x, m.c.z).distance_to(Vector2(1, -9)) < 0.5, "meteor: it landed on its target")
 	_steps(st, b, MeteorStage.LAND_T + 0.1)
 	check.call(not m.on, "meteor: the dazed Dahrooj sinks away")
+	check.call(taken.is_empty(), "meteor: one landing far from you takes nothing")
+	# One landing right at your feet hits you: LAND_PENALTY points.
+	var vf := Vector3(st.viewer.x, 0, st.viewer.z - st.near_d() * 1.05)
+	var m2 := _fly(st, "small", false, vf + Vector3(1, 18, -6), vf, 1.5)
+	check.call(_until(st, b, func(): return m2.phase == "land", 3.0) and taken.size() == 1 and taken[0][0] == "meteor" and int(taken[0][1]) == MeteorStage.LAND_PENALTY,
+		"meteor: one landing at your feet takes 25 points (%s)" % [taken])
 	_steps(st, b, MeteorStage.CRATER_T)
 	check.call(st.craters.is_empty(), "meteor: the crater fades")
 
