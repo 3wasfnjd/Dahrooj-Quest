@@ -451,7 +451,7 @@ func _setup_environment() -> void:
 	sun = DirectionalLight3D.new()
 	sun.light_color = Color("fff1dd")
 	sun.light_energy = 0.75
-	sun.shadow_enabled = true
+	sun.shadow_enabled = false  # no shadows anywhere (owner's call)
 	add_child(sun)
 	_apply_day()
 
@@ -648,10 +648,21 @@ func _place_rain() -> void:
 		return
 	var p: Vector3 = a.p
 	var k := ar_zoom if mode == "mr" else 1.0
+	intro.drop_k = _rain_drop_k()
 	var xf := Transform3D(Basis(Vector3.UP, -float(a.theta)).scaled(Vector3.ONE * k), Vector3(p.x, 0.0, p.z))
 	intro.transform = (rig.global_transform.affine_inverse() if rig.is_inside_tree() else rig.transform.affine_inverse()) * xf
 	intro.pinned = true
 	intro.pin_back = 1.6 if mode == "mr" else 0.0
+
+
+## Dahrooj Rain's drop size: VR keeps the opening's size (about the thrown Dahrooj's); mixed
+## reality shrinks them to the Dahrooj you throw on the pinned court (its scale and zoom), but
+## no smaller than a third so they stay easy to hit.
+func _rain_drop_k() -> float:
+	if mode != "mr":
+		return 1.0
+	var thrown := Ball.BR / ar_scale  # metres
+	return clampf(thrown / (IntroRain.INTRO_R * ar_zoom), 0.35, 1.0)
 
 
 ## The opening's rain (with its start button), not Dahrooj Rain the mode.
@@ -795,8 +806,11 @@ func _game_step(delta: float) -> void:
 		elif _clock >= auto_fire[h]:
 			auto_fire[h] = _clock + 0.13
 			_blast_from(h)
-	world_balls.step_blast(dt)
-	_step_room_play(dt)
+	# The open menu pauses play in every mode: nothing moves until it closes.
+	var paused := state == "menu"
+	if not paused:
+		world_balls.step_blast(dt)
+		_step_room_play(dt)
 	if stage is MoleStage:
 		(stage as MoleStage).viewer = eye_game()
 	if stage is SlimeStage:
@@ -825,7 +839,7 @@ func _game_step(delta: float) -> void:
 			slow = fz.time_scale
 	# Slow motion (Dahrooj Attack, Pop Frenzy): the game slows, music and sounds drop in pitch.
 	AudioServer.playback_speed_scale = 1.0 - (1.0 - slow) * 0.5
-	if true:
+	if not paused:
 		var gdt := dt * time_k() * slow
 		runtime.step(gdt)
 		world_balls.step_rests(gdt, dt)
@@ -1127,7 +1141,8 @@ func _step_intro(dt: float) -> void:
 	if not intro.active:
 		on_start = {"left": false, "right": false}
 		return
-	intro.step(dt, head_transform())
+	if not (intro.rain and state == "menu"):  # Dahrooj Rain pauses with the menu
+		intro.step(dt, head_transform())
 	for h in ["left", "right"]:
 		if rig.tracked(h):
 			var r := rig.ray(h)
@@ -1803,7 +1818,7 @@ func _step_summit(dt: float) -> void:
 	else:
 		summit.set_dir(0.0)
 	_place_summit()
-	summit.update(dt, {"style": Save.style, "color": Save.jelly_color, "accessory": "",
+	summit.update(0.0 if state == "menu" else dt, {"style": Save.style, "color": Save.jelly_color, "accessory": "",
 		"eye": head_transform().origin, "on_event": func(_e: Dictionary): pass})
 	summit_hud.show_hud(summit.hud(), "ar" if Save.arabic() else "en")
 
@@ -1957,6 +1972,8 @@ func _setup_stage() -> void:
 			stage.set("viewer", eye_game())
 		if stage.has_method("on_placed"):
 			stage.call("on_placed")
+		if mode == "mr" and stage.has_method("refresh_room"):
+			stage.call("refresh_room")
 
 
 ## Mixed reality, a mode played out in the room (ROOM_MODES), not the Summit or a tabletop.
@@ -2114,6 +2131,7 @@ func _choose_mode(id: String) -> void:
 		_set_table(id)
 		place()
 	elif id == "rain":
+		intro.drop_k = _rain_drop_k()  # before the first drops spawn
 		intro.set_rain(true)
 		stage.visible = false  # (after: clearing a rain already falling shows the stage)
 		ball.set_stage(null, "rain")  # nothing to score on: Dahrooj only pops the rain
@@ -2215,6 +2233,15 @@ func _screenshot() -> void:
 		var t := float(_args.get("after", "0.6"))
 		var steps := int(t / (1.0 / 72.0))
 		for i in steps:
+			_game_step(1.0 / 72.0)
+	if _args.has("weather"):
+		park.set_settings({"weather": String(_args.weather), "time": String(_args.get("time", "day"))})
+	if _args.has("park"):  # run the park's day and weather on for this many seconds
+		for i in int(float(_args.park) * 10.0):
+			park.update(0.1, game_root.global_transform.affine_inverse() * head_transform().origin)
+	if _args.has("mode"):  # a mode as chosen from the menu (first frame unless "after")
+		_choose_mode(String(_args.mode))
+		for i in int(float(_args.get("after", "0")) * 72.0):
 			_game_step(1.0 / 72.0)
 	if _args.has("menu"):
 		state = "play"

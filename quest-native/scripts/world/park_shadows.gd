@@ -20,6 +20,8 @@ var kz := 0.0
 var casters: Array = []
 ## Draws the moving props: func(s: ParkShadows, ci: CanvasItem).
 var dynamic_draw := Callable()
+## Drop shadows are off in every mode (the owner's call); the ground reads them as none.
+const ENABLED := false
 var static_dirty := true
 var dirty := true
 var texture: Texture2D
@@ -150,6 +152,8 @@ func _process(delta: float) -> void:
 ## layer, its blur and the final picture render on three successive frames. Runs on
 ## its own (_process), so the shadows are baked even before the park is updated.
 func update(dt: float) -> void:
+	if not ENABLED:
+		return
 	_wait -= dt
 	if _stage == 1:
 		_blur_vp.render_target_update_mode = SubViewport.UPDATE_ONCE

@@ -320,6 +320,12 @@ func _planes() -> Array:
 	return []
 
 
+## Main, as soon as the mode is set up in mixed reality: read the room now, so the first
+## frame already has the room layout (no VR wall, booth or field shown for a moment).
+func refresh_room() -> void:
+	_refresh_room()
+
+
 ## The room's planes and bounds, refreshed every second (mixed reality).
 func _refresh_room() -> void:
 	_room = _planes()

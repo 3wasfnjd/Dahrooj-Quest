@@ -141,7 +141,7 @@ func set_base(height: float) -> void:
 	slab.position.y = -0.015
 	shadow.scale = Vector3.ONE * r * 1.05
 	shadow.position.y = 0.001 if height > 0.05 else 0.002
-	shadow.visible = height <= 0.05
+	shadow.visible = false  # no shadows in any mode (owner's call)
 
 
 func set_dir(d: float) -> void:

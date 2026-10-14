@@ -76,6 +76,9 @@ var sky_pop: Callable
 var shot_hand := "left"
 ## Mixed reality: a smaller crowd in a smaller ring (72 within 2.6 m; VR 100 within 4.4 m).
 var mixed := false
+## Dahrooj Rain only: new drops' size × this (main sets it so mixed reality's rain matches the
+## Dahrooj you throw there; 1 in VR).
+var drop_k := 1.0
 ## The start button also shows 3.2 s of wall-clock time after the first spawn (as the original).
 var use_wall_clock := true
 var rng := RandomNumberGenerator.new()
@@ -189,7 +192,7 @@ func drop_ball(delay: float) -> void:
 	_ids += 1
 	b.id = _ids
 	b.style = INTRO_STYLES[int(rng.randf() * INTRO_STYLES.size())]
-	b.R = rad
+	b.R = rad * (drop_k if rain else 1.0)
 	b.color = JELLY_COLORS[_ids % JELLY_COLORS.size()] if b.style in DahroojLooks.TINTED and (rain or rng.randf() < 0.5) else null
 	b.p = Vector3(c.x + sin(a) * dist, c.y + 0.6 + rng.randf() * 1.8, c.z - cos(a) * dist)
 	b.pending = rain

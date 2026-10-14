@@ -625,6 +625,12 @@ func start_shower() -> void:
 	_buzz2(0.4, 90)
 
 
+## Main, as soon as the mode is set up in mixed reality: read the room now, so the first
+## frame already has the room layout (no VR wall, booth or field shown for a moment).
+func refresh_room() -> void:
+	_refresh_room()
+
+
 # ---- the room ----
 
 func _refresh_room() -> void:

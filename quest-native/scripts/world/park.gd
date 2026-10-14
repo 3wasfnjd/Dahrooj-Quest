@@ -83,7 +83,11 @@ func build() -> void:
 	var G := RenderingServer
 	G.global_shader_parameter_set("dah_tracks", tracks.texture)
 	G.global_shader_parameter_set("dah_track_area", Vector3(COURT.x, COURT.y, ParkTracks.SIZE))
-	G.global_shader_parameter_set("dah_shadow", shadows.texture)
+	if ParkShadows.ENABLED:
+		G.global_shader_parameter_set("dah_shadow", shadows.texture)
+	else:
+		var none := Image.create(1, 1, false, Image.FORMAT_R8)  # black: no shadow
+		G.global_shader_parameter_set("dah_shadow", ImageTexture.create_from_image(none))
 	G.global_shader_parameter_set("dah_shadow_area", Vector3(COURT.x, COURT.y, ParkShadows.SIZE))
 	_ground()
 	_grass()
@@ -673,6 +677,7 @@ func update(dt: float, eye_at := Vector3(INF, 0, 0)) -> void:
 	_rain.visible = visible_ratio > 0.00001
 	if _rain.visible:
 		_rain_mat.set_shader_parameter("visible_ratio", visible_ratio)
+		_rain_mat.set_shader_parameter("snow", snow_ratio)
 		_rain_mat.set_shader_parameter("len", lerpf(ParkCycle.remap_clamp(w.rain, 0.0, 1.0, 1.0, 3.0), 0.03, snow_ratio))
 		_rain_mat.set_shader_parameter("incline", ParkCycle.remap_clamp(w.wind, 0.0, 1.0, 0.1, 0.4))
 		_rain_mat.set_shader_parameter("center", Vector2(eye.x, eye.z))

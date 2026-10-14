@@ -541,6 +541,12 @@ func _celebrate(at: Vector3, k := 1.0) -> void:
 
 # ---- surfaces ----
 
+## Main, as soon as the mode is set up in mixed reality: read the room now, so the first
+## frame already has the room layout (no VR wall, booth or field shown for a moment).
+func refresh_room() -> void:
+	_refresh_planes()
+
+
 ## The room's planes (refreshed every half second); [] in VR or an unscanned room.
 func _refresh_planes() -> void:
 	planes = []

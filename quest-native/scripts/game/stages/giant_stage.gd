@@ -179,6 +179,7 @@ func _init() -> void:
 	_mm.debris = _multi("Debris", Crowd.merge([[Crowd.box(1.0, 0.7, 0.9), Transform3D.IDENTITY, Color.WHITE]]), _mat("lit"), DEBRIS_MAX)
 	_mm.stars = _multi("Stars", MoleStage.star_mesh(), _mat("star"), STARS_MAX)
 	_mm.shadows = _multi("Shadows", Crowd.merge([[Crowd.circle(1.0, 32), Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3.ZERO), Color.WHITE]]), _mat("shadow"), 4 + MINIONS)
+	_mm.shadows.mesh = null  # no blob shadows in any mode (owner's call)
 	_mm.crate = _multi("Crates", prop_mesh("crate"), _mat("lit"), PROPS)
 	_mm.barrel = _multi("Barrels", prop_mesh("barrel"), _mat("lit"), PROPS)
 	_mm.cone = _multi("Cones", prop_mesh("cone"), _mat("lit"), PROPS)

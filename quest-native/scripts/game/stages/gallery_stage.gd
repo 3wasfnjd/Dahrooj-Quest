@@ -243,6 +243,7 @@ func _init() -> void:
 		[Crowd.torus(0.9, 0.075, 8, 40), Transform3D(Basis.IDENTITY, Vector3(0, 0, -0.07)), Color.WHITE]]), _mat("lit"), SLOTS)
 	_mm.ropes = _multi("Ropes", Crowd.merge([[Crowd.cylinder(1.0, 1.0, 1.0, 6), Transform3D(Basis.IDENTITY, Vector3(0, -0.5, 0)), Color("b08850")]]), _mat("lit"), SLOTS)
 	_mm.shadows = _multi("Shadows", Crowd.merge([[Crowd.circle(1.0, 20), Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3.ZERO), Color.WHITE]]), _mat("shadow"), SLOTS)
+	_mm.shadows.mesh = null  # no blob shadows in any mode (owner's call)
 	_mm.rings = _multi("Rings", Crowd.merge([[Crowd.torus(1.0, 0.06, 6, 40), Transform3D.IDENTITY, Color.WHITE]]), _mat("glow"), RINGS_MAX)
 	_mm.stars = _multi("Stars", star_mesh(), _mat("flat2"), STARS_MAX)
 	_build_booth()
@@ -934,6 +935,12 @@ func _off(T: Dictionary) -> void:
 	(T.proxy as MeshInstance3D).visible = false
 	if int(T.src) >= 0 and int(T.src) < covers.size() and T.mover == "peek" and not room():
 		covers[int(T.src)].busy = false
+
+
+## Main, as soon as the mode is set up in mixed reality: read the room now, so the first
+## frame already has the room layout (no VR wall, booth or field shown for a moment).
+func refresh_room() -> void:
+	_refresh_room()
 
 
 # ---- the room (mixed reality) ----

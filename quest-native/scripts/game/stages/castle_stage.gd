@@ -195,6 +195,7 @@ func _init() -> void:
 	_mm.planks = _multi("Planks", Crowd.merge([[Crowd.box(1.0, 1.0, 1.0), Transform3D.IDENTITY, Color.WHITE]]), _mat("lit"), PLANKS_MAX)
 	_mm.rings = _multi("Rings", Crowd.merge([[Crowd.torus(1.0, 0.07, 6, 40), Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3.ZERO), Color.WHITE]]), _mat("glow"), RINGS_MAX)
 	_mm.shadows = _multi("Shadows", Crowd.merge([[Crowd.circle(1.0, 20), Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3.ZERO), Color.WHITE]]), _mat("shadow"), SLOTS + CATS + 1)
+	_mm.shadows.mesh = null  # no blob shadows in any mode (owner's call)
 	_mm.stars = _multi("Stars", MoleStage.star_mesh(), _mat("flat2"), STARS_MAX)
 	_mm.ladders = _multi("Ladders", ladder_mesh(), _mat("lit"), LADDERS)
 	_mm.cat_body = _multi("CatapultBody", catapult_mesh(), _mat("lit"), CATS)

@@ -12,6 +12,8 @@ uniform float len = 2.0;
 uniform float local_time = 0.0;
 uniform float visible_ratio = 0.0;
 uniform vec3 drop_color : source_color = vec3(0.82, 0.86, 0.9);
+// 0 rain .. 1 snow: snowflakes stay white (the park's tinted light and fog would grey them).
+uniform float snow = 0.0;
 varying vec2 flake;
 varying vec3 g;
 void vertex() {
@@ -39,6 +41,7 @@ void vertex() {
 }
 void fragment() {
 	vec2 edge = min(flake, 1.0 - flake);
-	ALPHA = smoothstep(0.0, 0.25, edge.x) * smoothstep(0.0, 0.18, edge.y) * 0.65;
-	ALBEDO = motri_shade(drop_color, vec3(0.0, 1.0, 0.0), 0.0, length(g - dah_cam));
+	ALPHA = smoothstep(0.0, 0.25, edge.x) * smoothstep(0.0, 0.18, edge.y) * mix(0.65, 0.95, snow);
+	vec3 shaded = motri_shade(drop_color, vec3(0.0, 1.0, 0.0), 0.0, length(g - dah_cam));
+	ALBEDO = mix(shaded, vec3(1.0), snow * 0.85);
 }

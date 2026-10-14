@@ -6,7 +6,7 @@ render_mode unshaded, cull_back, depth_draw_never, blend_mix;
 // otherwise; dug out where balls rolled. The plane follows the eye (center).
 uniform float snow_elevation = -1.0;
 uniform vec2 center = vec2(0.0);
-uniform vec3 snow_color : source_color = vec3(0.86, 0.9, 0.94);
+uniform vec3 snow_color : source_color = vec3(0.97, 0.98, 1.0);
 varying float delta;
 varying vec2 w;
 varying vec3 g;
@@ -28,6 +28,8 @@ void fragment() {
 	float a = smoothstep(0.022, 0.5, delta) * (1.0 - track_at(w) * 0.9);
 	if (a < 0.1) discard;
 	float grain = texture(dah_perlin, w * 0.18).r;
-	ALBEDO = motri_shade(snow_color * (0.96 + grain * 0.04), vec3(0.0, 1.0, 0.0), 0.0, length(g - dah_cam));
+	vec3 c = snow_color * (0.96 + grain * 0.04);
+	// White snow: mostly its own colour, a little of the park's light and fog so it still sits in the scene.
+	ALBEDO = mix(motri_shade(c, vec3(0.0, 1.0, 0.0), 0.0, length(g - dah_cam)), c, 0.7);
 	ALPHA = a;
 }

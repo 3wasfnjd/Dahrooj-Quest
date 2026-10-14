@@ -215,7 +215,7 @@ static func run(check: Callable) -> void:
 		"summit: the world builds (mountain, %d ledges/monsters/icicles)" % n_pieces)
 	check.call(SummitWorld.wing_mesh().get_surface_count() == 1 and SummitWorld.dodeca_mesh().get_surface_count() == 1,
 		"summit: the bat's wings and the boulders have geometry")
-	check.call(not sm.pedestal.visible and sm.shadow.visible, "summit: VR at 4 cm: no pedestal, a soft shadow")
+	check.call(not sm.pedestal.visible and not sm.shadow.visible, "summit: VR at 4 cm: no pedestal, no shadow")
 	sm.set_base(0.9)
 	check.call(sm.pedestal.visible and not sm.shadow.visible, "summit: higher up it stands on a pedestal")
 	sm.set_base(0.04)

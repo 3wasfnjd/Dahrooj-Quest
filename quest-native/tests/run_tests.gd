@@ -992,6 +992,13 @@ func _rain_mode(main: Node) -> void:
 	check(absf(k - 0.5) < 1e-3 and ir.drop_radius_world(ir.target_drops()[0]) < IntroRain.INTRO_R * 0.8, "rain MR: and smaller (×%.2f), the Dahroojs with it" % k)
 	main.ar_zoom = 1.0
 	main.place()
+	# New drops match the Dahrooj thrown on the MR court (not the VR size, 4x bigger there).
+	ir.drop_ball(0.0)
+	var newest: IntroRain.Drop = ir.balls[ir.balls.size() - 1]
+	var thrown_m: float = Ball.BR / main.ar_scale
+	var drop_m: float = ir.drop_radius_world(newest)
+	check(ir.drop_k < 1.0 and drop_m < IntroRain.INTRO_R * 0.6 and drop_m < thrown_m * 1.9,
+		"rain MR: new Dahroojs about the thrown one's size (%.3f m vs %.3f m)" % [drop_m, thrown_m])
 	wb.clear_blast()
 	main.auto_fire.clear()
 	main._press("right", "trigger")

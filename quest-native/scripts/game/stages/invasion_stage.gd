@@ -155,6 +155,7 @@ func _init() -> void:
 	_mm.rings = _multi("Rings", Crowd.merge([[Crowd.torus(1.0, 0.06, 6, 48), Transform3D(Basis(Vector3.RIGHT, PI / 2.0), Vector3.ZERO), Color.WHITE]]), _mat("glow"), RINGS_MAX + MARKS)
 	_mm.dashes = _multi("Line", Crowd.merge([[Crowd.box(1.0, 0.04, 1.0), Transform3D.IDENTITY, Color.WHITE]]), _mat("glow"), DASHES)
 	_mm.shadows = _multi("Shadows", Crowd.merge([[Crowd.circle(1.0, 24), Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3.ZERO), Color.WHITE]]), _mat("shadow"), SLOTS + PU_SLOTS)
+	_mm.shadows.mesh = null  # no blob shadows in any mode (owner's call)
 	_mm.bars = _multi("Bars", Crowd.merge([[Crowd.box(1.0, 1.0, 1.0), Transform3D.IDENTITY, Color.WHITE]]), _mat("flat"), BARS_MAX)
 	_mm.holes = _multi("Holes", MoleStage.hole_mesh(), _mat("hole"), HOLES_MAX)
 	_mm.stars = _multi("Stars", MoleStage.star_mesh(), _mat("flat2"), STARS_MAX)
