@@ -91,7 +91,7 @@ const CHALLENGES := [
 	["bricks20", 20, "اكسر ٢٠ طوبة", "Break 20 bricks"],
 	["wall1", 1, "حطّم جدارًا", "Clear a wall"],
 	["fair25", 25, "٢٥ نقطة بالملاهي", "25 in one fair visit"],
-	["bell3", 3, "اضرب الجرس ٣ مرات", "Ring 3 bells"],
+	["bell3", 3, "اضرب الجرس ٣ مرات", "Ring the bell 3 times"],
 	["pop20", 20, "فرقع ٢٠ دحروج", "Pop 20 Dahroojs"],
 	["balance1", 1, "أكمل مرحلة توازن", "Complete a balance round"],
 	["balance5", 5, "مراحل التوازن الخمس", "All five balance rounds"],

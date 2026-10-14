@@ -538,11 +538,14 @@ func update(b: Ball, dt: float) -> void:
 			knocked += 1
 			if ctx:
 				ctx.add_count.call("bowling", false)
-	if not struck and b.shot and pins.all(func(p): return p.down):
+	# `thrown`, not b.shot: the roll may still be going as part of the volley while the
+	# player already holds the next Dahrooj, and that strike counts too.
+	if not struck and thrown and pins.all(func(p): return p.down):
 		struck = true
-		b.scored_t = 0.0
-		b.miss_t = 0.0
-		b.success()
+		if b.shot:
+			b.scored_t = 0.0
+			b.miss_t = 0.0
+			b.success()
 		# A festive banner over the pin deck (a strike is the big one).
 		var en := ctx != null and ctx.lang == "en"
 		var word := ("Strike!" if roll == 0 else "Spare!") if en else ("سترايك!" if roll == 0 else "سبير!")

@@ -52,6 +52,34 @@ static func run(check: Callable) -> void:
 		check.call(st.frame().roll == 1 and gone == knocked_in_flight, "bowling: after the first roll the fallen pins are swept (%d gone)" % gone)
 	st.free()
 
+	# A strike while the player already holds the next Dahrooj: the roll goes on as part of
+	# the volley (main.gd re-grab -> ball.another()) and the strike still counts.
+	sfx = []
+	counts = []
+	events = []
+	extra = []
+	sb = _setup(sfx, counts, events, extra)
+	st = sb[0]
+	b = sb[1]
+	b.pos = Vector3(0, Ball.BR + 0.2, -1.0)
+	b.throw_with(Vector3(0, 0, -11))
+	for i in 20:
+		b.step(1.0 / 72.0)
+	b.another()
+	b.held = true
+	b.shot = false
+	var forced := false
+	for i in 72 * 10:
+		b.step(1.0 / 72.0)
+		# Once the rolling volley ball has hit the rack, topple whatever it left standing.
+		if not forced and st.knocked > 0:
+			forced = true
+			for pin in st.pins:
+				pin.down = true
+	var struck := extra.any(func(e): return e[0] == "ch" and e[1] == "strike1")
+	check.call(forced and struck, "bowling: a strike rolled while the next Dahrooj is already in hand still counts")
+	st.free()
+
 	# A gutter ball: wide of the pins, nothing touched -> a miss.
 	sfx = []
 	counts = []

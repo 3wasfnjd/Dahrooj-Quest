@@ -911,7 +911,7 @@ func explode(m: Dictionary, dir: Vector3, depth: int) -> void:
 	var base: int = int(K.pts) * (GOLD_K if golden else 1) + CHAIN_PTS * depth
 	var pts := _score(base, c + Vector3.UP * r, true, Color(GOLD) if golden else Color("ffe08a"))
 	if ctx:
-		ctx.ch_progress.call("meteor50", F.popped)
+		ctx.ch_progress.call("meteor50", int(ctx.ch_state.get("meteor50", 0)) + 1)  # a running total across visits
 	if depth > 0:
 		F.chains += 1
 		F.best_chain = maxi(F.best_chain, depth)

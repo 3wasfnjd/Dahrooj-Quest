@@ -1085,7 +1085,7 @@ func _ko() -> void:
 	_buzz2(1.0, 320)
 	_score(100 * int(F.lv), g.c + Vector3.UP * g.r * 1.3)
 	if ctx:
-		ctx.ch_progress.call("giant3", int(F.kos))
+		ctx.ch_progress.call("giant3", int(ctx.ch_state.get("giant3", 0)) + 1)  # a running total, like mole20
 
 
 func _level_up() -> void:
