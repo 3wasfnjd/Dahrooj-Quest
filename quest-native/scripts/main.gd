@@ -82,7 +82,7 @@ var _sound_state := ""
 var panel: Panel3D
 var xr := false
 var desktop_cam: Camera3D
-var state := "boot"  # boot, splash, start, play, menu
+var state := "boot"  # boot, start, play, menu
 var scale_now := VR_SCALE
 var mode := "vr"
 var anchor := {}  # MR: {p: Vector3 (real surface point), theta: float}
@@ -117,7 +117,6 @@ var runtime: GameRuntime
 var world_balls: WorldBalls
 var auto_fire := {}  # hand -> next shot time while the left trigger is held
 var sounds_played: Array = []  # [name, k, pos] (tests; the audio player plays them)
-var splash: Node3D
 var room_spots := RoomSpots.new()  # MR: spawn spots in front of the player (game units)
 ## The rare Golden Dahrooj (GoldenDahrooj): out now and then in the modes that have him.
 var golden: GoldenDahrooj
@@ -718,7 +717,7 @@ func _xr_states(delta: float) -> void:
 	if state == "boot":
 		_session_time += delta
 		if rig.focused and _session_time > 0.5 and (head_transform().origin.y > 0.3 or _session_time > 3.0):
-			_show_splash()
+			_show_start()  # the studio logo is the Meta system splash (vr_splash.png)
 
 
 func _record(hand: String, p: Vector3) -> void:
@@ -1091,6 +1090,7 @@ func _release(hand: String, lost: bool) -> void:
 	if u != null:
 		var v := _to_game_speed(u)
 		ball.throw_with(v, _curve(hand) * CURVE_K)
+		note_style()  # "Play all 3 styles" counts throws, not only blaster shots
 		last_thrower = hand
 		parked = false
 		rig.pulse(hand, 0.35 + minf(0.5, (u as Vector3).length() / MAX_SPEED * 0.6), 0.045)
@@ -1562,36 +1562,6 @@ func _step_hurt(dt: float) -> void:
 
 
 # --- splash, start screen and menu ---------------------------------------------------
-
-func _show_splash() -> void:
-	state = "splash"
-	splash = Node3D.new()
-	add_child(splash)
-	var head := head_transform()
-	var fwd := -head.basis.z
-	fwd.y = 0.0
-	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
-	splash.global_position = head.origin + fwd * 1.4
-	splash.look_at(head.origin, Vector3.UP, true)
-	# The studio logo (assets/brand/aboden-games-white.svg: white symbol, Cairo lettering).
-	var logo := Sprite3D.new()
-	logo.texture = load("res://assets/brand/aboden-games-white.svg")
-	logo.pixel_size = 0.5 / float(maxi(1, logo.texture.get_width()))  # half a metre wide
-	logo.modulate = Color(1, 1, 1, 0)
-	logo.shaded = false
-	logo.double_sided = false
-	logo.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
-	logo.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	logo.render_priority = 3
-	splash.add_child(logo)
-	var tw := create_tween()
-	tw.tween_property(logo, "modulate:a", 1.0, 0.7)
-	tw.tween_interval(3.0)
-	tw.tween_property(logo, "modulate:a", 0.0, 0.7)
-	tw.tween_callback(func():
-		splash.queue_free()
-		_show_start())
-
 
 func _show_start() -> void:
 	state = "start"
@@ -2159,7 +2129,7 @@ func _choose_mode(id: String) -> void:
 
 
 func _on_recenter() -> void:
-	if state == "boot" or state == "splash":
+	if state == "boot":
 		return
 	if state == "start":
 		panel.place(head_transform(), 0.75, 0.05)

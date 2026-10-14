@@ -256,6 +256,23 @@ func _world(main: Node) -> void:
 	main._press("left", "grip")
 	check(main.holder == "left", "either grip holds Dahrooj")
 	main._release("left", true)
+	# "Play all 3 styles": throwing Dahrooj in each style counts (not only blaster shots).
+	var keep_throw: String = Save.throw_style
+	var keep_style: String = Save.style
+	Save.throw_style = "trigger"
+	Save.styles_used.clear()
+	Save.challenges.erase("styles5")
+	for st: Array in MenuCatalog.STYLES:
+		Save.style = st[0]
+		main.ball.respawn()
+		main.holder = ""
+		main._press("left", "grip")
+		main._release("left", false)
+	check(int(Save.challenges.get("styles5", 0)) == 3, "three styles: a throw in each completes the challenge (%d)" % int(Save.challenges.get("styles5", 0)))
+	Save.throw_style = keep_throw
+	Save.style = keep_style
+	main.ball.respawn()
+	main.holder = ""
 	main.place_hint.build("ثبّت الملعب", "وجّه على سطح واضغط الزناد · العصا تكبّر وتصغّر", [])
 	check(main.place_hint is Panel3D and main.place_hint.height > 0.0, "the MR pin hint is the menus' glass panel")
 	main.ar_zoom = 1.0
