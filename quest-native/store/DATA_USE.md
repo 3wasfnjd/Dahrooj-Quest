@@ -51,7 +51,7 @@ The saved file holds:
 | Does it share data with third parties or sell data? | No. |
 | Does it use data for advertising or tracking? | No. |
 | Does it collect data from children? | No. Nothing personal is collected from anyone. |
-| How can users ask for deletion? | Uninstall, or "Reset challenges" in the General page. No server copy exists. Contact: the support channel in the privacy policy. |
+| How can users ask for deletion? | Uninstall, or "Reset challenges" in the General page. No server copy exists. Contact: https://abodengames.com. |
 | Privacy policy URL | https://abodengames.com/dahrooj-privacy.html (the hosted copy of `store/privacy.html`). |
 
 **Timing (two one-way doors, from Meta's guide):**
