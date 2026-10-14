@@ -9,7 +9,7 @@ extends Node
 ##   --look=x,y,z (game units) --fov=<deg> --time=day|dusk|night|dawn --lang=ar|en
 ##   --hud=0 --hide_stage --menu=<page> [--menu_sub=accessories] --extras_json=res://...
 ##   --fire=<n> --fire_at=<s> --fire_every=<s> --aim=x,y,z --spread=<k> --shot_style=<id>
-##   --style/--color/--acc (the player's look) --view=mr
+##   --style/--color/--acc (the player's look) --view=mr --finale
 ## Time is fixed-step (--fixed-fps 30), so a given set of args always gives the same picture.
 
 var A := {}
@@ -52,6 +52,8 @@ func _ready() -> void:
 		main._choose_mode(m)
 	main.state = "play"
 	_add_extras(String(A.get("extras_json", "")))
+	if A.has("finale"):  # --finale: the World Cup party from the start of the timeline
+		main.finale.start(false)
 	if A.has("menu"):
 		main.menu.appearance = String(A.get("menu_sub", "character"))
 		main.set_menu(true, String(A.menu))

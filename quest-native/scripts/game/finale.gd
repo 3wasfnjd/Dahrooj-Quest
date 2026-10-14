@@ -4,9 +4,9 @@ extends Node3D
 ## every other challenge finished) is done, and again from the challenges page once it is.
 ##
 ## In front of the player (never behind: everything stands within the forward half, at least
-## NEAR_M metres ahead): two rings of Dahroojs in every style wearing every accessory gather
-## around a spot ahead and dance (hops that travel round the ring as a wave, squash and stretch,
-## spins), mole Dahroojs pop up out of little holes inside the ring, a giant Dahrooj with a crown
+## NEAR_M metres ahead): Dahroojs in every style wearing every accessory gather at random
+## around a spot ahead and dance (each hops to its own beat, squash and stretch, spins) while more
+## float in the air above them, mole Dahroojs pop up out of little holes inside the ring, a giant Dahrooj with a crown
 ## bounces behind, and the World Cup rises out of the floor in the middle, grows, then floats up
 ## to the player and is presented in front of them. Confetti, fireworks, the chime, haptics and a
 ## big rainbow banner «أبطال العالم!» with «أتممت دحروج» under it. About DUR seconds, then they
@@ -26,8 +26,10 @@ const ACCESSORY := "worldCup"
 const DUR := 13.5
 const AHEAD_M := 2.6  # the ring's centre, ahead of the player
 const NEAR_M := 0.8  # nothing comes closer ahead than this (but the presented cup)
-const INNER := {"n": 16, "r_m": 1.0, "size_m": 0.12, "spin": 0.35}
-const OUTER := {"n": 24, "r_m": 1.6, "size_m": 0.14, "spin": -0.22}
+const GROUND := 40  # dancers on the floor, scattered at random around the cup (no rings)
+const FLYERS := 22  # dancers floating in the air above them, bobbing, drifting and spinning
+const FLY_NEAR_M := 2.4  # the flyers stay this far ahead (they float at eye height)
+const SCATTER_M := Vector2(0.85, 2.0)  # the dancers' distance from the cup (metres)
 const MOLES := 8
 const MOLE_UP := 1.4  # seconds a mole stays up
 const GIANT_M := 0.85  # the giant's radius
@@ -91,6 +93,10 @@ var _beat := 0
 var _accs: Array = []  # the accessories the actors wear, in order
 var _ready_accs := {}  # accessory -> built (Crowd.prepare), a few each frame
 var _moles: Array = []  # {at: Vector3 offset from centre (game units), t0}
+## Each dancer's own random spot and rhythm: {x, z (metres: across, ahead of the cup), size,
+## hop, ph, wander, spin, style, col} on the floor; flyers add {y, orbit}.
+var _dancers: Array = []
+var _flyers: Array = []
 var _fireworks: Array = []  # {t, p, launched}
 var _rng := RandomNumberGenerator.new()
 var _equipped := false
@@ -99,7 +105,7 @@ var _equipped := false
 func _init() -> void:
 	name = "Finale"
 	visible = false
-	crowd = Crowd.new(INNER.n + OUTER.n + MOLES + 2, true, true)
+	crowd = Crowd.new(GROUND + FLYERS + MOLES + 2, true, true)
 	crowd.name = "FinaleCrowd"
 	add_child(crowd)
 	cup = MeshInstance3D.new()
@@ -184,6 +190,7 @@ func start(celebrate_first := false) -> void:
 	var ahead: Vector3 = host.to_game(head.origin + f)
 	fwd = Vector3(ahead.x - eye.x, 0.0, ahead.z - eye.z).normalized()
 	centre = Vector3(eye.x, floor_y, eye.z) + fwd * AHEAD_M * unit
+	_scatter()
 	# The moles: spots inside the inner ring (not on the cup), each up in its own moment.
 	_moles.clear()
 	for i in MOLES:
@@ -209,6 +216,45 @@ func start(celebrate_first := false) -> void:
 	banner.visible = false
 	sub.visible = false
 	_step_actors()
+
+
+## Random spots and rhythms for the dancers: on the floor around the cup (never on it, never
+## nearer the player than NEAR_M) and in the air above them.
+func _scatter() -> void:
+	_dancers.clear()
+	_flyers.clear()
+	var tries := 0
+	while _dancers.size() < GROUND and tries < GROUND * 40:
+		tries += 1
+		var a := _rng.randf() * TAU
+		var r := sqrt(_rng.randf_range(pow(SCATTER_M.x, 2.0), pow(SCATTER_M.y, 2.0)))
+		var x := sin(a) * r
+		var z := cos(a) * r
+		if AHEAD_M + z < NEAR_M + 0.25:
+			continue
+		var crowded := false
+		for d: Dictionary in _dancers:
+			if Vector2(x - float(d.x), z - float(d.z)).length() < 0.24:
+				crowded = true
+				break
+		if crowded:
+			continue
+		_dancers.append(_one(x, z, _rng.randf_range(0.1, 0.16)))
+	for i in FLYERS:
+		var x := _rng.randf_range(-2.4, 2.4)
+		var z := _rng.randf_range(0.2, 2.6)
+		var f := _one(x, z, _rng.randf_range(0.08, 0.12))
+		f.y = _rng.randf_range(1.3, 2.9)
+		f.orbit = _rng.randf_range(0.15, 0.5) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		_flyers.append(f)
+
+
+func _one(x: float, z: float, size: float) -> Dictionary:
+	var style: String = DahroojLooks.STYLES[_rng.randi() % DahroojLooks.STYLES.size()]
+	var hex: String = COLORS[_rng.randi() % COLORS.size()]
+	return {"x": x, "z": z, "size": size, "hop": _rng.randf_range(1.3, 2.3), "ph": _rng.randf(),
+		"wander": _rng.randf_range(0.03, 0.12), "spin": _rng.randf_range(0.2, 0.5), "style": style,
+		"col": Color(hex) if hex != "" and style in DahroojLooks.TINTED else null}
 
 
 ## Ends the show at once (tidy: nothing left showing).
@@ -355,39 +401,52 @@ func _step_actors() -> void:
 	var go := clampf((t - 11.2) / 2.0, 0.0, 1.0)
 	var dance := clampf((t - 2.0) / 0.6, 0.0, 1.0) * (1.0 - go)
 	var k := 0
-	for ri in 2:
-		var ring: Dictionary = INNER if ri == 0 else OUTER
-		var n: int = ring.n
-		var size: float = float(ring.size_m) * unit
-		for i in n:
-			var a := TAU * (i + 0.5) / n + float(ring.spin) * maxf(0.0, t - 1.0)
-			# They come in from further ahead and hop away the same way: never toward the player.
-			var r := float(ring.r_m) * lerpf(0.6, 1.0, come_e) * unit
-			var away := (2.5 * (1.0 - come_e) + 3.0 * go * go) * unit
-			var at := centre + (side * sin(a) + fwd * cos(a)) * r + fwd * away
-			var phase := fposmod(t * 1.7 + i * 0.13 + (0.5 if ri == 1 else 0.0), 1.0)
-			# Hops (the wave travels around the ring), squash on landing, stretch on the way up.
-			var hop := sin(PI * phase)
-			var walk := (1.0 - dance) * 0.35 * absf(sin(t * 9.0 + i))
-			var up := (hop * 0.2 * dance + walk * 0.12) * unit
-			var sy := 1.0 + dance * (0.14 * pow(cos(PI * phase), 2.0) - 0.3 * exp(-pow(minf(phase, 1.0 - phase) / 0.06, 2.0)))
-			var sq := Vector2(1.0 / sqrt(maxf(0.4, sy)), sy)
-			var grow := clampf(come * 3.0, 0.0, 1.0) * (1.0 - go)
-			var rad := size * maxf(0.001, grow)
-			var pos := at + Vector3.UP * (rad * sy + up)
-			# Each one spins round now and then, in turn.
-			var spin_ph := fposmod(t * 0.33 + float(i) / n, 1.0)
-			var spin := TAU * smoothstep(0.0, 0.18, spin_ph) * dance
-			var look := (Vector3(eye.x, pos.y, eye.z) - pos).normalized().rotated(Vector3.UP, spin)
-			var eyes := "wide" if hop > 0.75 else ("shut" if fposmod(t * 0.7 + i * 0.37, 1.0) < 0.04 else "open")
-			var style: String = DahroojLooks.STYLES[(i + 2 * ri) % DahroojLooks.STYLES.size()]
-			var hex: String = COLORS[(i * 3 + k) % COLORS.size()]
-			var col: Variant = null
-			if hex != "" and style in DahroojLooks.TINTED:
-				col = Color(hex)
-			crowd.add(style, pos, rad, pos + look, sq, eyes, _acc(k), col)
-			drawn.append([pos, rad])
-			k += 1
+	var grow := clampf(come * 3.0, 0.0, 1.0) * (1.0 - go)
+	# On the floor, scattered: each hops to its own beat, squashes on landing, sways about its
+	# spot and spins round now and then.
+	for d: Dictionary in _dancers:
+		var i := k
+		var ph := fposmod(t * float(d.hop) + float(d.ph), 1.0)
+		var hop := sin(PI * ph)
+		var wob := float(d.wander) * unit
+		var at := centre + side * (float(d.x) * unit + wob * sin(t * 1.3 + float(d.ph) * 9.0)) \
+			+ fwd * (float(d.z) * unit + wob * cos(t * 1.1 + float(d.ph) * 7.0))
+		# They come in from further ahead and hop away the same way: never toward the player.
+		at += fwd * (2.5 * (1.0 - come_e) + 3.0 * go * go) * unit
+		var walk := (1.0 - dance) * 0.35 * absf(sin(t * 9.0 + i))
+		var up := (hop * 0.22 * dance + walk * 0.12) * unit
+		var sy := 1.0 + dance * (0.14 * pow(cos(PI * ph), 2.0) - 0.3 * exp(-pow(minf(ph, 1.0 - ph) / 0.06, 2.0)))
+		var sq := Vector2(1.0 / sqrt(maxf(0.4, sy)), sy)
+		var rad := float(d.size) * unit * maxf(0.001, grow)
+		var pos := at + Vector3.UP * (rad * sy + up)
+		var spin_ph := fposmod(t * float(d.spin) + float(d.ph), 1.0)
+		var spin := TAU * smoothstep(0.0, 0.18, spin_ph) * dance
+		var look := (Vector3(eye.x, pos.y, eye.z) - pos).normalized().rotated(Vector3.UP, spin)
+		var eyes := "wide" if hop > 0.75 else ("shut" if fposmod(t * 0.7 + i * 0.37, 1.0) < 0.04 else "open")
+		crowd.add(String(d.style), pos, rad, pos + look, sq, eyes, _acc(k), d.col)
+		drawn.append([pos, rad])
+		k += 1
+	# In the air: they float up, bob, drift round the cup and tumble, cheering with the rest.
+	var fly_on := clampf((t - 1.2) / 1.4, 0.0, 1.0) * (1.0 - go)
+	for d: Dictionary in _flyers:
+		if fly_on <= 0.0:
+			break
+		var i := k
+		var ang := float(d.orbit) * maxf(0.0, t - 1.2)
+		var x := float(d.x) * cos(ang) - float(d.z) * sin(ang)
+		var z := float(d.x) * sin(ang) + float(d.z) * cos(ang)
+		if AHEAD_M + z < FLY_NEAR_M:
+			z = FLY_NEAR_M - AHEAD_M
+		var bob := 0.12 * sin(t * float(d.hop) * 2.0 + float(d.ph) * TAU)
+		var y := (float(d.y) * (0.4 + 0.6 * fly_on) + bob) * unit
+		var pos := centre + side * x * unit + fwd * z * unit + Vector3.UP * y
+		var rad := float(d.size) * unit * fly_on
+		var sy := 1.0 + 0.12 * sin(t * 6.0 + float(d.ph) * 5.0)
+		var spin := t * float(d.spin) * TAU
+		var look := (Vector3(eye.x, pos.y, eye.z) - pos).normalized().rotated(Vector3.UP, spin)
+		crowd.add(String(d.style), pos, maxf(0.001, rad), pos + look, Vector2(1.0 / sqrt(sy), sy), "wide", _acc(k), d.col)
+		drawn.append([pos, rad])
+		k += 1
 	# The moles: up out of their holes, a look around, back down.
 	for i in _moles.size():
 		var m: Dictionary = _moles[i]
@@ -410,7 +469,7 @@ func _step_actors() -> void:
 		var pos := base + Vector3.UP * rad * (0.15 + 0.75 * up_k)
 		var sy := 1.0 + 0.15 * sin(cyc * 18.0) * up_k
 		var look := (Vector3(eye.x, pos.y, eye.z) - pos).normalized().rotated(Vector3.UP, 0.5 * sin(cyc * 5.0))
-		crowd.add(DahroojLooks.STYLES[i % DahroojLooks.STYLES.size()], pos, rad, pos + look, Vector2(1.0 / sqrt(sy), sy), "wide", _acc(INNER.n + OUTER.n + i))
+		crowd.add(DahroojLooks.STYLES[i % DahroojLooks.STYLES.size()], pos, rad, pos + look, Vector2(1.0 / sqrt(sy), sy), "wide", _acc(GROUND + FLYERS + i))
 		drawn.append([pos, rad])
 	# The giant, behind the ring: grows up out of the floor, bounces slowly, beams at you.
 	var g_on := clampf((t - 0.4) / 1.8, 0.0, 1.0) * (1.0 - clampf((t - 11.6) / 1.6, 0.0, 1.0))

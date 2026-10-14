@@ -97,7 +97,7 @@ static func run(check: Callable) -> void:
 		for snd: Array in host.sounds:
 			names.append(snd[0])
 		var tag := "VR" if u == 2.0 else "MR"
-		var want_n := Finale.INNER.n + Finale.OUTER.n + 1
+		var want_n := Finale.GROUND + Finale.FLYERS + 1
 		check.call(most >= want_n and behind == 0 and near >= Finale.NEAR_M - 0.05,
 			"finale %s: %d dancers, all in front (nearest %.2f m ahead, %d behind)" % [tag, most, near, behind])
 		check.call(cup_ahead and presented, "finale %s: the World Cup rises ahead, then is presented %.1f m in front of the eyes" % [tag, Finale.PRESENT_M])
