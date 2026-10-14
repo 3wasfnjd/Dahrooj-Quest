@@ -1,7 +1,7 @@
 class_name ToastCard
 extends Node3D
 ## The notifications (xr-runtime.js "notifications", fed by complete-game.js toast()):
-## a slim card (0.46 m wide, 1024 x 220 layout) that drops in near the top of your
+## a slim card (0.4 m wide, 1024 x 220 layout) that drops in near the top of your
 ## view, about 0.8 m ahead and tilted with your head, follows your gaze, then slides
 ## back up and fades. A challenge done ("✓ " prefix) shows a check badge for 3.4 s,
 ## anything else a "!" badge for 2.4 s. Challenge and reward cards always wait their turn
@@ -17,7 +17,7 @@ signal buzz(kind: String)  ## a challenge or reward card appeared: pulse both ha
 
 const CW := 1024
 const CH := 220
-const WIDTH := 0.46
+const WIDTH := 0.4
 const PX := WIDTH / CW  # metres per layout pixel
 const TOAST_HOLD := 2.3
 ## Plain notes ("!") that may wait; challenge and reward cards are never dropped (up to
@@ -294,7 +294,8 @@ func step(dt: float) -> void:
 	var in_k := minf(1.0, t / 0.3)
 	var out_k := clampf((life - t) / 0.3, 0.0, 1.0)
 	var slide := (1.0 - _ease(in_k)) + (1.0 - _ease(out_k))
-	var spot := eye + fwd * 0.8 * s + up * (0.23 + 0.07 * slide) * s
+	# High in view (about 21° up), above where the stages' banners and combos show.
+	var spot := eye + fwd * 0.8 * s + up * (0.31 + 0.07 * slide) * s
 	var at := _get_pos()
 	_set_pos(spot if _first else at.lerp(spot, 1.0 - exp(-dt * 9.0)))
 	_first = false

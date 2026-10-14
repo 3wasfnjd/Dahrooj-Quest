@@ -2243,7 +2243,7 @@ func banner_at() -> Vector3:
 	to.y = 0.0
 	var d := minf(9.0 * size, to.length() * 0.5)
 	var dir := to.normalized() if to.length_squared() > 1e-6 else Vector3.FORWARD
-	var at := viewer + dir * d + Vector3.UP * d * 0.45
+	var at := viewer + dir * d + Vector3.UP * d * 0.62  # above his face, not on it
 	if room.ceil < INF:
 		at.y = minf(at.y, room.ceil - 1.2 * size)
 	return at
