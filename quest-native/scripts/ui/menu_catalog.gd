@@ -103,6 +103,9 @@ const CHALLENGES := [
 	["maze5", 5, "المتاهات الخمس", "All five mazes"],
 	["mazeClean", 1, "اجمع النجوم وأكمل المتاهة دون إعادة", "Collect the stars and finish without retrying"],
 ]
+## The studio site and the hosted privacy policy, shown on the About page.
+const WEBSITE := "abodengames.com"
+const PRIVACY_URL := "abodengames.com/dahrooj-privacy.html"
 ## Names and descriptions taken from the shipped credits.html.
 const CREDITS := [
 	["Aboden Games", "دحروج والتصميم والموسيقى والأصوات الأصلية", "Dahrooj, design, original music and sounds"],

@@ -815,13 +815,19 @@ func _details(ci: CanvasItem) -> void:
 			ci.draw_line(Vector2(cx - 200, 300), Vector2(cx + 200, 300), Color(1, 1, 1, 0.1), 1.5, true)
 		for i in MenuCatalog.CREDITS.size():
 			var cr: Array = MenuCatalog.CREDITS[i]
-			var y := 368.0 + i * 128.0
-			var box := Rect2(base + 64, y - 46, 760, 104)
+			var y := 360.0 + i * 112.0
+			var box := Rect2(base + 64, y - 42, 760, 96)
 			if ci != null:
 				ci.draw_polygon(Glass.rounded(box, 20, 8), PackedColorArray([Color(1, 1, 1, 0.04)]))
 				Glass.rim(ci, box, 20, 0.12, 0.04, 1.5)
 			_text(ci, cr[0], cx, y, 30, ACCENT if i == 0 else TEXT, 720, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
-			_text(ci, _say(cr[1], cr[2]), cx, y + 38, Glass.T_SMALL + 1, SUB, 720)
+			_text(ci, _say(cr[1], cr[2]), cx, y + 36, Glass.T_SMALL + 1, SUB, 720)
+		var links_y := 360.0 + MenuCatalog.CREDITS.size() * 112.0
+		if ci != null:
+			ci.draw_line(Vector2(cx - 200, links_y - 30), Vector2(cx + 200, links_y - 30), Color(1, 1, 1, 0.1), 1.5, true)
+		_text(ci, MenuCatalog.WEBSITE, cx, links_y + 8, 28, ACCENT, 760, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
+		_text(ci, _say("سياسة الخصوصية", "Privacy policy"), cx, links_y + 50, Glass.T_SMALL + 1, SUB, 760)
+		_text(ci, MenuCatalog.PRIVACY_URL, cx, links_y + 84, Glass.T_SMALL + 1, TEXT, 760, "center", Glass.W_BODY, TextServer.DIRECTION_LTR)
 
 
 ## Whether the model's challenges are all done (the final one, GameRuntime.ALL_DONE, finished).

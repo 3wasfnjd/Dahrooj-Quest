@@ -173,11 +173,11 @@
 - MP4 (H.264 + AAC)، بدقة 1080p إلى 2K.
 - يتسجّل من النظارة.
 
-**رابط سياسة الخصوصية:** مستضافة في موقع الاستوديو (مستودع `Aboden.Games` العام):
+**رابط سياسة الخصوصية:** مستضافة في موقع الاستوديو على النطاق الخاص (مستودع `aboden-games1/aboden-games1.github.io`):
 
-- الرابط: `https://3wasfnjd.github.io/Aboden.Games/dahrooj/privacy.html`
-- يشتغل بعد ما تفعّل GitHub Pages مرة وحدة في مستودع `Aboden.Games`: Settings ← Pages ← Deploy from a branch ← `main` ← `/ (root)` ← Save.
-- أي تعديل على السياسة: عدّل `store/privacy.html` هنا وانسخه لـ `dahrooj/privacy.html` في مستودع الاستوديو.
+- الرابط: `https://abodengames.com/dahrooj-privacy.html`
+- موقع الاستوديو: `https://abodengames.com`
+- أي تعديل على السياسة: عدّل `store/privacy.html` هنا وانسخه لـ `dahrooj-privacy.html` في مستودع الموقع.
 
 **الدعم:**
 

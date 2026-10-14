@@ -1573,25 +1573,21 @@ func _show_splash() -> void:
 	fwd = fwd.normalized() if fwd.length_squared() > 0.01 else Vector3.FORWARD
 	splash.global_position = head.origin + fwd * 1.4
 	splash.look_at(head.origin, Vector3.UP, true)
-	var cairo: FontFile = load("res://assets/fonts_cairo/cairo-arabic-700-normal.woff2")
-	var latin: FontFile = load("res://assets/fonts_cairo/cairo-latin-500-normal.woff2")
-	if cairo and latin:
-		cairo.fallbacks = [latin]
-	var ar := Panel3D.label("عبودين قيمز", 96, Color(1, 1, 1, 0))
-	ar.font = cairo
-	ar.pixel_size = 0.0011
-	var en := Panel3D.label("ABODEN GAMES", 40, Color(1, 1, 1, 0))
-	en.font = cairo
-	en.pixel_size = 0.0011
-	en.position.y = -0.11
-	splash.add_child(ar)
-	splash.add_child(en)
+	# The studio logo (assets/brand/aboden-games-white.svg: white symbol, Cairo lettering).
+	var logo := Sprite3D.new()
+	logo.texture = load("res://assets/brand/aboden-games-white.svg")
+	logo.pixel_size = 0.5 / float(maxi(1, logo.texture.get_width()))  # half a metre wide
+	logo.modulate = Color(1, 1, 1, 0)
+	logo.shaded = false
+	logo.double_sided = false
+	logo.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
+	logo.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	logo.render_priority = 3
+	splash.add_child(logo)
 	var tw := create_tween()
-	tw.tween_property(ar, "modulate:a", 1.0, 0.7)
-	tw.parallel().tween_property(en, "modulate:a", 0.9, 0.7)
+	tw.tween_property(logo, "modulate:a", 1.0, 0.7)
 	tw.tween_interval(3.0)
-	tw.tween_property(ar, "modulate:a", 0.0, 0.7)
-	tw.parallel().tween_property(en, "modulate:a", 0.0, 0.7)
+	tw.tween_property(logo, "modulate:a", 0.0, 0.7)
 	tw.tween_callback(func():
 		splash.queue_free()
 		_show_start())
