@@ -38,7 +38,10 @@ jobs:
           if [ "$KS_PASS" = "$BACKUP_PASS" ]; then
             echo "::error::KEY_BACKUP_PASSWORD must differ from DAHROOJ_KEYSTORE_PASSWORD."; exit 1
           fi
-          if gh secret list --repo "$GH_REPO" --json name -q '.[].name' | grep -qx DAHROOJ_KEYSTORE_B64; then
+          if ! EXISTING="$(gh secret list --repo "$GH_REPO" --json name -q '.[].name')"; then
+            echo "::error::SIGNING_ADMIN_TOKEN cannot read this repo's secrets. Give the token 'Secrets: Read and write' on Dahrooj-Quest."; exit 1
+          fi
+          if printf '%s\n' "$EXISTING" | grep -qx DAHROOJ_KEYSTORE_B64; then
             echo "::error::DAHROOJ_KEYSTORE_B64 already exists. Refusing to replace the permanent store key."; exit 1
           fi
           KS="$RUNNER_TEMP/dahrooj-release.keystore"
