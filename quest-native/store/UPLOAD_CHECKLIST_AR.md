@@ -173,17 +173,11 @@
 - MP4 (H.264 + AAC)، بدقة 1080p إلى 2K.
 - يتسجّل من النظارة.
 
-**رابط سياسة الخصوصية:** الملف `store/privacy.html` (عربي وإنجليزي). يحتاج مكان عام يستضيفه:
+**رابط سياسة الخصوصية:** مستضافة في موقع الاستوديو (مستودع `Aboden.Games` العام):
 
-- **GitHub Pages:**
-  - ما فيه سير عمل Pages في المستودع حاليًا.
-  - إذا فعّلت Pages من الإعدادات (Deploy from a branch ← `main` ← `/root`) بعد دمج الملف في `main`، يصير الرابط تقريبًا:
-    `https://3wasfnjd.github.io/Dahrooj-Quest/quest-native/store/privacy.html`
-  - المستودع لازم يكون عامًا، أو خطتك تسمح بـPages للمستودعات الخاصة.
-  - **فعّل Pages بنفسك.** الجلسة ما غيّرت أي إعدادات.
-- **أو موقع الويب على Vercel:**
-  - انسخ الملف إلى `public/privacy-quest.html`، فيصير `{APP_ORIGIN}/privacy-quest.html` بعد ما يشتغل سير عمل Deploy.
-  - Deploy حاليًا متوقف لحد ما يتضبط `APP_ORIGIN`.
+- الرابط: `https://3wasfnjd.github.io/Aboden.Games/dahrooj/privacy.html`
+- يشتغل بعد ما تفعّل GitHub Pages مرة وحدة في مستودع `Aboden.Games`: Settings ← Pages ← Deploy from a branch ← `main` ← `/ (root)` ← Save.
+- أي تعديل على السياسة: عدّل `store/privacy.html` هنا وانسخه لـ `dahrooj/privacy.html` في مستودع الاستوديو.
 
 **الدعم:**
 
