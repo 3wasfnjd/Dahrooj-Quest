@@ -197,6 +197,17 @@ func _world(main: Node) -> void:
 	wb.clear_blast()
 	main.begin_opening()
 	check(main.intro.active and not main.stage.visible, "the opening: Dahroojs rain, the court waits")
+	var keep_state: String = main.state
+	main.state = "play"
+	main._on_menu()
+	main._on_button("left", "ax", true)
+	main._on_button("left", "by", true)
+	check(not main.menu.visible, "the opening: the menu, challenges and look stay shut until play starts")
+	main.state = "start"
+	main._on_menu()
+	main._on_button("left", "ax", true)
+	check(not main.menu.visible, "the start screen: no menus")
+	main.state = keep_state
 	for i in 72 * 4:
 		main._step_intro(1.0 / 72.0)
 	check(main.intro.start_ready, "the start button comes after a few seconds")

@@ -955,10 +955,10 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 	# Owner's layout: the menu button opens the mode list, left X the challenges, left Y
 	# Dahrooj's look. Right A: the Summit's jump, ricochet's next paddle, elsewhere the next
 	# open shot style; right B: the next open accessory (not on the Summit).
-	if down and (state == "play" or state == "menu") and hand == "left" and name == "by":
+	if down and _menus_ready() and hand == "left" and name == "by":
 		toggle_menu("appearance")
 		return
-	if down and (state == "play" or state == "menu") and hand == "left" and name == "ax":
+	if down and _menus_ready() and hand == "left" and name == "ax":
 		toggle_menu("challenges")
 		return
 	if hand == "right" and (name == "ax" or name == "by"):
@@ -1573,8 +1573,13 @@ func _show_start() -> void:
 	panel.visible = true
 
 
+## Menus open only once the game has started: not on the start screen or during the opening.
+func _menus_ready() -> bool:
+	return (state == "play" or state == "menu") and not _opening()
+
+
 func _on_menu() -> void:
-	if state == "play" or state == "menu":
+	if _menus_ready():
 		toggle_menu("modes")
 	elif state == "start":
 		panel.place(head_transform(), 0.75, 0.05)
