@@ -206,7 +206,13 @@ func _world(main: Node) -> void:
 	main.state = keep_state
 	for i in 72 * 4:
 		main._step_intro(1.0 / 72.0)
-	check(main.intro.start_ready, "the start button comes after a few seconds")
+	check(main.intro.start_ready, "the start button comes after a moment")
+	# A start page only: the trigger anywhere but on its buttons fires nothing.
+	wb.clear_blast()
+	main.auto_fire.clear()
+	main.on_start["right"] = ""
+	main._press("right", "trigger")
+	check(wb.shots.is_empty() and main.auto_fire.is_empty() and main.intro.active, "the opening: the trigger off the panel does not shoot")
 	main.on_start["right"] = "play"
 	main.intro.leaving = 0.0
 	main._press("right", "trigger")

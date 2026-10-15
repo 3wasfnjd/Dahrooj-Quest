@@ -405,7 +405,7 @@ func step(dt: float, head: Transform3D) -> void:
 		b.blink = maxf(0.0, b.blink - dt)
 	_push_apart(live, dt)
 	_step_sparks(dt)
-	if not rain and not start_ready and (t > 3.2 or (use_wall_clock and Time.get_ticks_msec() - wall > 3200)):
+	if not rain and not start_ready and (t > START_DELAY or (use_wall_clock and Time.get_ticks_msec() - wall > START_DELAY * 1000.0)):
 		# In the middle of your view, a little below eye level; it then follows your head.
 		start_ready = true
 		start_panel.position = _start_spot(hpos, dir)
@@ -629,6 +629,8 @@ const START_PX := Vector2i(1024, 640)
 const START_AHEAD := 0.85
 const START_DROP := 0.18
 const START_FOLLOW := 2.5
+## Seconds into the opening before the start panel shows (a start page: no shooting to wait for).
+const START_DELAY := 0.6
 ## The start panel's buttons (layout px): mixed reality, VR and the language in a row of
 ## icons above Play.
 const START_ITEMS := {
@@ -668,8 +670,7 @@ func _refresh_start() -> void:
 	if key == _start_key:
 		return
 	_start_key = key
-	start_line = (Save.text("فجّرت %d" % popped, "Popped %d" % popped) if popped > 0
-		else Save.text("وجّه يدك واضغط الزناد لتفجير الكور", "Aim and pull the trigger to pop the balls"))
+	start_line = Save.text("وجّه يدك واضغط الزناد للاختيار", "Point and pull the trigger to choose")
 	_start_sheet.queue_redraw()
 	_start_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
@@ -728,19 +729,10 @@ func _set_hot(item: String) -> void:
 ## "vr", "lang"), or "" (the panel's empty glass counts as nothing). Lights that button. Call
 ## it for each hand every frame; main acts on the trigger.
 func start_item(origin: Vector3, dir: Vector3) -> String:
-	if not active or not start_panel.visible:
+	var hit := _start_ray(origin, dir)
+	if hit.is_empty():
 		return ""
-	var inv := (_world() * start_panel.transform).affine_inverse()
-	var o := inv * origin
-	var d := inv.basis * dir
-	if absf(d.z) < 1e-6:
-		return ""
-	var u := -o.z / d.z
-	if u <= 0.0:
-		return ""
-	var p := o + d * u
-	if absf(p.x) > START_W / 2 or absf(p.y) > START_H / 2:
-		return ""
+	var p: Vector3 = hit.local
 	var px := Vector2((p.x / START_W + 0.5) * START_PX.x, (0.5 - p.y / START_H) * START_PX.y)
 	for id: String in START_ITEMS:
 		if (START_ITEMS[id] as Rect2).grow(8).has_point(px):
@@ -749,6 +741,31 @@ func start_item(origin: Vector3, dir: Vector3) -> String:
 				_set_hot(id)
 			return id
 	return ""
+
+
+## The ray's length (global units) to the start panel, or -1 when it misses (the pointer ray).
+func start_ray_distance(origin: Vector3, dir: Vector3) -> float:
+	var hit := _start_ray(origin, dir)
+	return -1.0 if hit.is_empty() else float(hit.dist)
+
+
+## The global ray against the start panel: {local: point on the panel, dist: global length}, or {}.
+func _start_ray(origin: Vector3, dir: Vector3) -> Dictionary:
+	if not active or not start_panel.visible:
+		return {}
+	var xf := _world() * start_panel.transform
+	var inv := xf.affine_inverse()
+	var o := inv * origin
+	var d := inv.basis * dir
+	if absf(d.z) < 1e-6:
+		return {}
+	var u := -o.z / d.z
+	if u <= 0.0:
+		return {}
+	var p := o + d * u
+	if absf(p.x) > START_W / 2 or absf(p.y) > START_H / 2:
+		return {}
+	return {"local": p, "dist": origin.distance_to(xf * p)}
 
 
 ## Whether the ray is on the Play button.

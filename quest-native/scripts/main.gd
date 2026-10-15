@@ -721,6 +721,13 @@ func _process(delta: float) -> void:
 				var dist := panel.ray_distance(r[0], r[1])
 				rig.set_pointer(h, {"point": r[0] + r[1] * dist, "interactive": true} if dist > 0.0 else null, true)
 				break
+	elif xr and _opening() and intro.start_panel.visible:
+		# The start page: a pointer ray from each controller onto the panel.
+		for h in ["right", "left"]:
+			if rig.tracked(h):
+				var r := rig.ray(h)
+				var dist := intro.start_ray_distance(r[0], r[1])
+				rig.set_pointer(h, {"point": r[0] + r[1] * dist, "interactive": on_start[h] != ""} if dist > 0.0 else null, true)
 	elif xr:
 		rig.set_pointer("left", null, false)
 		rig.set_pointer("right", null, false)
@@ -1072,9 +1079,7 @@ func _press(hand: String, how: String) -> void:
 			rig.pulse(hand, 0.2, 0.03)
 			Save.language = "en" if Save.arabic() else "ar"
 			Save.save()
-		else:
-			intro.shot_hand = hand
-			_fire_blast(hand)
+		# Anywhere else: nothing (the opening is a start page; no shots to confuse Play).
 		return
 	if placing:
 		if how == "trigger" and not anchor.is_empty():

@@ -132,14 +132,14 @@ static func _start(check: Callable) -> void:
 	ir.begin(false)
 	for i in 3:
 		ir.step(DT, _head())
-	while ir.t < 3.15:
+	while ir.t < IntroRain.START_DELAY - 0.05:
 		ir.step(DT, _head())
-	check.call(not ir.start_panel.visible, "start: no button before 3.2 s")
+	check.call(not ir.start_panel.visible, "start: the start page shows after a moment (%.1f s), not at once" % IntroRain.START_DELAY)
 	for i in 8:
 		ir.step(DT, _head())
 	var sp := ir.start_panel
 	check.call(sp.visible and absf(sp.position.y - (1.6 - IntroRain.START_DROP)) < 1e-3 and absf(-sp.position.z - IntroRain.START_AHEAD) < 1e-3 and absf(sp.position.x) < 1e-3,
-		"start: shows after 3.2 s, in the middle ahead, a little below the eyes (%s)" % sp.position)
+		"start: shows in the middle ahead, a little below the eyes (%s)" % sp.position)
 	# Turn the head right: the panel glides round to the middle of the view again.
 	var turned := Transform3D(Basis(Vector3.UP, -PI / 2.0), Vector3(0, 1.6, 0))  # looking along +X
 	for i in 72 * 3:
@@ -155,9 +155,10 @@ static func _start(check: Callable) -> void:
 	ir.step(DT, _head())
 	ir.step(DT, _head())
 	check.call(not ir._start_hot, "start: and dims when the ray leaves")
-	ir.pop_ball(ir.balls[0])
-	ir.step(DT, _head())
-	check.call(ir.start_line.ends_with("1"), "start: counts the pops (%s)" % ir.start_line)
+	check.call(ir.start_line == Save.text("وجّه يدك واضغط الزناد للاختيار", "Point and pull the trigger to choose"), "start: its hint says point and choose (%s)" % ir.start_line)
+	var near := sp.position
+	check.call(ir.start_ray_distance(Vector3(near.x, 1.6, 0), (near - Vector3(near.x, 1.6, 0)).normalized()) > 0.5
+		and ir.start_ray_distance(Vector3(near.x, 1.6, 0), Vector3(0, 1, 0)) < 0.0, "start: the pointer ray reaches the panel (and misses away from it)")
 	var spill: Array = []
 	for r: Dictionary in ir.measure_start():
 		if float(r.w) > float(r.max_w) + 0.5:
