@@ -77,12 +77,12 @@ var menu_hover := -1
 var menu_hand := "right"
 var scroll_drag := {}  # {v, track} while the trigger drags the challenge list
 var reset_arm := 0.0
-var on_start := {"left": false, "right": false}
+var on_start := {"left": "", "right": ""}  # the start panel button each hand points at
 var _sound_state := ""
 var panel: Panel3D
 var xr := false
 var desktop_cam: Camera3D
-var state := "boot"  # boot, start, play, menu
+var state := "boot"  # boot, play, menu
 var scale_now := VR_SCALE
 var mode := "vr"
 var anchor := {}  # MR: {p: Vector3 (real surface point), theta: float}
@@ -512,6 +512,8 @@ func set_mode(m: String) -> void:
 		mode = m
 	mode = m
 	park.visible = m == "vr"
+	if intro:
+		intro.view_mode = m
 	if m == "mr":
 		env.background_mode = Environment.BG_COLOR
 		env.background_color = Color(0, 0, 0, 0)
@@ -728,7 +730,7 @@ func _xr_states(delta: float) -> void:
 	if state == "boot":
 		_session_time += delta
 		if rig.focused and _session_time > 0.5 and (head_transform().origin.y > 0.3 or _session_time > 3.0):
-			_show_start()  # the studio logo is the Meta system splash (vr_splash.png)
+			_start_game()  # the studio logo is the Meta system splash (vr_splash.png)
 
 
 func _record(hand: String, p: Vector3) -> void:
@@ -999,14 +1001,6 @@ func _on_button(hand: String, name: String, down: bool) -> void:
 		elif name == "trigger" and not down:
 			scroll_drag = {}
 		return
-	if state == "start":
-		if down and name == "trigger":
-			var r := rig.ray(hand)
-			var id := panel.hit(r[0], r[1])
-			if id != "":
-				rig.pulse(hand, 0.2, 0.03)
-				_panel_action(id)
-		return
 	if state != "play":
 		return
 	# Summit: right A jumps (above); a trigger throws (held: keeps throwing), so no shots
@@ -1062,11 +1056,22 @@ func _press(hand: String, how: String) -> void:
 	if _opening() and not intro.leaving:
 		if how != "trigger":
 			return
-		if on_start[hand] and intro.end_intro():
+		var item: String = on_start[hand]
+		if item == "play" and intro.end_intro():
 			placing = mode == "mr"
 			_anchor_vr_here()
 			ball.respawn()
 			stage.visible = true
+		elif item == "mr" or item == "vr":
+			rig.pulse(hand, 0.2, 0.03)
+			if item != mode:
+				Save.mode = item
+				Save.save()
+				set_mode(item)
+		elif item == "lang":
+			rig.pulse(hand, 0.2, 0.03)
+			Save.language = "en" if Save.arabic() else "ar"
+			Save.save()
 		else:
 			intro.shot_hand = hand
 			_fire_blast(hand)
@@ -1139,14 +1144,14 @@ func begin_opening() -> void:
 
 func _step_intro(dt: float) -> void:
 	if not intro.active:
-		on_start = {"left": false, "right": false}
+		on_start = {"left": "", "right": ""}
 		return
 	if not (intro.rain and state == "menu"):  # Dahrooj Rain pauses with the menu
 		intro.step(dt, head_transform())
 	for h in ["left", "right"]:
 		if rig.tracked(h):
 			var r := rig.ray(h)
-			on_start[h] = intro.start_hit(r[0], r[1])
+			on_start[h] = intro.start_item(r[0], r[1])
 
 
 ## Crate blasts clear nearby characters in a 3D radius, never the ball held by the player.
@@ -1578,14 +1583,12 @@ func _step_hurt(dt: float) -> void:
 
 # --- splash, start screen and menu ---------------------------------------------------
 
-func _show_start() -> void:
-	state = "start"
-	panel.build(Save.text("دحروج", "Dahrooj"), Save.text("اختر طريقة اللعب", "Choose how to play"),
-		[["mr", Save.text("الواقع المختلط — في غرفتك", "Mixed reality — in your room")],
-		["vr", Save.text("الواقع الافتراضي — في الحديقة", "Virtual reality — in the park")],
-		["lang", Save.text("English", "العربية")]])
-	panel.place(head_transform(), 0.75, 0.05)
-	panel.visible = true
+## After the system splash: straight into the opening in the saved view (mixed reality or
+## VR); its start panel switches the view and the language above the Play button.
+func _start_game() -> void:
+	set_mode(Save.mode)
+	state = "play"
+	begin_opening()
 
 
 ## Menus open only once the game has started: not on the start screen or during the opening.
@@ -1596,8 +1599,6 @@ func _menus_ready() -> bool:
 func _on_menu() -> void:
 	if _menus_ready():
 		toggle_menu("modes")
-	elif state == "start":
-		panel.place(head_transform(), 0.75, 0.05)
 
 
 func _close_menu() -> void:
@@ -1696,6 +1697,14 @@ func _menu_action(i: int) -> void:
 			Save.language = "en" if Save.arabic() else "ar"
 			Save.save()
 			menu_hover = -1
+		"view":
+			# Mixed reality / VR from the World page: switch, close the menu (MR then pins).
+			if String(b.id) != mode:
+				Save.mode = String(b.id)
+				Save.save()
+				set_mode(String(b.id))
+			set_menu(false)
+			return
 		"time", "weather":
 			if nature_on():
 				park.set_settings({String(b.kind): String(b.id)})
@@ -2154,9 +2163,6 @@ func _choose_mode(id: String) -> void:
 func _on_recenter() -> void:
 	if state == "boot":
 		return
-	if state == "start":
-		panel.place(head_transform(), 0.75, 0.05)
-		return
 	replace_here()
 
 
@@ -2176,22 +2182,11 @@ func replace_here() -> void:
 
 func _panel_action(id: String) -> void:
 	match id:
-		"mr", "vr":
-			Save.mode = id
-			Save.save()
-			set_mode(id)
-			panel.visible = false
-			state = "play"
-			if xr:
-				begin_opening()
 		"lang":
 			Save.language = "en" if Save.arabic() else "ar"
 			Save.save()
-			if state == "start":
-				_show_start()
-			else:
-				state = "play"
-				_on_menu()
+			state = "play"
+			_on_menu()
 		"resume":
 			_close_menu()
 		"recall":
@@ -2247,8 +2242,10 @@ func _screenshot() -> void:
 		state = "play"
 		_on_menu()
 		panel.place(head_transform(), 0.7, 0.1)
-	if _args.has("start"):
-		_show_start()
+	if _args.has("start"):  # the opening with its start panel up
+		begin_opening()
+		intro.t = 3.3
+		_step_intro(1.0 / 72.0)
 	for i in 6:
 		await get_tree().process_frame
 	_game_step(0.0)

@@ -33,7 +33,7 @@ const SPARKS_MAX := 80
 ## appearance.ts JELLY_COLORS: the rain's seven colours.
 const JELLY_COLORS := ["ff69b4", "ff505c", "ff9b3d", "ffdf45", "58db83", "58b9ff", "b878ff"]
 const START_W := 0.56
-const START_H := 0.28
+const START_H := 0.35
 
 
 class Drop:
@@ -109,7 +109,7 @@ var clock := 0.0
 var _ids := 0
 var _next_ambient_pop := 0.0
 var _spark_mm: MultiMesh
-var _start_hot := false
+var _start_hot := ""  # the item the ray is on: "play", "mr", "vr", "lang" or ""
 var _hit_seen := false
 var _start_key := ""
 var _start_vp: SubViewport
@@ -297,8 +297,8 @@ func step(dt: float, head: Transform3D) -> void:
 	if not active:
 		return
 	clock += dt
-	if not _hit_seen and _start_hot:
-		_set_hot(false)
+	if not _hit_seen and _start_hot != "":
+		_set_hot("")
 	_hit_seen = false
 	var hl := _head_local(head)
 	var hpos: Vector3 = hl[0]
@@ -618,7 +618,15 @@ func _head_local(head: Transform3D) -> Array:
 	return [l.origin, d]
 
 
-const START_PX := Vector2i(1024, 512)
+const START_PX := Vector2i(1024, 640)
+## The start panel's buttons (layout px): mixed reality, VR and the language in a row of
+## icons above Play.
+const START_ITEMS := {
+	"mr": Rect2(232, 150, 170, 120), "vr": Rect2(427, 150, 170, 120), "lang": Rect2(622, 150, 170, 120),
+	"play": Rect2(232, 300, 560, 150),
+}
+## Main: the current view ("mr" / "vr"), shown selected among the icons.
+var view_mode := "vr"
 
 
 ## The start panel in the frosted-glass style (Glass): the name, an accent "Play"
@@ -646,7 +654,7 @@ func _build_start() -> void:
 
 ## drawStart(hot): only when something changed.
 func _refresh_start() -> void:
-	var key := "%s|%d|%s" % [_start_hot, popped, Save.arabic()]
+	var key := "%s|%d|%s|%s" % [_start_hot, popped, Save.arabic(), view_mode]
 	if key == _start_key:
 		return
 	_start_key = key
@@ -656,14 +664,26 @@ func _refresh_start() -> void:
 	_start_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
-## Paints the start panel (ci null: lays the labels out only).
+## Paints the start panel (ci null: lays the labels out only): the name, the row of icons
+## (mixed reality, VR, the language) and the accent Play button with a line under it.
 func _paint_start(ci: CanvasItem) -> void:
 	start_texts = []
 	Glass.panel(ci, Rect2(Vector2.ZERO, Vector2(START_PX)), 64.0)
-	start_texts.append(Glass.text(ci, Save.text("دحروج", "Dahrooj"), 512, 138, 88, Glass.TEXT, 900, "center", Glass.W_TITLE))
-	var btn := Rect2(232, 210, 560, 150)
-	Glass.card(ci, btn, 75, "selected-hot" if _start_hot else "selected")
-	if _start_hot and ci != null:
+	start_texts.append(Glass.text(ci, Save.text("دحروج", "Dahrooj"), 512, 112, 72, Glass.TEXT, 900, "center", Glass.W_TITLE))
+	for id: String in ["mr", "vr", "lang"]:
+		var r: Rect2 = START_ITEMS[id]
+		var on := id == view_mode
+		var hot := id == _start_hot
+		Glass.card(ci, r, 30, ("selected-hot" if hot else "selected") if on else ("hot" if hot else "rest"))
+		var c := r.get_center()
+		if id == "lang":
+			MenuPanel.lang_icon(ci, c, 82)
+		elif ci != null:
+			MenuIcons.draw_hi(ci, id, c, 92, Glass.TEXT, Color(Glass.ACCENT, 0.95 if on else 0.55))
+	var btn: Rect2 = START_ITEMS.play
+	var play_hot := _start_hot == "play"
+	Glass.card(ci, btn, 75, "selected-hot" if play_hot else "selected")
+	if play_hot and ci != null:
 		# The ring of the original's lit button.
 		var ring := Glass.rounded(btn.grow(9), 84, 10)
 		ring.append(ring[0])
@@ -673,13 +693,14 @@ func _paint_start(ci: CanvasItem) -> void:
 	var tw := Glass.width(label, fs, Glass.W_TITLE)
 	var gw := 52.0 + 22.0 + tw
 	var x0 := 512.0 - gw / 2.0
+	var cy := btn.get_center().y
 	var tri_x := x0 if not Save.arabic() else x0 + gw - 52.0
 	if ci != null:
-		var c := Vector2(tri_x + 26.0, 285)
+		var c := Vector2(tri_x + 26.0, cy)
 		ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-18, -28), c + Vector2(26, 0), c + Vector2(-18, 28)]), Glass.TEXT)
 	var tx := x0 + 74.0 if not Save.arabic() else x0 + tw
-	start_texts.append(Glass.text(ci, label, tx, 285 + fs * 0.36, fs, Glass.TEXT, 380, "left" if not Save.arabic() else "right", Glass.W_TITLE))
-	start_texts.append(Glass.text(ci, start_line, 512, 440, 32, Glass.SUB, 900, "center", Glass.W_BODY))
+	start_texts.append(Glass.text(ci, label, tx, cy + fs * 0.36, fs, Glass.TEXT, 380, "left" if not Save.arabic() else "right", Glass.W_TITLE))
+	start_texts.append(Glass.text(ci, start_line, 512, 540, 32, Glass.SUB, 900, "center", Glass.W_BODY))
 
 
 ## Every label the start panel draws (measured, not drawn).
@@ -688,28 +709,38 @@ func measure_start() -> Array:
 	return start_texts
 
 
-func _set_hot(on: bool) -> void:
-	_start_hot = on
+func _set_hot(item: String) -> void:
+	_start_hot = item
 	_refresh_start()
 
 
-## The controller ray (global) on the start panel: true when it points at it (a trigger
-## then calls end_intro()); lights the button. Call it for each hand every frame.
-func start_hit(origin: Vector3, dir: Vector3) -> bool:
+## The controller ray (global) on the start panel: the button it points at ("play", "mr",
+## "vr", "lang"), or "" (the panel's empty glass counts as nothing). Lights that button. Call
+## it for each hand every frame; main acts on the trigger.
+func start_item(origin: Vector3, dir: Vector3) -> String:
 	if not active or not start_panel.visible:
-		return false
+		return ""
 	var inv := (_world() * start_panel.transform).affine_inverse()
 	var o := inv * origin
 	var d := inv.basis * dir
 	if absf(d.z) < 1e-6:
-		return false
+		return ""
 	var u := -o.z / d.z
 	if u <= 0.0:
-		return false
+		return ""
 	var p := o + d * u
 	if absf(p.x) > START_W / 2 or absf(p.y) > START_H / 2:
-		return false
-	_hit_seen = true
-	if not _start_hot:
-		_set_hot(true)
-	return true
+		return ""
+	var px := Vector2((p.x / START_W + 0.5) * START_PX.x, (0.5 - p.y / START_H) * START_PX.y)
+	for id: String in START_ITEMS:
+		if (START_ITEMS[id] as Rect2).grow(8).has_point(px):
+			_hit_seen = true
+			if _start_hot != id:
+				_set_hot(id)
+			return id
+	return ""
+
+
+## Whether the ray is on the Play button.
+func start_hit(origin: Vector3, dir: Vector3) -> bool:
+	return start_item(origin, dir) == "play"

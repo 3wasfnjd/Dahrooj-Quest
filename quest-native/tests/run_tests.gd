@@ -203,15 +203,11 @@ func _world(main: Node) -> void:
 	main._on_button("left", "ax", true)
 	main._on_button("left", "by", true)
 	check(not main.menu.visible, "the opening: the menu, challenges and look stay shut until play starts")
-	main.state = "start"
-	main._on_menu()
-	main._on_button("left", "ax", true)
-	check(not main.menu.visible, "the start screen: no menus")
 	main.state = keep_state
 	for i in 72 * 4:
 		main._step_intro(1.0 / 72.0)
 	check(main.intro.start_ready, "the start button comes after a few seconds")
-	main.on_start["right"] = true
+	main.on_start["right"] = "play"
 	main.intro.leaving = 0.0
 	main._press("right", "trigger")
 	for i in 40:
@@ -310,10 +306,45 @@ func _scene() -> void:
 	main.set_mode("mr")
 	var after: Vector3 = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
 	check(absf(after.length() - 1.6) < 0.3 and main.scale_now == 8.0, "MR: the goal on the floor 1.6 m ahead, 1/8 size")
-	main._show_start()
-	check(main.panel.visible and main.panel.rows.size() == 3, "start screen offers mixed reality, VR and the language")
-	main._panel_action("vr")
-	check(main.state == "play" and main.mode == "vr", "choosing VR starts the game")
+	# No separate start screen: straight into the opening, whose start panel has the view and
+	# the language as icons above Play.
+	Save.mode = "vr"
+	main._start_game()
+	check(main.state == "play" and main.mode == "vr" and main.intro.active and not main.panel.visible,
+		"after the splash: straight into the opening, in the saved view")
+	check(main.intro.view_mode == "vr" and main.intro.START_ITEMS.has("mr") and main.intro.START_ITEMS.has("lang")
+		and (main.intro.START_ITEMS.mr as Rect2).end.y < (main.intro.START_ITEMS.play as Rect2).position.y,
+		"the start panel: mixed reality, VR and language icons above Play")
+	main.on_start["right"] = "mr"
+	main._press("right", "trigger")
+	check(main.mode == "mr" and Save.mode == "mr" and main.intro.view_mode == "mr" and main.intro.active, "its MR icon switches the view (the opening goes on)")
+	main.on_start["right"] = "vr"
+	main._press("right", "trigger")
+	check(main.mode == "vr" and Save.mode == "vr", "and its VR icon back")
+	var lang_was := Save.language
+	main.on_start["right"] = "lang"
+	main._press("right", "trigger")
+	check(Save.language != lang_was, "its language icon switches the language")
+	Save.language = lang_was
+	main.on_start["right"] = ""
+	main.intro.clear()
+	main.stage.visible = true
+	# The menu's World page: the same switch, as two icon cards.
+	main.state = "play"
+	main.set_menu(true, "world")
+	var view_i := -1
+	for i in main.menu.buttons.size():
+		if main.menu.buttons[i].kind == "view" and main.menu.buttons[i].id == "mr":
+			view_i = i
+	check(view_i >= 0, "the World page has the mixed reality / VR cards")
+	main._menu_action(view_i)
+	check(main.mode == "mr" and not main.menu.visible, "World page: mixed reality switches the view and closes the menu")
+	main.set_menu(true, "world")
+	for i in main.menu.buttons.size():
+		if main.menu.buttons[i].kind == "view" and main.menu.buttons[i].id == "vr":
+			view_i = i
+	main._menu_action(view_i)
+	check(main.mode == "vr" and Save.mode == "vr", "and VR back")
 	await _world(main)
 	_summit_buttons(main)
 	_ab_buttons(main)

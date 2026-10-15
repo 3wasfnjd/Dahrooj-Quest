@@ -279,7 +279,12 @@ func layout(m: Dictionary) -> Array[Dictionary]:
 				var c: Array = MenuCatalog.WEATHERS[i]
 				add.call("weather", c[0], c[1], c[2], grid(i, 4, 466, 112, english), {"selected": c[0] == m.get("weather", "")})
 		var ar := is_ar(kind)
-		add.call("place", "place", "إعادة تثبيت العالم" if ar else "توسيط العالم", "Re-pin world" if ar else "Recentre world", {"x": base + 314, "y": 660.0, "w": 260.0, "h": 156.0}, {})
+		# The view (mixed reality / VR) as two icon cards, then the re-pin / recentre button;
+		# mirrored for Arabic so the row reads from the right.
+		var xs := [40.0, 270.0, 524.0] if english else [624.0, 394.0, 40.0]
+		add.call("view", "mr", "مختلط", "Mixed", {"x": base + xs[0], "y": 660.0, "w": 210.0, "h": 156.0}, {"icon": "mr", "selected": ar})
+		add.call("view", "vr", "افتراضي", "VR", {"x": base + xs[1], "y": 660.0, "w": 210.0, "h": 156.0}, {"icon": "vr", "selected": not ar})
+		add.call("place", "place", "إعادة تثبيت العالم" if ar else "توسيط العالم", "Re-pin world" if ar else "Recentre world", {"x": base + xs[2], "y": 660.0, "w": 260.0, "h": 156.0}, {})
 	elif page == "challenges":
 		challenge_offset = minf(scroll_max(), challenge_offset)
 		add.call("scroll", "content", "", "", {"x": base, "y": LIST_TOP, "w": 824.0, "h": LIST_HEIGHT}, {})
@@ -673,7 +678,7 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 			_text(ci, name, ax - (tw / 2.0 + 18.0) * (1.0 if fwd else -1.0), c.y + Glass.T_SMALL * 0.36, Glass.T_SMALL, label_col, tw, "center", Glass.W_LABEL)
 		"lang", "exit":
 			if kind == "lang":
-				_lang_icon(ci, Vector2(c.x, r.position.y + 100), 100)
+				lang_icon(ci, Vector2(c.x, r.position.y + 100), 100)
 			else:
 				_icon(ci, "exit", Vector2(c.x, r.position.y + 100), 100, line, tint)
 			_text(ci, name, c.x, r.end.y - 30, 28, TEXT, lw, "center", Glass.W_LABEL)
@@ -711,7 +716,8 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 
 
 ## The language card: "A" and "ع" (menu-art.ts draws them as text too).
-func _lang_icon(ci: CanvasItem, c: Vector2, size: float) -> void:
+## «A ع»: the language icon (the menu's card and the opening's start panel).
+static func lang_icon(ci: CanvasItem, c: Vector2, size: float) -> void:
 	if ci == null:
 		return
 	var k := size / 100.0
