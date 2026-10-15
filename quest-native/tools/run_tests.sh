@@ -9,5 +9,12 @@ TEST_DATA="$(mktemp -d)"
 trap 'rm -rf "$TEST_DATA"' EXIT
 export XDG_DATA_HOME="$TEST_DATA"
 "$GODOT" --headless --xr-mode off --path . --import >/dev/null 2>&1 || true
-"$GODOT" --headless --xr-mode off --path . res://tests/run_tests.tscn "$@" 2>&1 | grep -v "OpenXR-Loader"
-exit "${PIPESTATUS[0]}"
+OUT="$TEST_DATA/out.txt"
+"$GODOT" --headless --xr-mode off --path . res://tests/run_tests.tscn "$@" 2>&1 | grep -v "OpenXR-Loader" | tee "$OUT"
+status="${PIPESTATUS[0]}"
+# A script error stops that test function part-way and its later checks never run: fail.
+if grep -q "SCRIPT ERROR" "$OUT"; then
+	echo "FAIL: script errors during the tests (see above)"
+	exit 1
+fi
+exit "$status"

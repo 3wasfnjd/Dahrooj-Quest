@@ -24,14 +24,13 @@ const SPARKS_MAX := 320
 const SHOTS_MAX := 40
 const ARCS_MAX := 24
 const BEAM_SEGS_MAX := 512
-const PUDDLES_MAX := 6
 ## Angle between the shots of a fan (radians): Dahrooj Attack's triple shot.
 const FAN_STEP := 0.11
 ## The flight of each style (ShotCatalog has the list, names and unlocks). Metres and
 ## seconds, scaled by blast_k(): speed, grav (times g), life, r (hit radius), cool (the
 ## least time between two shots of a hand; holding the trigger fires at that rate), sk (the
 ## firing sound's k), and per style: burst (radius), pellets/cone, bounces/pops, range/pierce,
-## reach/swing, splat/puddle, turn/seek, chain/hop, spray. "bean" is the dallah's pellet.
+## reach/swing, splat, turn/seek, chain/hop, spray. "bean" is the dallah's pellet.
 const SHOT_STYLE := {
 	"bolt": {"speed": 45.0, "grav": 0.0, "life": 1.2, "r": 0.02, "cool": 0.12, "sk": 0.18},
 	"mini": {"speed": 11.0, "grav": 1.0, "life": 3.2, "r": 0.022, "cool": 0.12, "sk": 0.18},
@@ -41,7 +40,7 @@ const SHOT_STYLE := {
 	"bouncy": {"speed": 15.0, "grav": 1.0, "life": 3.5, "r": 0.03, "cool": 0.22, "bounces": 6, "pops": 3, "sk": 1.35},
 	"laser": {"speed": 0.0, "grav": 0.0, "life": 0.25, "r": 0.015, "cool": 0.32, "range": 30.0, "pierce": 3, "sk": 0.5},
 	"boomerang": {"speed": 10.0, "grav": 0.0, "life": 1.5, "r": 0.06, "cool": 0.55, "reach": 6.0, "swing": 1.6, "sk": 0.5},
-	"glob": {"speed": 12.0, "grav": 1.0, "life": 2.5, "r": 0.045, "cool": 0.35, "splat": 0.4, "puddle": 2.2, "sk": 0.7},
+	"glob": {"speed": 12.0, "grav": 1.0, "life": 2.5, "r": 0.045, "cool": 0.35, "splat": 0.4, "sk": 0.7},
 	"rocket": {"speed": 20.0, "grav": 0.0, "life": 2.6, "r": 0.03, "cool": 0.6, "burst": 0.75, "turn": 6.0, "seek": 16.0, "sk": 1.0},
 	"lightning": {"speed": 0.0, "grav": 0.0, "life": 0.32, "r": 0.02, "cool": 0.45, "range": 22.0, "chain": 4, "hop": 3.0, "cone": 0.32, "sk": 1.0},
 	"dallah": {"speed": 13.0, "grav": 0.55, "life": 1.1, "r": 0.05, "cool": 0.5, "spray": 0.08, "sk": DALLAH_FIRE_K},
@@ -70,7 +69,6 @@ var rests: Array = []  # {age, view, style, p, v, d, dv, wander, blink, next, mo
 var shots: Array = []  # {kind, node, p, v, dir, t, r, k, style, color, spin, wob, skips, float, tap, wet, ...}
 var sparks: Array = []  # {p, v, t, max, flash, color, size, k, flake}
 var arcs: Array = []  # laser beams and lightning arcs: {a, b, n, jit, w, color, t, max, k, pts, tick}
-var puddles: Array = []  # jelly puddles: {p, n, t, max, r, k, node}
 var popped := 0
 var fired := 0
 var last_shot := {"left": -10.0, "right": -10.0}
@@ -584,7 +582,7 @@ const MATS := {
 	"trail": ["ffe9a8", 0.95, "add"], "head": ["ffffff", 1.0, "flat"], "bolt_glow": ["ffb547", 0.55, "add"],
 	"rocket": ["ffb347", 1.0, "flat"], "fw_glow": ["ff9a3c", 0.5, "add"], "flame": ["ffcf6a", 0.85, "add"],
 	"rk_body": ["e8473c", 1.0, "lit"], "rk_nose": ["f4efe6", 1.0, "lit"], "rk_fin": ["3a6fd8", 1.0, "lit"],
-	"glob": ["7ee05a", 0.8, "alpha"], "glob_core": ["d4ff9e", 0.55, "add"], "puddle": ["6fd14a", 0.72, "alpha"],
+	"glob": ["7ee05a", 0.8, "alpha"], "glob_core": ["d4ff9e", 0.55, "add"],
 	"brass": ["dcaa48", 1.0, "metal"], "brass_dark": ["9c6b22", 1.0, "metal"], "dallah_glow": ["ffd98a", 0.3, "add"],
 }
 
@@ -1389,53 +1387,6 @@ static func _seg_xf(a: Vector3, b: Vector3, w: float) -> Transform3D:
 	return Transform3D(Basis(bz.x * w, bz.y * w, bz.z * L), (a + b) * 0.5)
 
 
-# --- jelly puddles ---------------------------------------------------------------------
-
-func _add_puddle(p: Vector3, n: Vector3, k: float) -> void:
-	if puddles.size() >= PUDDLES_MAX:
-		var old: Dictionary = puddles.pop_front()
-		old.node.queue_free()
-	var node := _mesh_mi(_cyl(1.0, 1.0, 1.0, 20), _mat("puddle"))
-	add_child(node)
-	var r: float = SHOT_STYLE.glob.splat * k * 0.85
-	puddles.append({"p": p + n * 0.004 * k, "n": n, "t": 0.0, "max": float(SHOT_STYLE.glob.puddle), "r": r, "k": k, "node": node})
-
-
-## The puddles pop the Dahroojs that roll into them, then dry up.
-func _step_puddles(dt: float) -> void:
-	var BR := Ball.BR
-	for i in range(puddles.size() - 1, -1, -1):
-		var pd: Dictionary = puddles[i]
-		pd.t += dt
-		if pd.t >= pd.max:
-			pd.node.queue_free()
-			puddles.remove_at(i)
-			continue
-		var p: Vector3 = pd.p
-		var n: Vector3 = pd.n
-		var r: float = pd.r
-		var touch := func(q: Vector3) -> bool:
-			var off := q - p
-			var h := off.dot(n)
-			return absf(h) < BR * 1.4 and (off - n * h).length() < r + BR * 0.5
-		for j in range(rests.size() - 1, -1, -1):
-			if touch.call(rests[j].p):
-				burst(rests[j].p, rests[j].style)
-				_drop_rest(j)
-		for j in range(ball.volley.size() - 1, -1, -1):
-			if touch.call(ball.volley[j].pos):
-				burst(ball.volley[j].pos, Save.style)
-				ball.volley.remove_at(j)
-		var grow := minf(1.0, float(pd.t) / 0.15) * minf(1.0, (float(pd.max) - float(pd.t)) / 0.5)
-		var wob := 1.0 + sin(float(pd.t) * 9.0) * 0.04
-		var y := n
-		var x := y.cross(Vector3.FORWARD if absf(y.z) < 0.9 else Vector3.RIGHT).normalized()
-		var z := x.cross(y)
-		(pd.node as Node3D).transform = Transform3D(Basis(x * r * grow * wob, y * 0.006 * float(pd.k), z * r * grow / wob), p)
-		if rnd() < 0.08:
-			_spark(p + x * (rnd() - 0.5) * r + z * (rnd() - 0.5) * r, n * 0.4 * float(pd.k), 0.3, Color("d4ff9e"), 0.008 * float(pd.k))
-
-
 # --- the shots in flight -----------------------------------------------------------------
 
 ## How a shot moves this step (before it meets anything).
@@ -1628,8 +1579,7 @@ func _finish(s: Dictionary, P: Dictionary, k: float) -> void:
 		"glob":
 			var n: Vector3 = s.n
 			pop_radius(s.p, P.splat * k)
-			splat(s.p, n)
-			_add_puddle(s.p, n, k)
+			splat(s.p, n)  # a burst of jelly drops, no puddle left behind (owner's call)
 		"dallah":
 			for i in 6:
 				var d := cone_dir(Vector3.UP, 1.1, i * TAU / 6.0)
@@ -1649,7 +1599,6 @@ func _finish(s: Dictionary, P: Dictionary, k: float) -> void:
 func step_blast(dt: float) -> void:
 	clock += dt
 	var k := blast_k()
-	_step_puddles(dt)
 	if shots.is_empty() and sparks.is_empty() and arcs.is_empty():
 		_spark_mm.visible_instance_count = 0
 		_beam_mm.visible_instance_count = 0
@@ -1920,9 +1869,6 @@ func clear_blast() -> void:
 	shots.clear()
 	sparks.clear()
 	arcs.clear()
-	for pd in puddles:
-		pd.node.queue_free()
-	puddles.clear()
 	_spark_mm.visible_instance_count = 0
 	_beam_mm.visible_instance_count = 0
 	_draw_shots()

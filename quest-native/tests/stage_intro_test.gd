@@ -138,8 +138,15 @@ static func _start(check: Callable) -> void:
 	for i in 8:
 		ir.step(DT, _head())
 	var sp := ir.start_panel
-	check.call(sp.visible and absf(sp.position.y - (1.6 - 0.55)) < 1e-4 and absf(-sp.position.z - 0.8) < 1e-4 and absf(absf(sp.position.x) - 0.3) < 1e-4,
-		"start: shows after 3.2 s, low, ahead and to the side (%s)" % sp.position)
+	check.call(sp.visible and absf(sp.position.y - (1.6 - IntroRain.START_DROP)) < 1e-3 and absf(-sp.position.z - IntroRain.START_AHEAD) < 1e-3 and absf(sp.position.x) < 1e-3,
+		"start: shows after 3.2 s, in the middle ahead, a little below the eyes (%s)" % sp.position)
+	# Turn the head right: the panel glides round to the middle of the view again.
+	var turned := Transform3D(Basis(Vector3.UP, -PI / 2.0), Vector3(0, 1.6, 0))  # looking along +X
+	for i in 72 * 3:
+		ir.step(DT, turned)
+	check.call(sp.position.x > IntroRain.START_AHEAD * 0.9 and absf(sp.position.z) < 0.1, "start: it follows the head (%s)" % sp.position)
+	for i in 72 * 3:
+		ir.step(DT, _head())
 	check.call(absf(sp.basis.get_scale().x - 0.85) < 1e-3 and sp.basis.z.normalized().dot((Vector3(0, 1.6, 0) - sp.position).normalized()) > 0.999,
 		"start: scale .85, tilted to face you")
 	var at := sp.position

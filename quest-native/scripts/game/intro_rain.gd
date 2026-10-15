@@ -406,12 +406,13 @@ func step(dt: float, head: Transform3D) -> void:
 	_push_apart(live, dt)
 	_step_sparks(dt)
 	if not rain and not start_ready and (t > 3.2 or (use_wall_clock and Time.get_ticks_msec() - wall > 3200)):
-		# Low and a little to the side, tilted up at you like a lectern, so it never hides the balls you're playing with.
+		# In the middle of your view, a little below eye level; it then follows your head.
 		start_ready = true
-		var side := Vector3(-dir.z, 0, dir.x).normalized() * (0.3 if not Save.arabic() else -0.3)
-		start_panel.position = Vector3(hpos.x + dir.x * 0.8 + side.x, hpos.y - 0.55, hpos.z + dir.z * 0.8 + side.z)
+		start_panel.position = _start_spot(hpos, dir)
 		start_panel.visible = true
 	if start_ready and start_panel.visible:
+		# Follows the head gently (turn and it glides back in front of you).
+		start_panel.position = start_panel.position.lerp(_start_spot(hpos, dir), 1.0 - exp(-dt * START_FOLLOW))
 		var d := hpos - start_panel.position
 		if d.length_squared() > 1e-8:
 			var dn := d.normalized()
@@ -610,6 +611,11 @@ func _world() -> Transform3D:
 
 
 ## [head position, horizontal forward] in this node's space.
+## Where the start panel wants to be: straight ahead of the head, just below eye level.
+func _start_spot(hpos: Vector3, dir: Vector3) -> Vector3:
+	return hpos + dir * START_AHEAD + Vector3.DOWN * START_DROP
+
+
 func _head_local(head: Transform3D) -> Array:
 	var l := _world().affine_inverse() * head
 	var d := -l.basis.z
@@ -619,6 +625,10 @@ func _head_local(head: Transform3D) -> Array:
 
 
 const START_PX := Vector2i(1024, 640)
+## The start panel: how far ahead and how far below the eyes (m), and how fast it follows.
+const START_AHEAD := 0.85
+const START_DROP := 0.18
+const START_FOLLOW := 2.5
 ## The start panel's buttons (layout px): mixed reality, VR and the language in a row of
 ## icons above Play.
 const START_ITEMS := {

@@ -3,7 +3,7 @@ extends RefCounted
 ## hits a stage target through stage.shoot(), pops a resting Dahrooj and keeps its
 ## cooldown; the laser pierces, lightning chains, the rocket homes, the boomerang comes
 ## back (hitting on both ways), the confetti cannon fans out, the bouncy ball bounces,
-## the jelly glob leaves a puddle that pops, the dallah sprays beans; locked styles fall
+## the jelly glob splats and pops what is near, the dallah sprays beans; locked styles fall
 ## back to the bolt; the catalog, the menu and the icons agree.
 
 const DT := 1.0 / 72.0
@@ -460,16 +460,23 @@ static func _glob(check: Callable, rig: Dictionary) -> void:
 	var wb: WorldBalls = rig.wb
 	_reset(rig)
 	Save.shot_style = "glob"
-	wb.fire("right", O, Vector3(0, -0.5, -1).normalized())
-	_run(wb, 2.0, func(): return not wb.puddles.is_empty())
-	check.call(wb.puddles.size() == 1 and wb.shots.is_empty() and absf((wb.puddles[0].p as Vector3).y) < 0.05, "jelly: the glob splats into a puddle on the floor")
-	var at: Vector3 = wb.puddles[0].p
-	_rest(rig, at + Vector3(0.1, Ball.BR, 0))
-	_run(wb, 0.2)
-	check.call(wb.rests.is_empty(), "jelly: the puddle pops a Dahrooj that sits in it")
-	wb.puddles[0].t = 100.0
-	_run(wb, 0.05)
-	check.call(wb.puddles.is_empty(), "jelly: the puddle dries up")
+	# Where the glob lands on the floor (the last place it flew), then a Dahrooj there.
+	var dir := Vector3(0, -0.5, -1).normalized()
+	wb.fire("right", O, dir)
+	var landed := {"p": O}
+	_run(wb, 2.0, func():
+		if wb.shots.is_empty():
+			return true
+		landed.p = wb.shots[0].p
+		return false)
+	check.call(wb.shots.is_empty() and absf((landed.p as Vector3).y) < 0.3, "jelly: the glob splats on the floor")
+	check.call(not ("puddles" in wb), "jelly: no green puddle left behind")
+	_reset(rig)
+	Save.shot_style = "glob"
+	_rest(rig, Vector3((landed.p as Vector3).x + 0.1, Ball.BR, (landed.p as Vector3).z))
+	wb.fire("right", O, dir)
+	_run(wb, 2.0, func(): return wb.shots.is_empty())
+	check.call(wb.rests.is_empty(), "jelly: and the splat pops a Dahrooj sitting there")
 	# The splat on a wall pops a Dahrooj beside the spot (out of the glob's own path).
 	_reset(rig)
 	var st := _stage(rig)
@@ -477,7 +484,7 @@ static func _glob(check: Callable, rig: Dictionary) -> void:
 	_rest(rig, O + FWD * 2.8 + Vector3(0.45, -0.3, 0))
 	wb.fire("right", O, FWD)
 	_run(wb, 2.0, func(): return wb.shots.is_empty())
-	check.call(wb.rests.is_empty() and wb.puddles.size() == 1 and (wb.puddles[0].n as Vector3).z > 0.9, "jelly: the splat pops a Dahrooj beside it, the puddle on the wall")
+	check.call(wb.rests.is_empty(), "jelly: the splat on a wall pops a Dahrooj beside it")
 
 
 static func _dallah(check: Callable, rig: Dictionary) -> void:
