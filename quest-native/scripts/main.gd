@@ -15,6 +15,10 @@ extends Node3D
 
 const VR_SCALE := 2.0
 const AR_SCALE := 8.0
+## Mixed reality: the one natural size of a Dahrooj you aim at (radius, metres, at zoom 1), the
+## same in every room mode and in Dahrooj Rain; modes that make some bigger on purpose (the
+## Giant himself, frenzy's bubbles) keep their own.
+const MR_DAHROOJ_R := 0.05
 ## How high the HUD's score digits sit above the eye line (radians): under the challenge
 ## cards, over the stages' round banners.
 const HUD_RISE := deg_to_rad(18.5)
@@ -56,6 +60,7 @@ var stage: Node3D  # the current mode's stage (GoalStage, HoopStage, ...)
 var ball: Ball
 var dahrooj: DahroojView
 var volley_views: Array = []
+var size_preview: DahroojView  # pinning: a Dahrooj at its true size on the reticle
 var hud: Node3D  # the score board pane (rig space); the jelly score pops up on it
 var score_popup: ScorePopup
 var confetti: Confetti
@@ -174,6 +179,11 @@ func _ready() -> void:
 	dahrooj = DahroojView.new()
 	dahrooj.visible = false
 	game_root.add_child(dahrooj)
+	# While pinning (mixed reality): a Dahrooj at its true size on the ring, so every mode shows
+	# how big it will be (the goal and the hoop show their court; meteors or the rain did not).
+	size_preview = DahroojView.new(1.0)
+	size_preview.visible = false
+	add_child(size_preview)
 	for i in Ball.VOLLEY_MAX:
 		var v := DahroojView.new()
 		v.visible = false
@@ -357,6 +367,7 @@ func _step_placing(dt: float) -> void:
 	if not placing:
 		reticle.visible = false
 		place_hint.visible = false
+		size_preview.visible = false
 		return
 	var hit = _aim_at_surface()
 	if hit != null:
@@ -365,6 +376,17 @@ func _step_placing(dt: float) -> void:
 		var nn: Vector3 = hit.n
 		reticle.global_transform = Transform3D(Basis(Quaternion(Vector3.UP, nn.normalized())) if nn.dot(Vector3.UP) > -0.999 else Basis(), hit.p + nn * 0.002)
 		reticle.visible = true
+		var pr := preview_radius()
+		size_preview.position = hit.p + nn.normalized() * pr
+		size_preview.scale = Vector3.ONE * pr
+		size_preview.set_face("open", false)
+		var to_eye := head_transform().origin - size_preview.position
+		to_eye.y = 0.0
+		if to_eye.length_squared() > 1e-6:
+			size_preview.inner.basis = Basis.looking_at(-to_eye.normalized(), Vector3.UP)
+		size_preview.visible = true
+	else:
+		size_preview.visible = false
 	# The stick: bigger and smaller, until you pin.
 	var sy := rig.stick("right").y
 	if absf(sy) > 0.4:
@@ -544,7 +566,10 @@ func set_mode(m: String) -> void:
 
 
 func time_k() -> float:
-	return sqrt(REAL_G * scale_now / Ball.GRAV)
+	# A smaller world runs faster (a miniature falls quicker); the pinning zoom must not change
+	# the pace, so mixed reality times it as at zoom 1.
+	var s := scale_now * (ar_zoom if mode == "mr" else 1.0)
+	return sqrt(REAL_G * s / Ball.GRAV)
 
 
 ## The floor under the head and the way it faces (yaw), for placing the world around the player.
@@ -667,13 +692,11 @@ func _place_rain() -> void:
 
 
 ## Dahrooj Rain's drop size: VR keeps the opening's size (about the thrown Dahrooj's); mixed
-## reality shrinks them to the Dahrooj you throw on the pinned court (its scale and zoom), but
-## no smaller than a third so they stay easy to hit.
+## reality uses the one natural Dahrooj size (MR_DAHROOJ_R, times the zoom).
 func _rain_drop_k() -> float:
 	if mode != "mr":
 		return 1.0
-	var thrown := Ball.BR / ar_scale  # metres
-	return clampf(thrown / (IntroRain.INTRO_R * ar_zoom), 0.35, 1.0)
+	return MR_DAHROOJ_R / IntroRain.INTRO_R  # the rain itself scales with the zoom
 
 
 ## The opening's rain (with its start button), not Dahrooj Rain the mode.
@@ -1259,6 +1282,7 @@ func _reward_confetti() -> void:
 func _apply_look() -> void:
 	var acc := worn()
 	dahrooj.set_look(Save.style, Save.jelly_color, acc)
+	size_preview.set_look(Save.style, Save.jelly_color, acc)
 	for v: DahroojView in volley_views:
 		v.set_look(Save.style, Save.jelly_color, acc)
 	# The colour is global; resting balls keep their own style and accessory.
@@ -1786,7 +1810,7 @@ func _setup_mole() -> void:
 	if mole == null:
 		return
 	mole.sink = mode != "mr"
-	mole.size = room_size(0.1, MoleStage.R) if mode == "mr" else 1.0
+	mole.size = room_size(MR_DAHROOJ_R, MoleStage.R) if mode == "mr" else 1.0
 	mole.spots_provider = room_spots_for(2)
 
 
@@ -1929,7 +1953,7 @@ func _setup_invasion() -> void:
 	var inv := stage as InvasionStage
 	if inv == null:
 		return
-	inv.size = room_size(0.11, 0.45) if mode == "mr" else 1.0
+	inv.size = room_size(MR_DAHROOJ_R, 0.45) if mode == "mr" else 1.0
 	inv.buzz = buzz
 	inv.spots_provider = room_spots_for(1)
 
@@ -2115,11 +2139,11 @@ func _setup_new_mode() -> void:
 		stage.set("mixed", mode == "mr")
 	if mode == "mr":
 		if stage is MeteorStage:
-			stage.set("size", room_size(0.15, 0.85))
+			stage.set("size", room_size(MR_DAHROOJ_R * 1.3, 0.85))  # the Dahrooj and its fire
 		elif stage is GalleryStage:
-			stage.set("size", room_size(0.15, GalleryStage.R))
+			stage.set("size", room_size(MR_DAHROOJ_R, GalleryStage.R))
 		elif stage is GiantStage:
-			stage.set("size", room_size(0.105, GiantStage.MIN_R))
+			stage.set("size", room_size(MR_DAHROOJ_R, GiantStage.MIN_R))  # his little ones
 	if stage is CastleStage:
 		stage.set("size", 1.25 if mode == "mr" else 1.0)  # a small fort on the floor or a table
 
@@ -2156,6 +2180,14 @@ func restart_in_view(m: String) -> void:
 	set_mode(m)
 	state = "play"
 	begin_opening()
+
+
+## Pinning: the radius (metres) a Dahrooj will have once pinned at this zoom and spot: the one
+## natural size in room modes and the rain, the court's own scale in court modes.
+func preview_radius() -> float:
+	if (intro.active and intro.rain) or (runtime and runtime.mode in ROOM_MODES):
+		return MR_DAHROOJ_R * ar_zoom
+	return Ball.BR / ar_scale
 
 
 ## A room mode's size (mixed reality): targets about world_r metres across at zoom 1, scaled by

@@ -507,9 +507,26 @@ func _room_play(main: Node) -> void:
 	check(front and secs.size() >= 3, "MR room play: only in front of the player, 2 m away or more, never behind (%d sectors)" % secs.size())
 	check((main.play_forward() as Vector3).is_equal_approx(Vector3.FORWARD) and main.room_spots.forward.is_equal_approx(Vector3.FORWARD), "MR room play: the play direction is the court's forward")
 	await _giant_pin(main, c)
-	check(absf(MoleStage.R * float(main.stage.size) / main.scale_now - 0.1) < 1e-3, "MR room play: a mole 20 cm across in the room")
+	check(absf(MoleStage.R * float(main.stage.size) / main.scale_now - main.MR_DAHROOJ_R) < 1e-3, "MR room play: a mole the one natural Dahrooj size")
 	main._choose_mode("meteor")
-	check(main.room_play() and absf(0.85 * float(main.stage.size) / main.scale_now - 0.15) < 1e-3 and main.stage.spots_provider.is_valid(), "MR room play: meteors room-sized, from the room's spots")
+	check(main.room_play() and absf(0.85 * float(main.stage.size) / main.scale_now - main.MR_DAHROOJ_R * 1.3) < 1e-3 and main.stage.spots_provider.is_valid(), "MR room play: meteors the natural Dahrooj size (with their fire), from the room's spots")
+	# The same natural size in every room mode, the rain too, and the pinning preview shows it.
+	var sizes := {}
+	main._choose_mode("gallery")
+	sizes["gallery"] = GalleryStage.R * float(main.stage.size) / main.scale_now
+	main._choose_mode("mole")
+	sizes["mole"] = MoleStage.R * float(main.stage.size) / main.scale_now
+	main._choose_mode("meteor")
+	check(sizes.values().all(func(v: float) -> bool: return absf(v - main.MR_DAHROOJ_R) < 1e-3) and absf(main.preview_radius() - main.MR_DAHROOJ_R * main.ar_zoom) < 1e-4,
+		"MR: one natural Dahrooj size across room modes, shown by the pinning preview (%s)" % [sizes])
+	# The pace does not change with the pinning zoom.
+	var k1: float = main.time_k()
+	main.ar_zoom = 0.4
+	main.place()
+	var k2: float = main.time_k()
+	main.ar_zoom = 1.0
+	main.place()
+	check(absf(k1 - k2) < 1e-4, "MR: shrinking the scene does not speed the game up (%.3f / %.3f)" % [k1, k2])
 	# Pinned on a table: the game's ground stays the floor, at the room scale.
 	main.anchor = main.anchor_from(Vector3(c.x, 0.7, c.z - 1.0), Vector3.UP)
 	main.place()
