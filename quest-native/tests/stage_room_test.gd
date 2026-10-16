@@ -54,6 +54,16 @@ static func run(check: Callable) -> void:
 	check.call(rc.blocked(eye, Vector3(0, 1.0, -3.0), 0.05), "room: one beyond the wall is out of sight")
 	check.call(not rc.blocked(eye, Vector3(0, 1.2, -0.3), 0.05) and not rc.blocked(eye, Vector3(1.0, 0.1, 0.3), 0.05),
 		"room: in the open (or on the floor in front) it stays in sight")
+	# The enemies too: a crowd ball behind the couch is not drawn, one in the open is.
+	Crowd.hidden = func(p: Vector3, r: float) -> bool: return rc.blocked(eye, p, r)
+	var cr := Crowd.new(4)
+	cr.begin()
+	cr.add("jelly", Vector3(3.2, 0.1, 0.0), 0.05, null)
+	cr.add("jelly", Vector3(0, 1.2, -0.3), 0.05, null)
+	cr.end()
+	Crowd.hidden = Callable()
+	check.call(cr.count() == 1, "room: an enemy behind the couch is not drawn, one in the open is (%d)" % cr.count())
+	cr.free()
 	# A ball thrown at the wall comes back.
 	var a := _fly(rc, Vector3(0, 1.6, -1.2), Vector3(0, 0.5, -6), 40)
 	check.call(a.v.z > 0.5 and a.p.z > -2.0 + R * 0.99 and a.max_hit > 4.0,

@@ -2197,8 +2197,11 @@ func restart_in_view(m: String) -> void:
 ## out of sight (behind the sofa, under the table), as a real ball would be.
 func _hide_behind_room() -> void:
 	if not room_active():
+		Crowd.hidden = Callable()
 		return
 	var eye := head_transform().origin
+	_occ_eye = eye
+	Crowd.hidden = _room_hides
 	var gt := game_root.global_transform
 	var r := Ball.BR * gt.basis.get_scale().x
 	var views: Array = [dahrooj]
@@ -2209,6 +2212,15 @@ func _hide_behind_room() -> void:
 		var dv := v as Node3D
 		if dv != null and dv.visible and room.blocked(eye, dv.global_position, r):
 			dv.visible = false
+
+
+var _occ_eye := Vector3.ZERO
+
+
+## Crowd.hidden while a room is live: the enemies (moles, invaders, minions, targets) out of
+## sight behind real furniture are not drawn, like the Dahrooj you throw.
+func _room_hides(p: Vector3, r: float) -> bool:
+	return room.blocked(_occ_eye, p, r)
 
 
 ## Pinning: the radius (metres) a Dahrooj will have once pinned at this zoom and spot: the one
