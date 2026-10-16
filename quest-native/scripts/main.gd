@@ -1966,6 +1966,7 @@ func _setup_invasion() -> void:
 	inv.size = room_size(MR_DAHROOJ_R, 0.45) if mode == "mr" else 1.0
 	inv.buzz = buzz
 	inv.spots_provider = room_spots_for(1)
+	inv.furniture = furniture_push
 
 
 ## Slime: in mixed reality Dahrooj sticks to the scanned walls, floor and furniture.
@@ -1974,47 +1975,47 @@ func _setup_slime() -> void:
 	if slime == null:
 		return
 	slime.spots_provider = room_spots_for(2)
-	slime.planes_provider = func() -> Array:
-		var out := []
-		if mode != "mr":
-			return out
-		var to_game := game_root.global_transform.affine_inverse()
-		var add := func(c: Vector3, n: Vector3, u: Vector3, v: Vector3, label: String) -> void:
-			var ax: Vector3 = to_game.basis * u
-			var ay: Vector3 = to_game.basis * v
-			out.append({"pos": to_game * c, "normal": (to_game.basis * n).normalized(), "ax": ax.normalized(),
-				"ay": ay.normalized(), "half": Vector2(ax.length(), ay.length()), "label": label})
-		for pl in surfaces.planes():
-			var x: Transform3D = pl.xform
-			var sz: Vector2 = pl.size
-			add.call(x.origin, pl.normal, x.basis.x.normalized() * sz.x * 0.5, x.basis.y.normalized() * sz.y * 0.5, pl.label)
-		# Furniture volumes: their top and sides.
-		for bx in surfaces.boxes():
-			var x: Transform3D = bx.xform
-			var sz: Vector3 = bx.size
-			var e := [x.basis.x.normalized(), x.basis.y.normalized(), x.basis.z.normalized()]
-			for i in 3:
-				for sgn in [-1.0, 1.0]:
-					if i == 1 and sgn < 0.0:
-						continue
-					var n: Vector3 = e[i] * sgn
-					add.call(x.origin + n * sz[i] * 0.5, n, e[(i + 1) % 3] * sz[(i + 1) % 3] * 0.5, e[(i + 2) % 3] * sz[(i + 2) % 3] * 0.5, bx.label)
-		return out
+	slime.planes_provider = room_planes_game.bind(true)
+
+
+## Mixed reality: a walker or hopper (game units: now at p, radius r, at prev a step ago) kept
+## out of the real furniture (RoomColliders.push_out); anywhere else it goes on as it was.
+func furniture_push(p: Vector3, r: float, prev: Vector3) -> Vector3:
+	if not room_active():
+		return p
+	var gt := game_root.global_transform
+	return gt.affine_inverse() * room.push_out(gt * p, r * gt.basis.get_scale().x, gt * prev)
 
 
 ## The scanned room in game units (the format the newer stages take: SlimeStage's).
-func room_planes_game() -> Array:
+## with_boxes: the furniture volumes' tops and sides too.
+func room_planes_game(with_boxes := false) -> Array:
 	var out := []
 	if mode != "mr":
 		return out
 	var to_game := game_root.global_transform.affine_inverse()
+	var add := func(c: Vector3, n: Vector3, u: Vector3, v: Vector3, label: String, box: bool) -> void:
+		var ax: Vector3 = to_game.basis * u
+		var ay: Vector3 = to_game.basis * v
+		out.append({"pos": to_game * c, "normal": (to_game.basis * n).normalized(), "ax": ax.normalized(),
+			"ay": ay.normalized(), "half": Vector2(ax.length(), ay.length()), "label": label, "box": box})
 	for pl in surfaces.planes():
 		var x: Transform3D = pl.xform
 		var sz: Vector2 = pl.size
-		var ax: Vector3 = to_game.basis * (x.basis.x.normalized() * sz.x * 0.5)
-		var ay: Vector3 = to_game.basis * (x.basis.y.normalized() * sz.y * 0.5)
-		out.append({"pos": to_game * x.origin, "normal": (to_game.basis * (pl.normal as Vector3)).normalized(),
-			"ax": ax.normalized(), "ay": ay.normalized(), "half": Vector2(ax.length(), ay.length()), "label": pl.label})
+		add.call(x.origin, pl.normal, x.basis.x.normalized() * sz.x * 0.5, x.basis.y.normalized() * sz.y * 0.5, pl.label, false)
+	if not with_boxes:
+		return out
+	# Furniture volumes: their top and sides (what a Dahrooj sticks to or bounces off).
+	for bx in surfaces.boxes():
+		var x: Transform3D = bx.xform
+		var sz: Vector3 = bx.size
+		var e := [x.basis.x.normalized(), x.basis.y.normalized(), x.basis.z.normalized()]
+		for i in 3:
+			for sgn in [-1.0, 1.0]:
+				if i == 1 and sgn < 0.0:
+					continue
+				var n: Vector3 = e[i] * sgn
+				add.call(x.origin + n * sz[i] * 0.5, n, e[(i + 1) % 3] * sz[(i + 1) % 3] * 0.5, e[(i + 2) % 3] * sz[(i + 2) % 3] * 0.5, bx.label, true)
 	return out
 
 
@@ -2136,8 +2137,11 @@ func _setup_new_mode() -> void:
 		stage.set("size", 2.0 if mode == "mr" else 1.0)
 	if "buzz" in stage:
 		stage.set("buzz", buzz)
+	if "furniture" in stage:
+		stage.set("furniture", furniture_push)
 	if "planes_provider" in stage:
-		stage.set("planes_provider", room_planes_game)
+		# The bubbles that float about the room also bounce off the furniture.
+		stage.set("planes_provider", room_planes_game.bind(stage is FrenzyStage))
 	if stage is FrenzyStage:
 		# Mixed reality: its Dahroojs the natural size (its bubbles keep their spread of sizes).
 		stage.set("size", scale_now * ar_zoom * MR_DAHROOJ_R / Ball.BR if mode == "mr" else 1.0)

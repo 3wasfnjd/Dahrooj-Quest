@@ -90,6 +90,9 @@ var ctx: GameCtx
 ## units (RoomSpots: in front of the player, far). Every wave then comes out of the room there
 ## (and hops toward the player).
 var spots_provider: Callable
+## Mixed reality: (p, r, prev) -> p kept out of the real furniture (main.furniture_push), game
+## units; unset in VR.
+var furniture: Callable
 ## Size of the Dahroojs, the line and the power-ups (mixed reality wants them bigger).
 var size := 1.0
 ## The player's eye (game units): they head for it and look at it. Main keeps it current.
@@ -973,7 +976,11 @@ func _hop(m: Dictionary, dt: float, march: bool) -> void:
 			# Keep to the court in VR.
 			if _room.is_empty() and absf(m.p.x) > SPAWN_X + 1.0:
 				lat = -signf(m.p.x * s.x) * absf(lat)
+			var was: Vector3 = m.p
 			m.p += (d * float(m.speed) + s * lat) * dt / (1.0 - GROUND_FR)
+			if furniture.is_valid():
+				var q: Vector3 = furniture.call(Vector3(m.p.x, r, m.p.z), r, Vector3(was.x, r, was.z))
+				m.p = Vector3(q.x, m.p.y, q.z)
 			m.dir = d
 	if march:
 		var g2 := goal()

@@ -102,6 +102,9 @@ var planes_provider: Callable
 ## only says the game is played in the room (no scan: the sky drop at the court). Unset or
 ## empty, and no planes: the court (VR).
 var spots_provider: Callable
+## Mixed reality: (p, r, prev) -> p kept out of the real furniture (main.furniture_push), game
+## units; unset in VR.
+var furniture: Callable
 ## Game units per metre (main: the court's scale), for the distance kept from the player.
 var unit := 2.0
 ## Size of the little ones, props and effects (mixed reality wants them bigger; main: 2).
@@ -1468,7 +1471,11 @@ func _step_minion(mi: Dictionary, dt: float) -> void:
 			var dir := to / d if d > 1e-4 else Vector3.FORWARD
 			var side := Vector3(-dir.z, 0, dir.x)
 			var sp := 2.3 * size * k
+			var was: Vector3 = mi.p
 			mi.p += (dir * sp + side * sin(float(mi.t) * 4.0 + mi.zig) * 1.0 * size) * dt
+			if furniture.is_valid():
+				var q: Vector3 = furniture.call(Vector3(mi.p.x, fl + r, mi.p.z), r, Vector3(was.x, fl + r, was.z))
+				mi.p = Vector3(q.x, mi.p.y, q.z)
 			var u: float = mi.t / (mi.hop_p / sqrt(k))
 			mi.p.y = fl + r + absf(sin(u * PI)) * r * 2.6
 			if d < REACH * size + r:

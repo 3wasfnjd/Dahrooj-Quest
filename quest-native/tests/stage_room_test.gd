@@ -54,6 +54,18 @@ static func run(check: Callable) -> void:
 	check.call(rc.blocked(eye, Vector3(0, 1.0, -3.0), 0.05), "room: one beyond the wall is out of sight")
 	check.call(not rc.blocked(eye, Vector3(0, 1.2, -0.3), 0.05) and not rc.blocked(eye, Vector3(1.0, 0.1, 0.3), 0.05),
 		"room: in the open (or on the floor in front) it stays in sight")
+	# Walkers go round the couch (x 2.1..2.9, z -1..1), not through it; over a table they pass.
+	var wk := Vector3(1.9, 0.05, 0.1)
+	for i in 120:
+		wk = rc.push_out(wk + Vector3(0.02, 0, 0), 0.05, wk)
+	check.call(wk.x > 2.95 or absf(wk.z) > 1.0, "room: a walker heading into the couch goes round it (%s)" % wk)
+	var inside := false
+	wk = Vector3(1.9, 0.05, 0.3)
+	for i in 120:
+		wk = rc.push_out(wk + Vector3(0.02, 0, 0), 0.05, wk)
+		inside = inside or (absf(wk.x - 2.5) < 0.4 and absf(wk.z) < 1.0)
+	check.call(not inside, "room: and is never inside it")
+	check.call(rc.push_out(Vector3(2.5, 0.9, 0), 0.05, Vector3(2.45, 0.9, 0)) == Vector3(2.5, 0.9, 0), "room: on top of it, it is left alone")
 	# What hides it on the headset: a mask of every wall, table and volume but the floor.
 	rc.occlude(true)
 	check.call(rc.occluder_triangles() == 2 * 2 + 12, "room: the hiding mask covers the wall, the table and the couch (%d)" % rc.occluder_triangles())

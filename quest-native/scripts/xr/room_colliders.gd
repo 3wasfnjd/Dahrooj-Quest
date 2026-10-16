@@ -154,6 +154,42 @@ func collide(p: Vector3, v: Vector3, r: float, prev: Vector3) -> Dictionary:
 	return {"hit_speed": hit, "p": p, "v": v}
 
 
+## Something walking or hopping on the floor (world space: a sphere of radius r now at p, at
+## prev a step ago) kept out of the furniture: pushed back out of any volume it ran into, and
+## sent sideways round it (toward the nearer end) so it does not stall against the sofa.
+## Only the volumes, sideways (x/z of the box): the walls are where they come in from.
+func push_out(p: Vector3, r: float, prev: Vector3) -> Vector3:
+	_refresh()
+	for e in _boxes:
+		var inv: Transform3D = e.inv
+		var xf: Transform3D = e.xf
+		var h: Vector3 = e.h
+		var lp := inv * p
+		if lp.y - r >= h.y or lp.y + r <= -h.y:
+			continue  # over it (on the table) or under it
+		var hr := Vector2(h.x + r, h.z + r)
+		if absf(lp.x) >= hr.x or absf(lp.z) >= hr.y:
+			continue
+		var lq := inv * prev
+		var step := Vector2(lp.x - lq.x, lp.z - lq.z)
+		# Out through the side it is least deep in.
+		var pen := Vector2(hr.x - absf(lp.x), hr.y - absf(lp.z))
+		var out := lp
+		var tang := Vector2.ZERO
+		if pen.x < pen.y:
+			out.x = signf(lp.x if lp.x != 0.0 else 1.0) * hr.x
+			tang = Vector2(0.0, signf(lp.z if lp.z != 0.0 else 1.0))
+		else:
+			out.z = signf(lp.z if lp.z != 0.0 else 1.0) * hr.y
+			tang = Vector2(signf(lp.x if lp.x != 0.0 else 1.0), 0.0)
+		# Round it: the step's length along the face, toward the nearer end.
+		var slide := tang * step.length()
+		out.x += slide.x
+		out.z += slide.y
+		p = xf * out
+	return p
+
+
 ## Whether a real wall, surface or piece of furniture stands between the eye and a sphere at p
 ## of radius r (world space): it is then out of sight (behind the sofa, under the table).
 func blocked(eye: Vector3, p: Vector3, r: float) -> bool:
