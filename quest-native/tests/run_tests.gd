@@ -319,8 +319,8 @@ func _scene() -> void:
 		main.toast.step(1.0 / 30.0)
 	var tp: Vector3 = main.toast.global_position - eye
 	var toast_up := rad_to_deg(atan2(tp.y, Vector2(tp.x, tp.z).length()))
-	check(absf(hud_up - 18.5) < 1.0 and toast_up > hud_up + 6.0,
-		"VR texts: the score %.1f° above the eye line, the challenge card higher (%.1f°)" % [hud_up, toast_up])
+	check(absf(hud_up - 18.5) < 1.0 and toast_up < -12.0,
+		"VR texts: the score %.1f° above the eye line, the challenge card low below the gaze (%.1f°)" % [hud_up, toast_up])
 	main.set_mode("mr")
 	var after: Vector3 = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
 	check(absf(after.length() - 1.6) < 0.3 and main.scale_now == 8.0, "MR: the goal on the floor 1.6 m ahead, 1/8 size")
@@ -429,6 +429,18 @@ func _summit_buttons(main: Node) -> void:
 ## court is pinned and a new pin moves him; VR gives them nothing (their old layouts).
 func _room_play(main: Node) -> void:
 	main.set_mode("mr")
+	# Shrinking or growing the scene while pinning keeps targets and shots in proportion.
+	var ratios: Array = []
+	for z in [1.0, 0.5]:
+		main.ar_zoom = z
+		main._choose_mode("meteor")
+		main._setup_stage()
+		var meteor_m: float = float(main.stage.size) * 0.85 / main.scale_now
+		var shot_m: float = main.world_balls.blast_k() / main.scale_now
+		ratios.append(meteor_m / shot_m)
+	main.ar_zoom = 1.0
+	main._setup_stage()
+	check(absf(float(ratios[0]) - float(ratios[1])) < 1e-3, "MR zoom: meteors and shots shrink together (%s)" % [ratios])
 	main._choose_mode("mole")
 	main.state = "play"
 	check(main.room_play() and main.scale_now == 8.0, "MR room play: whack-a-Dahrooj is played out in the room")
@@ -783,7 +795,7 @@ func _challenge_cards(main: Node) -> void:
 						seen.append(key)
 						var head: Transform3D = main.head_transform()
 						var rel: Vector3 = head.affine_inverse() * toast.global_position
-						placed = placed and rel.z < -0.6 and rel.z > -1.0 and rel.y > 0.15 and absf(rel.x) < 0.1
+						placed = placed and rel.z < -0.6 and rel.z > -1.0 and rel.y < -0.15 and absf(rel.x) < 0.1  # below the gaze
 						for l: Label3D in toast._labels:
 							placed = placed and l.no_depth_test and not ("✓" in l.text)
 				if t > 1.0 and toast.now.is_empty() and toast.cards.is_empty() and seen.has("reward:" + want_r):

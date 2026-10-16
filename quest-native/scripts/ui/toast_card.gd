@@ -1,15 +1,13 @@
 class_name ToastCard
 extends Node3D
-## The notifications (xr-runtime.js "notifications", fed by complete-game.js toast()):
-## a slim card (0.4 m wide, 1024 x 220 layout) that drops in near the top of your
-## view, about 0.8 m ahead and tilted with your head, follows your gaze, then slides
-## back up and fades. A challenge done ("✓ " prefix) shows a check badge for 3.4 s,
-## anything else a "!" badge for 2.4 s. Challenge and reward cards always wait their turn
-## (several finished at once each get theirs); at most QUEUE_INFO plain notes wait, the
-## oldest note giving way. The frosted-glass
-## style of Glass (a translucent tint with a vertical gradient, a sheen and a rim
-## light bright at the top, a slim accent bar on the reading side, Baloo text
-## fitted to the card).
+## The notifications (xr-runtime.js "notifications", fed by complete-game.js toast()), in
+## Dahrooj's own jelly style rather than a phone banner: a chunky glossy jelly pill (green for
+## a challenge done, gold for a reward, pink for a note; 0.4 m wide, 1024 x 220 layout) with a
+## white jelly badge (a check, a star or "!") and white outlined words. It bounces up from
+## below the gaze (about 19° down, 0.8 m ahead), wobbles like jelly, follows your gaze, then
+## squashes and drops away. Challenge 3.4 s, notes 2.4 s. Challenge and reward cards always
+## wait their turn (several finished at once each get theirs); at most QUEUE_INFO plain notes
+## wait, the oldest note giving way. Low in view, clear of the HUD's score and the banners.
 ## Call place(head) every frame with the head's global transform; step(dt) runs
 ## from _process unless auto_step is false.
 
@@ -52,33 +50,50 @@ float seg(vec2 p, vec2 a, vec2 b) {
 vec4 over(vec4 dst, vec3 c, float a) {
 	return vec4(mix(dst.rgb, c, a), a + dst.a * (1.0 - a));
 }
+// A five-point star (the reward badge), inner/outer radius ratio ~0.45.
+float star5(vec2 p, float r) {
+	const vec2 k1 = vec2(0.809016994375, -0.587785252292);
+	const vec2 k2 = vec2(-0.809016994375, -0.587785252292);
+	p.x = abs(p.x);
+	p -= 2.0 * max(dot(k1, p), 0.0) * k1;
+	p -= 2.0 * max(dot(k2, p), 0.0) * k2;
+	p.x = abs(p.x);
+	p.y -= r;
+	vec2 ba = 0.45 * vec2(-k1.y, k1.x) - vec2(0.0, 1.0);
+	float h = clamp(dot(p, ba) / dot(ba, ba), 0.0, r);
+	return length(p - ba * h) * sign(p.y * ba.x - p.x * ba.y);
+}
 void fragment() {
 	vec2 p = UV * vec2(1024.0, 220.0);
 	float aa = max(fwidth(p.x), 0.5);
 	vec4 o = vec4(0.0);
-	float d = rrect(p, vec2(512.0, 106.0), vec2(492.0, 90.0), 56.0);
+	// The jelly's deeper base just below it (its depth, like the score digits' extrusion).
+	float db = rrect(p, vec2(512.0, 116.0), vec2(490.0, 86.0), 86.0);
+	o = over(o, bg2.rgb * 0.5, clamp(0.5 - db / aa, 0.0, 1.0));
+	// The jelly pill: light on top, deeper below.
+	float d = rrect(p, vec2(512.0, 104.0), vec2(490.0, 86.0), 86.0);
 	float inside = clamp(0.5 - d / aa, 0.0, 1.0);
-	float k = clamp((p.y - 16.0) / 180.0, 0.0, 1.0);
-	vec4 tint = mix(bg, bg2, k);
-	o = over(o, tint.rgb, tint.a * inside);
-	// Sheen over the top half, a warm glow from the badge's side.
-	o = over(o, vec3(1.0), 0.07 * (1.0 - smoothstep(0.0, 0.55, k)) * inside);
-	float side = rtl > 0.5 ? (1024.0 - p.x) : p.x;
-	o = over(o, accent.rgb, 0.10 * (1.0 - smoothstep(0.0, 420.0, side)) * inside);
-	// A slim accent bar inside the reading edge.
-	float bar = rrect(p, vec2(rtl > 0.5 ? 1024.0 - 38.0 : 38.0, 106.0), vec2(3.5, 52.0), 3.5);
-	o = over(o, accent.rgb, clamp(0.5 - bar / aa, 0.0, 1.0));
-	// Rim light: bright at the top, faint below.
-	o = over(o, edge.rgb, edge.a * mix(1.0, 0.3, k) * clamp((1.5 - abs(d + 1.0)) / aa + 0.5, 0.0, 1.0));
-	vec2 b = vec2(rtl > 0.5 ? 1024.0 - 118.0 : 118.0, 106.0);
+	float k = clamp((p.y - 18.0) / 172.0, 0.0, 1.0);
+	o = over(o, mix(bg.rgb, bg2.rgb, k * k), inside);
+	// Gloss: a soft white band across the top, and a light rim.
+	float g = rrect(p, vec2(512.0, 50.0), vec2(420.0, 20.0), 20.0);
+	o = over(o, vec3(1.0), 0.36 * clamp(0.5 - g / 8.0, 0.0, 1.0) * inside);
+	o = over(o, vec3(1.0), 0.4 * clamp((2.5 - abs(d + 3.0)) / aa + 0.5, 0.0, 1.0));
+	// The badge: a white jelly bubble on the reading side, its mark in the card's colour.
+	vec2 b = vec2(rtl > 0.5 ? 1024.0 - 110.0 : 110.0, 104.0);
+	o = over(o, bg2.rgb * 0.5, clamp((60.0 - length(p - b - vec2(0.0, 7.0))) / aa + 0.5, 0.0, 1.0));
 	float bd = length(p - b);
-	o = over(o, accent.rgb, clamp((56.0 - bd) / aa + 0.5, 0.0, 1.0));
+	o = over(o, paper.rgb, clamp((58.0 - bd) / aa + 0.5, 0.0, 1.0));
+	o = over(o, vec3(1.0), 0.0);
 	if (kind > 1.5) {
-		o = over(o, badge_in.rgb, badge_in.a * clamp((47.0 - bd) / aa + 0.5, 0.0, 1.0));
+		float sd = star5((p - b) * vec2(1.0, -1.0), 38.0);
+		o = over(o, accent.rgb, clamp(0.5 - sd / aa, 0.0, 1.0));
 	} else if (kind > 0.5) {
 		float cd = min(seg(p, b + vec2(-25.0, 2.0), b + vec2(-6.0, 20.0)), seg(p, b + vec2(-6.0, 20.0), b + vec2(28.0, -19.0)));
-		o = over(o, paper.rgb, clamp((6.5 - cd) / aa + 0.5, 0.0, 1.0));
+		o = over(o, accent.rgb, clamp((8.5 - cd) / aa + 0.5, 0.0, 1.0));
 	}
+	// A sparkle of gloss on the badge.
+	o = over(o, vec3(1.0), 0.55 * clamp((9.0 - length(p - b - vec2(-22.0, -26.0))) / aa + 0.5, 0.0, 1.0));
 	ALBEDO = o.rgb;
 	ALPHA = o.a * opacity;
 }
@@ -103,6 +118,7 @@ var _first := true
 var _quad: MeshInstance3D
 var _mat: ShaderMaterial
 var _labels: Array[Label3D] = []
+var _ink := Color(0.1, 0.2, 0.15)  # the labels' outline: the jelly's colour, deep
 
 static var _shader: Shader
 
@@ -195,8 +211,18 @@ func _accent(kind: String) -> Color:
 	return CHALLENGE if kind == "challenge" else REWARD if kind == "reward" else Panel3D.ACCENT
 
 
+## The jelly's two colours (light top, deep bottom) for each kind of card.
+static func jelly(kind: String) -> Array:
+	match kind:
+		"challenge":
+			return [Color("8cf2ad"), Color("2aa25c")]
+		"reward":
+			return [Color("ffe27a"), Color("e09a1a")]
+	return [Color("ff9ccb"), Color("e0457f")]
+
+
 ## A label whose baseline sits at layout pixel (x, y).
-func _text(t: String, w: int, size: int, color: Color, x: float, y: float, rtl: bool, center := false) -> Label3D:
+func _text(t: String, w: int, size: int, color: Color, x: float, y: float, rtl: bool, center := false, outlined := true) -> Label3D:
 	var f := weight_font(w)
 	var l := Label3D.new()
 	l.text = t
@@ -204,7 +230,9 @@ func _text(t: String, w: int, size: int, color: Color, x: float, y: float, rtl: 
 	l.font_size = size * 2
 	l.pixel_size = PX / 2.0
 	l.modulate = color
-	l.outline_size = 0
+	# White words with a deep outline in the jelly's colour, like the game's jelly texts.
+	l.outline_size = 14 if outlined else 0
+	l.outline_modulate = _ink
 	l.no_depth_test = true
 	l.render_priority = 7
 	l.fixed_size = false
@@ -227,13 +255,17 @@ func _draw_card(n: Dictionary) -> void:
 	var rtl := _arabic()
 	var kind := String(n.kind)
 	var accent := _accent(kind)
-	_mat.set_shader_parameter("accent", accent)
+	var j := jelly(kind)
+	_mat.set_shader_parameter("bg", j[0])
+	_mat.set_shader_parameter("bg2", j[1])
+	_mat.set_shader_parameter("accent", (j[1] as Color).darkened(0.1))
+	_ink = (j[1] as Color).darkened(0.55)
 	_mat.set_shader_parameter("rtl", 1.0 if rtl else 0.0)
 	_mat.set_shader_parameter("kind", 1.0 if kind == "challenge" else 2.0 if kind == "reward" else 0.0)
 	var bx := CW - 118.0 if rtl else 118.0
 	var by := CH / 2.0 - 4.0
 	if kind == "info":
-		_text("!", 800, 64, PAPER, bx, by + 23.0, rtl, true)
+		_text("!", 800, 64, (j[1] as Color).darkened(0.1), bx, by + 23.0, rtl, true, false)
 	var tx := CW - 206.0 if rtl else 206.0
 	var sub := String(n.sub)
 	var head := ""
@@ -244,11 +276,11 @@ func _draw_card(n: Dictionary) -> void:
 	else:
 		head = "دحروج" if rtl else "Dahrooj"
 	var max_w := text_width()
-	_text(head, 800, Glass.fit_size(head, 28, max_w, 800), accent, tx, 66.0 if sub != "" else 78.0, rtl)
+	_text(head, 800, Glass.fit_size(head, 28, max_w, 800), Color(1, 1, 1, 0.92), tx, 66.0 if sub != "" else 78.0, rtl)
 	var title := String(n.title)
-	_text(title, 800, Glass.fit_size(title, 46, max_w, 800, -1, 22), Glass.TEXT, tx, 118.0 if sub != "" else 136.0, rtl)
+	_text(title, 800, Glass.fit_size(title, 46, max_w, 800, -1, 22), PAPER, tx, 118.0 if sub != "" else 136.0, rtl)
 	if sub != "":
-		_text(sub, 700, Glass.fit_size(sub, 26, max_w, 700, -1, 16), Glass.SUB, tx, 160.0, rtl)
+		_text(sub, 700, Glass.fit_size(sub, 26, max_w, 700, -1, 16), Color(1, 1, 1, 0.9), tx, 160.0, rtl)
 
 
 ## The room for text: from past the badge to the card's far inner edge.
@@ -294,13 +326,14 @@ func step(dt: float) -> void:
 	var in_k := minf(1.0, t / 0.3)
 	var out_k := clampf((life - t) / 0.3, 0.0, 1.0)
 	var slide := (1.0 - _ease(in_k)) + (1.0 - _ease(out_k))
-	# High in view (about 27° up): above the HUD's score digits and the stages' banners.
-	var spot := eye + fwd * 0.8 * s + up * (0.40 + 0.07 * slide) * s
+	# Low in view (about 19° below the gaze), clear of the HUD's score and the stages' banners
+	# above; it bounces up from below and drops back down when done.
+	var spot := eye + fwd * 0.8 * s + up * (-0.27 - 0.08 * slide) * s
 	var at := _get_pos()
 	_set_pos(spot if _first else at.lerp(spot, 1.0 - exp(-dt * 9.0)))
 	_first = false
 	if _get_pos().distance_squared_to(eye) > 1e-8:
-		_look(eye)
+		_look(eye, jelly_squash(t, life))
 	opacity = minf(_ease(in_k), _ease(out_k))
 	_mat.set_shader_parameter("opacity", opacity)
 	for l in _labels:
@@ -321,14 +354,24 @@ func _set_pos(p: Vector3) -> void:
 		position = p
 
 
-## Face the eye (+Z toward it, as three.js lookAt does for a mesh).
-func _look(eye: Vector3) -> void:
+## The card's jelly wobble (x, y scale): it pops in a little too big, wobbles and settles,
+## and squashes down as it leaves.
+static func jelly_squash(t: float, life: float) -> Vector2:
+	var pop := 0.6 + 0.4 * minf(1.0, t / 0.18)
+	var w := sin(t * 20.0) * exp(-t * 6.0) * 0.12
+	var out := clampf((life - t) / 0.3, 0.0, 1.0)
+	var leave := 0.7 + 0.3 * out
+	return Vector2(pop * (1.0 + w) * leave, pop * (1.0 - w) * (0.4 + 0.6 * out))
+
+
+## Face the eye (+Z toward it, as three.js lookAt does for a mesh), with a jelly squash.
+func _look(eye: Vector3, squash := Vector2.ONE) -> void:
 	var z := (eye - _get_pos()).normalized()
 	var x := Vector3.UP.cross(z)
 	if x.length_squared() < 1e-6:
 		x = Vector3.RIGHT
 	x = x.normalized()
-	var b := Basis(x, z.cross(x), z) * Basis.from_scale(Vector3.ONE * world_scale)
+	var b := Basis(x, z.cross(x), z) * Basis.from_scale(Vector3(squash.x, squash.y, 1.0) * world_scale)
 	if is_inside_tree():
 		global_basis = b
 	else:

@@ -115,8 +115,8 @@ static func _toast(check: Callable) -> void:
 	check.call(t.cards.size() == 2, "toast: the same text twice is one card")
 	t.step(0.016)
 	var p := t.position  # outside the tree its own transform is the global one
-	check.call(t.visible and absf(p.z + 0.8) < 0.01 and p.y > 1.6 + 0.23, "toast: the card drops in 0.8 m ahead, above the gaze (%.2f, %.2f)" % [p.y, p.z])
-	check.call((t.basis.z - (head.origin - p).normalized()).length() < 0.01 and absf(t.basis.x.y) < 1e-4, "toast: the card faces the eye")
+	check.call(t.visible and absf(p.z + 0.8) < 0.05 and p.y < 1.6 - 0.2, "toast: the card bounces up 0.8 m ahead, below the gaze (%.2f, %.2f)" % [p.y, p.z])
+	check.call((t.basis.z.normalized() - (head.origin - p).normalized()).length() < 0.01 and absf(t.basis.x.normalized().y) < 1e-4, "toast: the card faces the eye")
 	for i in 20:
 		t.step(0.02)
 	check.call(t.opacity > 0.99, "toast: fully seen once in")

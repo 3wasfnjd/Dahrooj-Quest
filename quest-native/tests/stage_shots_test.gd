@@ -117,6 +117,18 @@ static func _stage(rig: Dictionary) -> TargetStage:
 	return st
 
 
+## A banner hanging in front of a wall: the shot's ray goes through the words to the wall.
+static func _through_text(check: Callable, rig: Dictionary) -> void:
+	var wb: WorldBalls = rig.wb
+	_reset(rig)
+	var st := _stage(rig)
+	st.add_wall(O + FWD * 3.0, Vector3(3, 3, 0.2))
+	var banner := JuiceText.spawn(st, "WAVE 1", O + FWD * 1.5, "banner", 3.0)
+	var hit := wb.ray_stage(st, O, FWD, 10.0)
+	check.call(banner != null and not hit.is_empty() and (hit.point as Vector3).distance_to(O) > 2.5,
+		"shots: fly through floating texts and hit what is behind them (%s)" % [hit.get("point", "none")])
+
+
 static func _reset(rig: Dictionary) -> void:
 	var wb: WorldBalls = rig.wb
 	var host: FakeHost = rig.host
@@ -173,6 +185,7 @@ static func run(check: Callable) -> void:
 	_glob(check, rig)
 	_dallah(check, rig)
 	_scale(check, rig)
+	_through_text(check, rig)
 	# Locked: with no challenges done a new style is the bolt again.
 	_reset(rig)
 	Save.challenges = {}

@@ -1778,7 +1778,7 @@ func _setup_mole() -> void:
 	if mole == null:
 		return
 	mole.sink = mode != "mr"
-	mole.size = RoomSpots.size_for(0.1, MoleStage.R, scale_now) if mode == "mr" else 1.0
+	mole.size = room_size(0.1, MoleStage.R) if mode == "mr" else 1.0
 	mole.spots_provider = room_spots_for(2)
 
 
@@ -1921,7 +1921,7 @@ func _setup_invasion() -> void:
 	var inv := stage as InvasionStage
 	if inv == null:
 		return
-	inv.size = RoomSpots.size_for(0.11, 0.45, scale_now) if mode == "mr" else 1.0
+	inv.size = room_size(0.11, 0.45) if mode == "mr" else 1.0
 	inv.buzz = buzz
 	inv.spots_provider = room_spots_for(1)
 
@@ -2097,7 +2097,7 @@ func _setup_new_mode() -> void:
 	if "planes_provider" in stage:
 		stage.set("planes_provider", room_planes_game)
 	if stage is FrenzyStage:
-		stage.set("size", scale_now / VR_SCALE if mode == "mr" else 1.0)  # bubbles keep their real size
+		stage.set("size", scale_now * ar_zoom / VR_SCALE if mode == "mr" else 1.0)  # bubbles: real size × the zoom
 		stage.set("around", mode == "mr")
 	# Played out in the room: room spots, and targets sized for the room (cm, whatever the
 	# court's scale).
@@ -2107,13 +2107,20 @@ func _setup_new_mode() -> void:
 		stage.set("mixed", mode == "mr")
 	if mode == "mr":
 		if stage is MeteorStage:
-			stage.set("size", RoomSpots.size_for(0.15, 0.85, scale_now))
+			stage.set("size", room_size(0.15, 0.85))
 		elif stage is GalleryStage:
-			stage.set("size", RoomSpots.size_for(0.15, GalleryStage.R, scale_now))
+			stage.set("size", room_size(0.15, GalleryStage.R))
 		elif stage is GiantStage:
-			stage.set("size", RoomSpots.size_for(0.105, GiantStage.MIN_R, scale_now))
+			stage.set("size", room_size(0.105, GiantStage.MIN_R))
 	if stage is CastleStage:
 		stage.set("size", 1.25 if mode == "mr" else 1.0)  # a small fort on the floor or a table
+
+
+## A room mode's size (mixed reality): targets about world_r metres across at zoom 1, scaled by
+## the pinning zoom like the Dahrooj you throw and the shots (blast_k), so shrinking or
+## growing the scene keeps everything in proportion.
+func room_size(world_r: float, base_r: float) -> float:
+	return RoomSpots.size_for(world_r * ar_zoom, base_r, scale_now)
 
 
 ## A mode card (xr-runtime.js choosePlaza).
@@ -2255,7 +2262,10 @@ func _screenshot() -> void:
 		score_popup.observe(runtime.mode, float(_args.score))
 		score_popup.step(0.3)
 	if _args.has("toast"):  # a challenge card, as when one is done
-		toast.show_text("✓ " + Save.text("العب ٥ أنماط مختلفة", "Play 5 different modes"))
+		if String(_args.toast) == "reward":
+			toast.notify("reward", Save.text("فتحت شماغ وعقال!", "Shemagh & agal unlocked!"), Save.text("البسه من المظهر ← الإكسسوارات", "Wear it from Appearance → Accessories"))
+		else:
+			toast.show_text("✓ " + Save.text("العب ٥ أنماط مختلفة", "Play 5 different modes"))
 		for i in 30:
 			toast.place(head_transform())
 			toast.step(1.0 / 30.0)

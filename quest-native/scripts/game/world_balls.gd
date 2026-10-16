@@ -1877,6 +1877,15 @@ func clear_blast() -> void:
 ## The first solid stage mesh along a ray (game units): {node, point, normal} or {}.
 ## The stages' guide lines on the ground and the nets don't stop a shot; nor do the
 ## meshes in `exclude` (a beam already went through them).
+## Whether a mesh belongs to a JuiceText (up to the stage).
+static func _in_text(n: Node, stop: Node) -> bool:
+	while n != null and n != stop:
+		if n is JuiceText:
+			return true
+		n = n.get_parent()
+	return false
+
+
 func ray_stage(stage: Node3D, from: Vector3, dir: Vector3, far: float, exclude: Array = []) -> Dictionary:
 	var best := {}
 	var best_d := far
@@ -1887,6 +1896,9 @@ func ray_stage(stage: Node3D, from: Vector3, dir: Vector3, far: float, exclude: 
 			continue
 		var mat := m.material_override
 		if mat == StageArt.line_mat() or mat == StageArt.net_mat() or m.mesh is ImmediateMesh:
+			continue
+		# Floating texts (banners, points, combos) are pictures, not things: shots fly through.
+		if _in_text(m, stage):
 			continue
 		# Ray into the mesh's space.
 		var xf: Transform3D = to_root * m.global_transform
