@@ -20,7 +20,7 @@ const AR_SCALE := 8.0
 const HUD_RISE := deg_to_rad(18.5)
 const AR_TABLE := 16.0
 const AR_ZOOM_MIN := 0.35
-const AR_ZOOM_MAX := 2.6
+const AR_ZOOM_MAX := 1.8  # bigger and the goal court (2.5 m at 1×) runs out of most rooms
 const REAL_G := 9.8
 const GAIN := 2.0
 const MIN_THROW := 1.0
@@ -72,7 +72,7 @@ var summit_on := false
 var summit_zoom := 1.0
 var summit_throw_at := -1.0
 var summit_throw_hand := ""  # the trigger that keeps throwing on the Summit
-var tabletops := {}  # mode -> TabletopStage (built once, kept)
+var tabletops := {}  # mode -> TabletopStage (built once per view; a view switch rebuilds)
 var table: TabletopStage = null  # the tabletop in play, or null
 var table_spot = null  # VR: Transform3D in front of you
 var menu: MenuPanel
@@ -263,7 +263,10 @@ func _ready() -> void:
 		state = "boot"
 	else:
 		_setup_desktop()
-	set_mode(Save.mode if xr else String(_args.get("view", "vr")))
+	if xr:
+		_boot_dark()
+	else:
+		set_mode(String(_args.get("view", "vr")))
 	if _args.has("screenshot"):
 		_screenshot.call_deferred()
 	# Store builds only: verify the purchase within the first seconds of launch.
@@ -1592,12 +1595,21 @@ func _step_hurt(dt: float) -> void:
 
 # --- splash, start screen and menu ---------------------------------------------------
 
-## After the system splash: straight into the opening in the saved view (mixed reality or
-## VR); its start panel switches the view and the language above the Play button.
+## Until the headset's session has begun (only then does it say whether passthrough works),
+## show nothing: no park, sky or court. Asking for mixed reality earlier was refused, so the
+## game used to open in VR (the park flashed), build its stage for VR and only then switch.
+func _boot_dark() -> void:
+	park.visible = false
+	if stage:
+		stage.visible = false
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0, 0, 0, 1)
+
+
+## After the system splash, once the session is up: a fresh start in the saved view (mixed
+## reality or VR), every stage built for it, on the opening's start page.
 func _start_game() -> void:
-	set_mode(Save.mode)
-	state = "play"
-	begin_opening()
+	restart_in_view(Save.mode)
 
 
 ## Menus open only once the game has started: not on the start screen or during the opening.
@@ -2134,6 +2146,9 @@ func restart_in_view(m: String) -> void:
 	world_balls.clear_blast()
 	world_balls.clear_rests()
 	runtime.drop_stages()
+	for m_id: String in tabletops:
+		(tabletops[m_id] as Node).queue_free()
+	tabletops.clear()
 	runtime.set_mode(keep_mode)
 	stage = runtime.stage
 	stage.visible = false

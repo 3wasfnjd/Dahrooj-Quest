@@ -347,6 +347,21 @@ func _scene() -> void:
 	main.on_start["right"] = ""
 	main.intro.clear()
 	main.stage.visible = true
+	# Launch: dark until the session is up, then a fresh start in the saved view (it used to
+	# open in VR, build the stage for VR, then switch to mixed reality with that stage).
+	var boot_stage: Node3D = main.stage
+	main._boot_dark()
+	check(not main.park.visible and not main.stage.visible and main.env.background_mode == Environment.BG_COLOR, "launch: dark until the headset session is up (no VR park flash)")
+	Save.mode = "mr"
+	main._start_game()
+	await get_tree().process_frame
+	check(main.mode == "mr" and main.stage != boot_stage and not is_instance_valid(boot_stage) and main.intro.active and not main.park.visible,
+		"launch: starts fresh in the saved view (mixed reality: stage built for it, start page)")
+	main.restart_in_view("vr")
+	await get_tree().process_frame
+	main.intro.clear()
+	main.state = "play"
+	main._choose_mode("goal")
 	# Switching the view mid-game starts over: the stage is built again for the new view.
 	main._choose_mode("meteor")
 	main.state = "play"
