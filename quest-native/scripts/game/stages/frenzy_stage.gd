@@ -756,7 +756,7 @@ func banner_at() -> Vector3:
 	var ahead := 4.6 * size
 	if not _bounds.is_empty():
 		ahead = clampf(viewer.z - float((_bounds.lo as Vector3).z) - 0.5 * size, 2.0 * size, ahead)
-	return Vector3(viewer.x, viewer.y + 1.0 * size, viewer.z - ahead)
+	return Vector3(viewer.x, viewer.y + 0.6 * size, viewer.z - ahead)  # under the HUD's score
 
 
 # ---- moving ----

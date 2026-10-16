@@ -892,7 +892,7 @@ func _label(at: Vector3, text: String, col: Color, k := 1.0) -> void:
 func banner_at() -> Vector3:
 	var v := _view()
 	var top := Vector3(0, H + 2.4, 0)
-	return top.lerp(v, 0.35) + Vector3.UP * 0.3
+	return top.lerp(v, 0.35) + Vector3.DOWN * 0.6  # under the HUD's score
 
 
 func _banner(text: String, sub: String, color: Color, secs := BANNER_T) -> void:

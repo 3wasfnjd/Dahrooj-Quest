@@ -15,6 +15,9 @@ extends Node3D
 
 const VR_SCALE := 2.0
 const AR_SCALE := 8.0
+## How high the HUD's score digits sit above the eye line (radians): under the challenge
+## cards, over the stages' round banners.
+const HUD_RISE := deg_to_rad(18.5)
 const AR_TABLE := 16.0
 const AR_ZOOM_MIN := 0.35
 const AR_ZOOM_MAX := 2.6
@@ -616,13 +619,16 @@ func place() -> void:
 		var b := Basis(Vector3.UP, -anchor.theta).scaled(Vector3.ONE / scale_now)
 		game_root.transform = Transform3D(b, ap - b * a)
 	hud.position = (game_root.transform * Vector3(0, 0, stage.aim_z)) + Vector3(0, 0.0, 0)
+	# The score digits sit centred and high (about HUD_RISE above the eye line): the stages'
+	# round banners stay below them and the challenge cards (head-locked) above.
 	if mode == "mr":
-		hud.position.y = maxf(anchor.p.y + 0.75, 1.55)
-		hud.scale = Vector3.ONE * 0.95
+		var eye := head_transform().origin
+		var flat := Vector2(hud.position.x - eye.x, hud.position.z - eye.z).length()
+		hud.position.y = maxf(anchor.p.y + 0.75, eye.y + flat * tan(HUD_RISE))
+		hud.scale = Vector3.ONE * 0.8
 	else:
-		# High over the play area, clear of the line of throw, and a little larger so it reads at a glance.
-		hud.position = vr_frame() * Vector3(0, 2.02, -3.4)
-		hud.scale = Vector3.ONE * 1.8
+		hud.position = vr_frame() * Vector3(0, 1.6 + 3.4 * tan(HUD_RISE), -3.4)
+		hud.scale = Vector3.ONE * 1.3
 	var yaw := _world_yaw()
 	env.sky_rotation = Vector3(0.0, yaw, 0.0)
 	sun.basis = Basis(Vector3.UP, yaw) * _sun_basis
@@ -2243,6 +2249,16 @@ func _screenshot() -> void:
 		_choose_mode(String(_args.mode))
 		for i in int(float(_args.get("after", "0")) * 72.0):
 			_game_step(1.0 / 72.0)
+	if _args.has("score"):  # the HUD's score digits up, as after a point
+		score_popup.observe(runtime.mode, 0.0)
+		runtime.counts[runtime.mode] = int(_args.score)
+		score_popup.observe(runtime.mode, float(_args.score))
+		score_popup.step(0.3)
+	if _args.has("toast"):  # a challenge card, as when one is done
+		toast.show_text("✓ " + Save.text("العب ٥ أنماط مختلفة", "Play 5 different modes"))
+		for i in 30:
+			toast.place(head_transform())
+			toast.step(1.0 / 30.0)
 	if _args.has("menu"):
 		state = "play"
 		_on_menu()

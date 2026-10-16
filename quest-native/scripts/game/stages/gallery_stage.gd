@@ -615,7 +615,7 @@ func _banner(text: String, sub: String, color: Color, secs := BANNER_T) -> void:
 func banner_at() -> Vector3:
 	if room():
 		return Vector3(viewer.x, viewer.y + 1.3 * size, viewer.z - 11.0 * size)
-	return Vector3(0, maxf(6.0, viewer.y + 2.7), -8.5)
+	return Vector3(0, maxf(4.6, viewer.y + 1.5), -8.5)  # under the HUD's score
 
 
 ## A firework rocket goes up from behind the gallery and bursts.

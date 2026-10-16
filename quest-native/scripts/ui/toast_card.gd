@@ -294,8 +294,8 @@ func step(dt: float) -> void:
 	var in_k := minf(1.0, t / 0.3)
 	var out_k := clampf((life - t) / 0.3, 0.0, 1.0)
 	var slide := (1.0 - _ease(in_k)) + (1.0 - _ease(out_k))
-	# High in view (about 21° up), above where the stages' banners and combos show.
-	var spot := eye + fwd * 0.8 * s + up * (0.31 + 0.07 * slide) * s
+	# High in view (about 27° up): above the HUD's score digits and the stages' banners.
+	var spot := eye + fwd * 0.8 * s + up * (0.40 + 0.07 * slide) * s
 	var at := _get_pos()
 	_set_pos(spot if _first else at.lerp(spot, 1.0 - exp(-dt * 9.0)))
 	_first = false

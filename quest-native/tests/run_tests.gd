@@ -309,6 +309,18 @@ func _scene() -> void:
 	check(main.stage is GoalStage, "the goal stands on the court")
 	var before: Vector3 = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
 	check(before.z < -9.0 and before.z > -12.0, "VR: the goal is about 10 m ahead (%.1f)" % before.z)
+	# The texts' order in view: challenge card on top, then the HUD's score, then round banners.
+	var eye: Vector3 = main.head_transform().origin
+	var hp: Vector3 = main.hud.global_position - eye
+	var hud_up := rad_to_deg(atan2(hp.y, Vector2(hp.x, hp.z).length()))
+	main.toast.show_text("✓ test")
+	for i in 30:
+		main.toast.place(main.head_transform())
+		main.toast.step(1.0 / 30.0)
+	var tp: Vector3 = main.toast.global_position - eye
+	var toast_up := rad_to_deg(atan2(tp.y, Vector2(tp.x, tp.z).length()))
+	check(absf(hud_up - 18.5) < 1.0 and toast_up > hud_up + 6.0,
+		"VR texts: the score %.1f° above the eye line, the challenge card higher (%.1f°)" % [hud_up, toast_up])
 	main.set_mode("mr")
 	var after: Vector3 = main.game_root.global_transform * Vector3(0, 0, main.stage.aim_z)
 	check(absf(after.length() - 1.6) < 0.3 and main.scale_now == 8.0, "MR: the goal on the floor 1.6 m ahead, 1/8 size")
