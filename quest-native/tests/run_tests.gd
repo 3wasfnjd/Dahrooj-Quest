@@ -466,6 +466,7 @@ func _room_play(main: Node) -> void:
 	main.set_mode("mr")
 	# Shrinking or growing the scene while pinning keeps targets and shots in proportion.
 	var ratios: Array = []
+	var scales: Array = []
 	for z in [1.0, 0.5]:
 		main.ar_zoom = z
 		main._choose_mode("meteor")
@@ -473,9 +474,11 @@ func _room_play(main: Node) -> void:
 		var meteor_m: float = float(main.stage.size) * 0.85 / main.scale_now
 		var shot_m: float = main.world_balls.blast_k() / main.scale_now
 		ratios.append(meteor_m / shot_m)
+		scales.append(main.scale_now)
 	main.ar_zoom = 1.0
 	main._setup_stage()
 	check(absf(float(ratios[0]) - float(ratios[1])) < 1e-3, "MR zoom: meteors and shots shrink together (%s)" % [ratios])
+	check(scales[0] == scales[1], "MR zoom: the room stays the room's size, only the Dahroojs shrink (%s)" % [scales])
 	main._choose_mode("mole")
 	main.state = "play"
 	check(main.room_play() and main.scale_now == 8.0, "MR room play: whack-a-Dahrooj is played out in the room")
@@ -1095,14 +1098,15 @@ func _rain_mode(main: Node) -> void:
 	main.place()
 	o = ir.global_transform.origin
 	check(Vector2(o.x, o.z).distance_to(Vector2(1.2, -2.5)) < 1e-3, "rain MR: placing moves it with the reticle")
+	# The stick resizes the Dahroojs only: the rain keeps the room's size.
 	main.ar_zoom = 2.0
 	main.place()
 	var k := ir.global_transform.basis.get_scale().x
-	check(absf(k - 2.0) < 1e-3, "rain MR: the stick makes it bigger (×%.2f)" % k)
+	var dk2: float = ir.drop_k
+	check(absf(k - 1.0) < 1e-3, "rain MR: the stick leaves the rain's area as it is (×%.2f)" % k)
 	main.ar_zoom = 0.5
 	main.place()
-	k = ir.global_transform.basis.get_scale().x
-	check(absf(k - 0.5) < 1e-3 and ir.drop_radius_world(ir.target_drops()[0]) < IntroRain.INTRO_R * 0.8, "rain MR: and smaller (×%.2f), the Dahroojs with it" % k)
+	check(absf(dk2 / ir.drop_k - 4.0) < 1e-3, "rain MR: and resizes its Dahroojs (×%.2f)" % (dk2 / ir.drop_k))
 	main.ar_zoom = 1.0
 	main.place()
 	# New drops match the Dahrooj thrown on the MR court (not the VR size, 4x bigger there).

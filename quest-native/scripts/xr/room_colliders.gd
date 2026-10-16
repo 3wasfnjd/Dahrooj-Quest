@@ -18,6 +18,23 @@ var _frame := -1
 var _dirty := true
 var _shown := false
 var _lines: MeshInstance3D = null
+var _occluder: MeshInstance3D = null
+var _occluding := false
+
+## How far the hiding surfaces sit back from the real ones (metres): what lies on a table or
+## sticks to a wall (a stain, a target, a resting Dahrooj) stays in front and is not cut.
+const OCCLUDE_INSET := 0.02
+## The hiding surfaces: drawn first among the see-through things, colour (0, 0, 0) and alpha 0
+## multiplied into what is already drawn where they are nearer (the real room shows through
+## passthrough there), and their depth kept, so whatever lies behind is hidden, opaque or not.
+const OCCLUDE_SHADER := """
+shader_type spatial;
+render_mode blend_mul, depth_draw_always, cull_disabled, unshaded, shadows_disabled, fog_disabled;
+void fragment() {
+	ALBEDO = vec3(0.0);
+	ALPHA = 0.0;
+}
+"""
 
 
 func _init(s: SceneSurfaces = null) -> void:
@@ -222,6 +239,76 @@ func show_planes(on: bool) -> void:
 func _process(_dt: float) -> void:
 	if _shown:
 		_draw_lines()
+	if _occluding:
+		_draw_occluder()
+
+
+## Mixed reality: the real walls and furniture hide what is behind them (an invisible mask
+## where they are: passthrough shows the real thing in front of any game object behind it).
+func occlude(on: bool) -> void:
+	_occluding = on
+	if on and _occluder == null:
+		_occluder = MeshInstance3D.new()
+		_occluder.top_level = true
+		_occluder.name = "RoomOccluder"
+		var sh := Shader.new()
+		sh.code = OCCLUDE_SHADER
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		m.render_priority = Material.RENDER_PRIORITY_MIN
+		_occluder.material_override = m
+		_occluder.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_occluder.custom_aabb = AABB(Vector3(-100, -100, -100), Vector3(200, 200, 200))
+		add_child(_occluder)
+	if _occluder != null:
+		_occluder.visible = on
+		_occluder.global_transform = Transform3D.IDENTITY
+	if on:
+		_draw_occluder()
+
+
+## The mask's triangles (world space): every plane but the floor, set back OCCLUDE_INSET behind
+## its face, and every volume shrunk by it.
+func _draw_occluder() -> void:
+	_refresh()
+	var verts := PackedVector3Array()
+	for e in _planes:
+		var xf: Transform3D = e.xf
+		var hx: float = e.hx
+		var hy: float = e.hy
+		var z := -OCCLUDE_INSET
+		var c := [xf * Vector3(-hx, -hy, z), xf * Vector3(hx, -hy, z), xf * Vector3(hx, hy, z), xf * Vector3(-hx, hy, z)]
+		verts.append_array([c[0], c[1], c[2], c[0], c[2], c[3]])
+	for e in _boxes:
+		var xf: Transform3D = e.xf
+		var h: Vector3 = (e.h as Vector3) - Vector3.ONE * OCCLUDE_INSET
+		h = h.max(Vector3.ONE * 0.005)
+		for a in 3:
+			var b := (a + 1) % 3
+			var cc := (a + 2) % 3
+			for sgn: float in [-1.0, 1.0]:
+				var q: Array[Vector3] = []
+				for uv: Vector2 in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+					var p := Vector3.ZERO
+					p[a] = sgn * h[a]
+					p[b] = uv.x * h[b]
+					p[cc] = uv.y * h[cc]
+					q.append(xf * p)
+				verts.append_array([q[0], q[1], q[2], q[0], q[2], q[3]])
+	var mesh := ArrayMesh.new()
+	if not verts.is_empty():
+		var arr: Array = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = verts
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	_occluder.mesh = mesh
+
+
+## Triangles in the hiding mask (tests).
+func occluder_triangles() -> int:
+	if _occluder == null or not _occluder.visible or _occluder.mesh == null or _occluder.mesh.get_surface_count() == 0:
+		return 0
+	return (_occluder.mesh as ArrayMesh).surface_get_array_len(0) / 3
 
 
 ## Rebuilt each frame while shown (a handful of quads; anchors may move).

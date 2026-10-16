@@ -157,9 +157,13 @@ func _on_rest(pos: Vector3, vel: Vector3) -> void:
 	var view: DahroojView = _views.pop_back() if not _views.is_empty() else DahroojView.new(Ball.BR, true)
 	if view.get_parent() == null:
 		add_child(view)
-	view.set_look(Save.style, Save.jelly_color, String(host.worn()) if host.has_method("worn") else Save.accessory)
+	# The look he was thrown in (a mode may dress him: Slime's coloured jelly), else the saved one.
+	var thrown = host.get("dahrooj")
+	var style: String = thrown.style if thrown is DahroojView and thrown.style != "" else Save.style
+	var color: String = thrown.color_id if thrown is DahroojView and thrown.style != "" else Save.jelly_color
+	view.set_look(style, color, String(host.worn()) if host.has_method("worn") else Save.accessory)
 	view.visible = true
-	rests.append({"age": 0.0, "view": view, "style": Save.style, "p": pos, "v": vel, "d": 0.0, "dv": 0.0,
+	rests.append({"age": 0.0, "view": view, "style": style, "p": pos, "v": vel, "d": 0.0, "dv": 0.0,
 		"wander": 1.5 + rnd() * 4.0, "blink": 0.0, "next": 1.0 + rnd() * 3.0, "mood": "", "mood_t": 0.0,
 		"pet_t": 0.0, "wet": false})
 	if rests.size() > RESTS_MAX:

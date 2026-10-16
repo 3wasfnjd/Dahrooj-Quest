@@ -568,7 +568,7 @@ func set_mode(m: String) -> void:
 func time_k() -> float:
 	# A smaller world runs faster (a miniature falls quicker); the pinning zoom must not change
 	# the pace, so mixed reality times it as at zoom 1.
-	var s := scale_now * (ar_zoom if mode == "mr" else 1.0)
+	var s := scale_now * (ar_zoom if mode == "mr" and not room_play() else 1.0)
 	return sqrt(REAL_G * s / Ball.GRAV)
 
 
@@ -640,8 +640,9 @@ func place() -> void:
 		var ap: Vector3 = anchor.p
 		# Played all around the room: the game's ground is the room's floor (even when the court
 		# was pinned on a table), at the usual room scale.
+		# The room is the room: the zoom only resizes the Dahroojs (room_size), never the layout.
 		if room_play():
-			scale_now = AR_SCALE / ar_zoom
+			scale_now = AR_SCALE
 			ap.y = 0.0
 		var a := Vector3(0, 0, SummitMode.GOAL_AIM_Z if summit_on else float(stage.aim_z))
 		var b := Basis(Vector3.UP, -anchor.theta).scaled(Vector3.ONE / scale_now)
@@ -683,9 +684,8 @@ func _place_rain() -> void:
 		intro.transform = Transform3D.IDENTITY
 		return
 	var p: Vector3 = a.p
-	var k := ar_zoom if mode == "mr" else 1.0
 	intro.drop_k = _rain_drop_k()
-	var xf := Transform3D(Basis(Vector3.UP, -float(a.theta)).scaled(Vector3.ONE * k), Vector3(p.x, 0.0, p.z))
+	var xf := Transform3D(Basis(Vector3.UP, -float(a.theta)), Vector3(p.x, 0.0, p.z))
 	intro.transform = (rig.global_transform.affine_inverse() if rig.is_inside_tree() else rig.transform.affine_inverse()) * xf
 	intro.pinned = true
 	intro.pin_back = 1.6 if mode == "mr" else 0.0
@@ -696,7 +696,7 @@ func _place_rain() -> void:
 func _rain_drop_k() -> float:
 	if mode != "mr":
 		return 1.0
-	return MR_DAHROOJ_R / IntroRain.INTRO_R  # the rain itself scales with the zoom
+	return MR_DAHROOJ_R * ar_zoom / IntroRain.INTRO_R  # the rain keeps the room's size; only its drops follow the zoom
 
 
 ## The opening's rain (with its start button), not Dahrooj Rain the mode.
@@ -2193,34 +2193,10 @@ func restart_in_view(m: String) -> void:
 	begin_opening()
 
 
-## Mixed reality: a Dahrooj with a real wall or piece of furniture between it and your eyes is
-## out of sight (behind the sofa, under the table), as a real ball would be.
+## Mixed reality: the real walls and furniture hide whatever is behind them (behind the sofa,
+## under the table, half sunk into a chair), every Dahrooj and enemy alike (RoomColliders.occlude).
 func _hide_behind_room() -> void:
-	if not room_active():
-		Crowd.hidden = Callable()
-		return
-	var eye := head_transform().origin
-	_occ_eye = eye
-	Crowd.hidden = _room_hides
-	var gt := game_root.global_transform
-	var r := Ball.BR * gt.basis.get_scale().x
-	var views: Array = [dahrooj]
-	views.append_array(volley_views)
-	for rr in world_balls.rests:
-		views.append(rr.view)
-	for v in views:
-		var dv := v as Node3D
-		if dv != null and dv.visible and room.blocked(eye, dv.global_position, r):
-			dv.visible = false
-
-
-var _occ_eye := Vector3.ZERO
-
-
-## Crowd.hidden while a room is live: the enemies (moles, invaders, minions, targets) out of
-## sight behind real furniture are not drawn, like the Dahrooj you throw.
-func _room_hides(p: Vector3, r: float) -> bool:
-	return room.blocked(_occ_eye, p, r)
+	room.occlude(room_active())
 
 
 ## Pinning: the radius (metres) a Dahrooj will have once pinned at this zoom and spot: the one

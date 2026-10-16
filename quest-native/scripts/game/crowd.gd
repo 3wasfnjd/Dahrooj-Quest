@@ -30,12 +30,6 @@ var with_faces := false
 ## Default colour per style (sRGB) when add() gets no colour: DAHROOJ_COLORS.
 var tints := {}
 var parts := {}  # name -> {mm: MultiMesh, mi: MultiMeshInstance3D, n: int, cap: int}
-## Mixed reality: hidden(world_pos, world_radius) -> bool, true when the real room (a sofa, a
-## table, a wall) stands between the eye and the ball, which is then not drawn. Set by main
-## while a room is live; invalid otherwise.
-static var hidden := Callable()
-var _occ_xf := Transform3D.IDENTITY
-var _occ_k := 1.0
 
 
 func _init(max_count := 120, accessories := false, faces := false) -> void:
@@ -89,9 +83,6 @@ func _part(id: String, mesh: Mesh, mat: Material, cap: int, colors := false, pri
 func begin() -> void:
 	for id in parts:
 		parts[id].n = 0
-	if hidden.is_valid():
-		_occ_xf = global_transform if is_inside_tree() else transform
-		_occ_k = _occ_xf.basis.get_scale().x
 
 
 func _put(id: String, m: Transform3D, color = null) -> void:
@@ -122,8 +113,6 @@ func add(style: String, pos: Vector3, radius: float, toward, squash := Vector2.O
 	if not parts.has(body):
 		body = "body_jelly"
 	if int(parts[body].n) >= max_n:
-		return
-	if hidden.is_valid() and hidden.call(_occ_xf * pos, radius * _occ_k):
 		return
 	var m := place(pos, radius, toward, squash)
 	var tint: Color = _color(color) if color != null else (tints.get(style, Color.WHITE) as Color)
