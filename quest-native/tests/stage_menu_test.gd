@@ -97,7 +97,7 @@ static func run(check: Callable) -> void:
 	_start_screen(check)
 	var p := MenuPanel.new()
 	# Button counts per page (7 tabs + Close on every page).
-	var want := {"modes": 28, "appearance": 25, "accessories": 24, "play": 23, "world": 20, "world-mr": 11, "challenges": 13, "system": 10, "about": 8}
+	var want := {"modes": 28, "appearance": 25, "accessories": 24, "play": 23, "world": 20, "world-mr": 11, "challenges": 13, "system": 10, "about": 10}
 	for en in [false, true]:
 		var bad: Array = []
 		for k: String in want:

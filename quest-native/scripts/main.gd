@@ -915,6 +915,11 @@ func _game_step(delta: float) -> void:
 				var h := room_hit(b.pos, b.vel, b.pos - b.vel * gdt, Ball.BR)
 				b.pos = h.p
 				b.vel = h.v
+			# The Dahroojs lying about roll into the walls and furniture too, not through them.
+			for rr in world_balls.rests:
+				var h := room_hit(rr.p, rr.v, rr.p - rr.v * gdt, Ball.BR)
+				rr.p = h.p
+				rr.v = h.v
 		# The world's props: Dahrooj bounces off poles and benches, shoves lanterns and sets off crates.
 		if nature_on() and park.has_method("collide"):
 			if ball.shot and not ball.held:
@@ -968,6 +973,7 @@ func _game_step(delta: float) -> void:
 			v.show_at(b.pos, eye, face, false, Vector2(1.0 + b.d * 0.75, 1.0 - b.d))
 		else:
 			v.visible = false
+	_hide_behind_room()
 	hud.visible = state == "play" and not placing and (not intro.active or intro.rain)
 	if placing:
 		score_popup.observe("placing", 0.0)
@@ -1748,6 +1754,10 @@ func _menu_action(i: int) -> void:
 			if String(b.id) != mode:
 				restart_in_view(String(b.id))
 			return
+		"link":
+			# The About page's site and privacy links open in the headset's browser.
+			OS.shell_open("https://" + str(b.get("url", MenuCatalog.WEBSITE)))
+			return
 		"time", "weather":
 			if nature_on():
 				park.set_settings({String(b.kind): String(b.id)})
@@ -2129,7 +2139,8 @@ func _setup_new_mode() -> void:
 	if "planes_provider" in stage:
 		stage.set("planes_provider", room_planes_game)
 	if stage is FrenzyStage:
-		stage.set("size", scale_now * ar_zoom / VR_SCALE if mode == "mr" else 1.0)  # bubbles: real size × the zoom
+		# Mixed reality: its Dahroojs the natural size (its bubbles keep their spread of sizes).
+		stage.set("size", scale_now * ar_zoom * MR_DAHROOJ_R / Ball.BR if mode == "mr" else 1.0)
 		stage.set("around", mode == "mr")
 	# Played out in the room: room spots, and targets sized for the room (cm, whatever the
 	# court's scale).
@@ -2180,6 +2191,24 @@ func restart_in_view(m: String) -> void:
 	set_mode(m)
 	state = "play"
 	begin_opening()
+
+
+## Mixed reality: a Dahrooj with a real wall or piece of furniture between it and your eyes is
+## out of sight (behind the sofa, under the table), as a real ball would be.
+func _hide_behind_room() -> void:
+	if not room_active():
+		return
+	var eye := head_transform().origin
+	var gt := game_root.global_transform
+	var r := Ball.BR * gt.basis.get_scale().x
+	var views: Array = [dahrooj]
+	views.append_array(volley_views)
+	for rr in world_balls.rests:
+		views.append(rr.view)
+	for v in views:
+		var dv := v as Node3D
+		if dv != null and dv.visible and room.blocked(eye, dv.global_position, r):
+			dv.visible = false
 
 
 ## Pinning: the radius (metres) a Dahrooj will have once pinned at this zoom and spot: the one

@@ -137,6 +137,37 @@ func collide(p: Vector3, v: Vector3, r: float, prev: Vector3) -> Dictionary:
 	return {"hit_speed": hit, "p": p, "v": v}
 
 
+## Whether a real wall, surface or piece of furniture stands between the eye and a sphere at p
+## of radius r (world space): it is then out of sight (behind the sofa, under the table).
+func blocked(eye: Vector3, p: Vector3, r: float) -> bool:
+	_refresh()
+	var d := p - eye
+	var dist := d.length()
+	if dist < 1e-4:
+		return false
+	var reach := dist - r  # what is in front of the sphere's near side
+	if reach <= 0.0:
+		return false
+	for e in _planes:
+		var inv: Transform3D = e.inv
+		var lo := inv * eye
+		var ld := inv.basis * d
+		if absf(ld.z) < 1e-9:
+			continue
+		var t := -lo.z / ld.z
+		if t <= 0.0 or t * dist >= reach:
+			continue
+		var hit := lo + ld * t
+		if absf(hit.x) <= e.hx and absf(hit.y) <= e.hy:
+			return true
+	for e in _boxes:
+		var inv: Transform3D = e.inv
+		var res := ray_box(inv * eye, inv.basis * d, e.h)
+		if not res.is_empty() and float(res.t) * dist < reach:
+			return true
+	return false
+
+
 ## Ray o + d*t against the box [-h, h] (slab test) from outside: {t, n} of the entry
 ## face (t in units of d), or {} on a miss or when o is inside.
 static func ray_box(o: Vector3, d: Vector3, h: Vector3) -> Dictionary:

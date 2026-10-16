@@ -47,6 +47,13 @@ static func run(check: Callable) -> void:
 	check.call(w.normal.is_equal_approx(Vector3.BACK) and w.size == Vector2(4, 3), "room: a plane's normal is its local +Z")
 	check.call(s.has_table() and s.surfaces().size() == 2, "room: legacy surfaces() lists the table and floor (%d)" % s.surfaces().size())
 
+	# Out of sight behind real things: behind the couch, under the table, beyond the wall.
+	var eye := Vector3(0, 1.6, 1.0)
+	check.call(rc.blocked(eye, Vector3(3.2, 0.1, 0.0), 0.05), "room: a Dahrooj behind the couch is out of sight")
+	check.call(rc.blocked(Vector3(0, 1.6, -0.3), Vector3(0, 0.1, -0.9), 0.05), "room: one under the table (standing by it, looking down) is out of sight")
+	check.call(rc.blocked(eye, Vector3(0, 1.0, -3.0), 0.05), "room: one beyond the wall is out of sight")
+	check.call(not rc.blocked(eye, Vector3(0, 1.2, -0.3), 0.05) and not rc.blocked(eye, Vector3(1.0, 0.1, 0.3), 0.05),
+		"room: in the open (or on the floor in front) it stays in sight")
 	# A ball thrown at the wall comes back.
 	var a := _fly(rc, Vector3(0, 1.6, -1.2), Vector3(0, 0.5, -6), 40)
 	check.call(a.v.z > 0.5 and a.p.z > -2.0 + R * 0.99 and a.max_hit > 4.0,

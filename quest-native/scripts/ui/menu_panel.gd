@@ -300,6 +300,11 @@ func layout(m: Dictionary) -> Array[Dictionary]:
 			add.call("finale", "finale", "احتفال الأبطال", "Champions’ party", {"x": base + (40.0 if english else 474.0), "y": 826.0, "w": 374.0, "h": 70.0},
 				{"icon": "worldCup", "color": "c9962a", "fill": "ffd76a"})
 		add.call("reset", "reset", "تأكيد التصفير؟" if armed else "تصفير التحديات", "Confirm reset?" if armed else "Reset challenges", reset_box, {"color": "c8442f" if armed else ""})
+	elif page == "about":
+		# The studio site and the privacy policy: point and pull the trigger to open them.
+		var lx := [64.0, 454.0] if english else [454.0, 64.0]  # the site first, from the reading side
+		add.call("link", "site", "موقع الاستوديو", "Studio website", {"x": base + lx[0], "y": 772.0, "w": 370.0, "h": 104.0}, {"icon": "world", "url": MenuCatalog.WEBSITE})
+		add.call("link", "privacy", "سياسة الخصوصية", "Privacy policy", {"x": base + lx[1], "y": 772.0, "w": 370.0, "h": 104.0}, {"icon": "about", "url": MenuCatalog.PRIVACY_URL})
 	elif page == "system":
 		add.call("lang", "lang", "English", "العربية", {"x": base + 100, "y": 308.0, "w": 300.0, "h": 244.0}, {"color": "5797b1", "fill": "a8d4df"})
 		add.call("exit", "exit", "الخروج من اللعب", "Exit session", {"x": base + 488, "y": 308.0, "w": 300.0, "h": 244.0}, {"color": "b8734b", "fill": "e4b081"})
@@ -676,6 +681,11 @@ func _button(ci: CanvasItem, b: Dictionary, index: int) -> void:
 				ci.draw_polyline(PackedVector2Array([Vector2(ax - 6 * k, c.y - 12), Vector2(ax + 6 * k, c.y), Vector2(ax - 6 * k, c.y + 12)]), line, 4.0, true)
 			var tw := r.size.x - 58.0
 			_text(ci, name, ax - (tw / 2.0 + 18.0) * (1.0 if fwd else -1.0), c.y + Glass.T_SMALL * 0.36, Glass.T_SMALL, label_col, tw, "center", Glass.W_LABEL)
+		"link":
+			# An icon, the name, and the address under it (left to right whatever the language).
+			_icon(ci, str(b.icon), Vector2(r.position.x + 52.0, c.y), 46, line, tint)
+			_text(ci, name, r.position.x + 92.0, c.y - 6.0, Glass.T_SMALL + 2, label_col, r.size.x - 108.0, "left", Glass.W_LABEL)
+			_text(ci, str(b.get("url", "")), r.position.x + 92.0, c.y + 26.0, Glass.T_SMALL - 4, Color(ACCENT, 0.95), r.size.x - 108.0, "left", Glass.W_BODY, TextServer.DIRECTION_LTR)
 		"lang", "exit":
 			if kind == "lang":
 				lang_icon(ci, Vector2(c.x, r.position.y + 100), 100)
@@ -828,12 +838,7 @@ func _details(ci: CanvasItem) -> void:
 				Glass.rim(ci, box, 20, 0.12, 0.04, 1.5)
 			_text(ci, cr[0], cx, y, 30, ACCENT if i == 0 else TEXT, 720, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
 			_text(ci, _say(cr[1], cr[2]), cx, y + 36, Glass.T_SMALL + 1, SUB, 720)
-		var links_y := 360.0 + MenuCatalog.CREDITS.size() * 112.0
-		if ci != null:
-			ci.draw_line(Vector2(cx - 200, links_y - 30), Vector2(cx + 200, links_y - 30), Color(1, 1, 1, 0.1), 1.5, true)
-		_text(ci, MenuCatalog.WEBSITE, cx, links_y + 8, 28, ACCENT, 760, "center", Glass.W_TITLE, TextServer.DIRECTION_LTR)
-		_text(ci, _say("سياسة الخصوصية", "Privacy policy"), cx, links_y + 50, Glass.T_SMALL + 1, SUB, 760)
-		_text(ci, MenuCatalog.PRIVACY_URL, cx, links_y + 84, Glass.T_SMALL + 1, TEXT, 760, "center", Glass.W_BODY, TextServer.DIRECTION_LTR)
+		# The site and privacy links are buttons (see the about page's buttons).
 
 
 ## Whether the model's challenges are all done (the final one, GameRuntime.ALL_DONE, finished).

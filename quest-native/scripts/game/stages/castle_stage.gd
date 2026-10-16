@@ -93,10 +93,11 @@ const STONE := ["f4e3c3", "e9d3ac", "f9ecd4", "dcc39a"]
 static var _meshes := {}
 
 var aim_z := -10.0
-## The court runs out past the fort (the walkers come from there); the player stands near
-## (reach_z = aim_z: no back-off), the fort's front corner some 3 m away.
+## The court runs out past the fort (the walkers come from there); in VR the player stands
+## 2.5 m further back than the fort's spot (reach_z 5 units past aim_z), so the front corner is
+## some 5.5 m away and the walkers coming round from behind it stay in view.
 var far_z = -24.0
-var reach_z = -10.0
+var reach_z = -15.0
 var friction = null
 var shot_time = 4.0
 var ctx: GameCtx
