@@ -347,6 +347,20 @@ func _scene() -> void:
 	main.on_start["right"] = ""
 	main.intro.clear()
 	main.stage.visible = true
+	# Switching the view mid-game starts over: the stage is built again for the new view.
+	main._choose_mode("meteor")
+	main.state = "play"
+	var vr_stage: Node3D = main.stage
+	main.restart_in_view("mr")
+	await get_tree().process_frame
+	check(main.mode == "mr" and Save.mode == "mr" and main.stage != vr_stage and not is_instance_valid(vr_stage)
+		and main.runtime.mode == "meteor" and main.intro.active and not main.stage.visible and main.world_balls.rests.is_empty(),
+		"view switch: a fresh start (new meteor stage for MR, back on the start page)")
+	main.restart_in_view("vr")
+	await get_tree().process_frame
+	main.intro.clear()
+	main.state = "play"
+	main._choose_mode("goal")
 	# The menu's World page: the same switch, as two icon cards.
 	main.state = "play"
 	main.set_menu(true, "world")
@@ -356,13 +370,19 @@ func _scene() -> void:
 			view_i = i
 	check(view_i >= 0, "the World page has the mixed reality / VR cards")
 	main._menu_action(view_i)
-	check(main.mode == "mr" and not main.menu.visible, "World page: mixed reality switches the view and closes the menu")
+	check(main.mode == "mr" and not main.menu.visible and main.intro.active, "World page: mixed reality starts over in that view and closes the menu")
+	main.intro.clear()
+	main.stage.visible = true
+	main.state = "play"
 	main.set_menu(true, "world")
 	for i in main.menu.buttons.size():
 		if main.menu.buttons[i].kind == "view" and main.menu.buttons[i].id == "vr":
 			view_i = i
 	main._menu_action(view_i)
 	check(main.mode == "vr" and Save.mode == "vr", "and VR back")
+	main.intro.clear()
+	main.state = "play"
+	main._choose_mode("goal")
 	await _world(main)
 	_summit_buttons(main)
 	_ab_buttons(main)

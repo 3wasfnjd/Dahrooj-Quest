@@ -1078,9 +1078,7 @@ func _press(hand: String, how: String) -> void:
 		elif item == "mr" or item == "vr":
 			rig.pulse(hand, 0.2, 0.03)
 			if item != mode:
-				Save.mode = item
-				Save.save()
-				set_mode(item)
+				restart_in_view(item)
 		elif item == "lang":
 			rig.pulse(hand, 0.2, 0.03)
 			Save.language = "en" if Save.arabic() else "ar"
@@ -1709,12 +1707,10 @@ func _menu_action(i: int) -> void:
 			Save.save()
 			menu_hover = -1
 		"view":
-			# Mixed reality / VR from the World page: switch, close the menu (MR then pins).
-			if String(b.id) != mode:
-				Save.mode = String(b.id)
-				Save.save()
-				set_mode(String(b.id))
+			# Mixed reality / VR from the World page: a fresh start in the new view.
 			set_menu(false)
+			if String(b.id) != mode:
+				restart_in_view(String(b.id))
 			return
 		"time", "weather":
 			if nature_on():
@@ -2116,6 +2112,37 @@ func _setup_new_mode() -> void:
 		stage.set("size", 1.25 if mode == "mr" else 1.0)  # a small fort on the floor or a table
 
 
+## Switching between VR and mixed reality starts over: every stage is built again for the new
+## view (none keeps pieces sized for the other one), nothing in flight or lying about stays,
+## and the player is back on the start page, in the new view, ready to press Play.
+func restart_in_view(m: String) -> void:
+	Save.mode = m
+	Save.save()
+	var keep_mode: String = runtime.mode
+	set_menu(false)
+	_set_table("")
+	if summit_on:
+		set_summit(false)
+	if intro.active:
+		intro.set_rain(false)
+		intro.clear()
+	if golden:
+		golden.clear()
+	holder = ""
+	parked = false
+	auto_fire.clear()
+	world_balls.clear_blast()
+	world_balls.clear_rests()
+	runtime.drop_stages()
+	runtime.set_mode(keep_mode)
+	stage = runtime.stage
+	stage.visible = false
+	ball.respawn()
+	set_mode(m)
+	state = "play"
+	begin_opening()
+
+
 ## A room mode's size (mixed reality): targets about world_r metres across at zoom 1, scaled by
 ## the pinning zoom like the Dahrooj you throw and the shots (blast_k), so shrinking or
 ## growing the scene keeps everything in proportion.
@@ -2211,11 +2238,8 @@ func _panel_action(id: String) -> void:
 			_recall()
 			_close_menu()
 		"switch":
-			var m := "vr" if mode == "mr" else "mr"
-			Save.mode = m
-			Save.save()
-			set_mode(m)
 			_close_menu()
+			restart_in_view("vr" if mode == "mr" else "mr")
 		"recenter":
 			replace_here()
 			_close_menu()

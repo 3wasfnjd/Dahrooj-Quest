@@ -404,6 +404,20 @@ func set_mode(id: String) -> void:
 	ball.set_stage(stage, id)
 
 
+## Throws every built stage away (main, when the view switches between VR and mixed reality):
+## each is built again, fresh, for the new view the next time its mode is chosen.
+func drop_stages() -> void:
+	ball.volley.clear()
+	flush()
+	for id: String in cache:
+		var st: Node3D = cache[id]
+		if st.has_method("deactivate"):
+			st.deactivate()
+		st.queue_free()
+	cache.clear()
+	stage = null
+
+
 func recall() -> void:
 	if ball.shot and ball.scored_t <= 0.0 and ball.miss_t <= 0.0 and mode == "hoop":
 		reset_streak()
