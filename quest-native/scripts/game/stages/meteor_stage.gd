@@ -619,7 +619,7 @@ func start_shower() -> void:
 	# From ahead: the streaks spread SHOWER_SPREAD more either way, all inside the forward arc.
 	var az := _rng.randf_range(-(RoomSpots.ARC - SHOWER_SPREAD), RoomSpots.ARC - SHOWER_SPREAD)
 	F.shower_dir = RoomSpots.dir_at(Vector3.FORWARD, az)
-	_banner("زخّة نيازك!" if not _en() else "METEOR SHOWER!", "الذهبية بخمسة أضعاف!" if not _en() else "Golden ones are worth ×5!", Color("ff6b3d"), 2.0)
+	_banner("زخّة نيازك!" if not _en() else "METEOR SHOWER!", "اللمّاعة بخمسة أضعاف!" if not _en() else "Shiny ones are worth ×5!", Color("ff6b3d"), 2.0)
 	_sfx("firework_launch", 1.0, banner_at())
 	_sfx("whoosh", 1.0, banner_at())
 	_buzz2(0.4, 90)
@@ -925,7 +925,7 @@ func explode(m: Dictionary, dir: Vector3, depth: int) -> void:
 		F.combo_show_t = 1.1
 		F.combo_at = c
 	if golden:
-		_pop_label(c + Vector3.UP * r * 2.2, ("GOLD! +%d" % pts) if _en() else ("ذهبي! +%s" % GameCtx.ar_digits(pts)), Color(GOLD), 1.4)
+		_pop_label(c + Vector3.UP * r * 2.2, ("SHINY! +%d" % pts) if _en() else ("لمّاع! +%s" % GameCtx.ar_digits(pts)), Color(GOLD), 1.4)
 		_sfx("chime", 1.0, c)
 		_buzz2(0.6, 80)
 	else:

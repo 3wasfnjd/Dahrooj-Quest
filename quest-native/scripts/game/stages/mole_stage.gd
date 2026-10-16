@@ -312,7 +312,7 @@ func _score(m: Dictionary) -> void:
 	if ctx:
 		ctx.ch_progress.call("mole20", int(ctx.ch_state.get("mole20", 0)) + 1)
 	if m.kind == "gold":
-		_say("دحروج ذهبي!", "Golden Dahrooj!", at + Vector3.UP * 0.75 * size, "banner", 0.6, Color("ffc21a"))
+		_say("دحروج لمّاع!", "Shiny Dahrooj!", at + Vector3.UP * 0.75 * size, "banner", 0.6, Color("ffc21a"))
 		_celebrate(at, 0.8)
 	if F.streak % STREAK == 0:
 		_sfx("chime", 0.8, at)

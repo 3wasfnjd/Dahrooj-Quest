@@ -539,7 +539,7 @@ func _chain_pop(col: int, at: Vector3) -> void:
 	F.mult = multiplier(F.chain)
 	if F.mult > before and F.mult > 1:
 		var en := _en()
-		var cname: String = ("GOLD" if en else "ذهبي") if frenzy() else (String(COLORS[int(F.chain_col)][2 if en else 1]) if int(F.chain_col) >= 0 else "")
+		var cname: String = ("SHINY" if en else "لمّاع") if frenzy() else (String(COLORS[int(F.chain_col)][2 if en else 1]) if int(F.chain_col) >= 0 else "")
 		combo_label.text = ("%s ×%d!" % [cname, F.mult]) if en else ("%s ×%s!" % [cname, GameCtx.ar_digits(F.mult)])
 		combo_label.modulate = chain_color()
 		F.combo_t = 1.2

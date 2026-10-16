@@ -29,8 +29,10 @@ const KINDS := {
 	"ouch": {"px": 140, "em": 0.7, "life": 1.1, "cycle": 0.0, "stars": 0, "sat": 0.32},
 	"miss": {"px": 120, "em": 0.6, "life": 1.0, "cycle": 0.0, "stars": 0, "sat": 0.25},
 }
-## Every in-game text drawn this much smaller than its em (the owner found them too big in play).
-const SIZE_K := 0.8
+## How big each kind is drawn against its em (the owner found the texts too big in play):
+## round titles about half their first size, and the little ones (+1, combos, ouch, miss)
+## about a third of a round title's height.
+const SIZE_K := {"banner": 0.55, "sub": 0.7, "points": 0.36, "combo": 0.33, "ouch": 0.34, "miss": 0.38}
 ## The festive palette (degrees) that walks across the glyphs of a word.
 const FESTIVE: Array[float] = [330.0, 42.0, 190.0, 112.0, 275.0, 18.0, 205.0, 55.0]
 const POOL := 14
@@ -313,7 +315,8 @@ func _repaint() -> void:
 ## Sizes the quad to the picture: its em (px) maps to em metres.
 func _fit() -> void:
 	var px := float(KINDS.get(kind, KINDS.points).px)
-	quad.scale = Vector3(picture.x / px * em, picture.y / px * em, 1.0) * Vector3(SIZE_K, SIZE_K, 1.0)
+	var k := float(SIZE_K.get(kind, 0.55))
+	quad.scale = Vector3(picture.x / px * em * k, picture.y / px * em * k, 1.0)
 
 
 ## Draws txt into vp (resized to fit) and returns the picture size in pixels.
