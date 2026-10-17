@@ -888,7 +888,10 @@ func _game_step(delta: float) -> void:
 			stage.set("clock", time_k())  # timed effects (frenzy, slow motion) in real seconds
 		if stage is GiantStage:
 			# The giant keeps one unhurried pace in real time, VR or mixed reality.
-			stage.pace = GIANT_PACE * sqrt(REAL_G * VR_SCALE / Ball.GRAV) / time_k()
+			# Shrunk while pinning he is smaller but the room is not: a small one moves quicker (as
+			# a small thing falls quicker), so he still crosses the room as fast.
+			var zk := 1.0 / sqrt(clampf(ar_zoom, AR_ZOOM_MIN, AR_ZOOM_MAX)) if room_play() else 1.0
+			stage.pace = GIANT_PACE * sqrt(REAL_G * VR_SCALE / Ball.GRAV) / time_k() * zk
 		runtime.step(gdt)
 		world_balls.step_rests(gdt, dt)
 		world_balls.step_contacts(gdt)

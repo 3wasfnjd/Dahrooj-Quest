@@ -1156,7 +1156,7 @@ func draw() -> void:
 			nf += 1
 			# Heat: a soft glow and a wavering shimmer around it.
 			if nh + 2 <= HALO_MAX:
-				var flick := 0.85 + 0.15 * sin(time * 23.0 + float(m.seed))
+				var flick := 0.95 + 0.05 * sin(time * 5.0 + float(m.seed))  # a slow, gentle waver (a fast one flickered)
 				_halo(halo, nh, c, r * 3.0 * flick, _lin("ffd27a" if golden else "ff8a3a", 0.5), K_GLOW)
 				_halo(halo, nh + 1, c, r * 2.4, _lin("fff0d0", 0.5), K_SHIMMER)
 				nh += 2

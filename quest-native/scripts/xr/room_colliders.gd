@@ -371,6 +371,8 @@ func _draw_occluder() -> void:
 	var verts := PackedVector3Array()
 	for e in _planes:
 		var xf: Transform3D = e.xf
+		if e.label == "ceiling" or xf.basis.z.normalized().y < -0.7:
+			continue  # nothing is ever behind it, and the meteors come through it (no flicker)
 		var hx: float = e.hx
 		var hy: float = e.hy
 		var z := -OCCLUDE_INSET

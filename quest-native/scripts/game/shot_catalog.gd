@@ -30,7 +30,7 @@ const SHOTS := {
 	"confetti": {"ar": "قصاصات", "en": "Confetti", "icon": "confetti", "sound": "swish",
 		"ar_desc": "مدفع قصاصات: خمس كرات في مخروط", "en_desc": "Confetti cannon: five pellets in a cone"},
 	"bouncy": {"ar": "نطّاطة", "en": "Bouncy", "icon": "bouncy", "sound": "squeak",
-		"ar_desc": "كرة مطاطية تنطّ بالمكان بلا توقف", "en_desc": "A rubber ball that keeps bouncing about"},
+		"ar_desc": "كرة مطاطية تنطّ بالمكان عشر ثوانٍ", "en_desc": "A rubber ball that bounces about for ten seconds"},
 	"laser": {"ar": "ليزر", "en": "Laser", "icon": "laser", "sound": "pew",
 		"ar_desc": "شعاع فوري يخترق حتى ٣ أهداف", "en_desc": "An instant beam through up to 3 targets"},
 	"boomerang": {"ar": "بوميرانغ", "en": "Boomerang", "icon": "boomerang", "sound": "swish",

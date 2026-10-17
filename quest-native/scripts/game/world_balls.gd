@@ -22,7 +22,7 @@ const REST_ROOM := 26.0
 const REAL_G := 9.8
 const SPARKS_MAX := 320
 const SHOTS_MAX := 48
-## Bouncy balls never wear out: they bounce about the room for good, at most this many at once
+## Bouncy balls bounce about the room for their whole (long) life, at most this many at once
 ## (a new one takes the place of the oldest; the headset keeps its frame rate).
 const BOUNCY_MAX := 20
 ## They keep hopping and rolling (metres a second, × blast_k): at least this high a bounce and
@@ -46,7 +46,7 @@ const SHOT_STYLE := {
 	"bubble": {"speed": 4.2, "grav": -0.06, "life": 3.6, "r": 0.06, "cool": 0.16, "sk": 0.18},
 	"firework": {"speed": 20.0, "grav": 0.35, "life": 0.85, "r": 0.025, "cool": 0.2, "burst": 0.55, "sk": 0.18},
 	"confetti": {"speed": 24.0, "grav": 0.45, "life": 0.9, "r": 0.018, "cool": 0.3, "pellets": 5, "cone": 0.12, "sk": 0.5},
-	"bouncy": {"speed": 15.0, "grav": 1.0, "life": INF, "r": 0.03, "cool": 0.22, "bounces": 1000000000, "pops": 1000000000, "sk": 1.35},
+	"bouncy": {"speed": 15.0, "grav": 1.0, "life": 10.0, "r": 0.03, "cool": 0.22, "bounces": 1000000000, "pops": 1000000000, "sk": 1.35},
 	"laser": {"speed": 0.0, "grav": 0.0, "life": 0.25, "r": 0.015, "cool": 0.32, "range": 30.0, "pierce": 3, "sk": 0.5},
 	"boomerang": {"speed": 10.0, "grav": 0.0, "life": 1.5, "r": 0.06, "cool": 0.55, "reach": 6.0, "swing": 1.6, "sk": 0.5},
 	"glob": {"speed": 12.0, "grav": 1.0, "life": 2.5, "r": 0.045, "cool": 0.35, "splat": 0.4, "sk": 0.7},
@@ -468,6 +468,17 @@ func blast_k() -> float:
 	return k
 
 
+## How far and fast the shots go (game units per metre of their speeds, ranges, gravity and
+## seeking): blast_k() on a court, but played out in the room the zoom only shrinks how they
+## look, never how far they reach (the room stays the room: the far targets stay far).
+func reach_k() -> float:
+	var k := blast_k()
+	if host.get("mode") == "mr" and host.has_method("room_play") and host.room_play():
+		var z := float(host.get("ar_zoom")) if host.get("ar_zoom") != null else 1.0
+		k /= maxf(z, 0.05)
+	return k
+
+
 ## The saved shot style while it is unlocked (ShotCatalog), else the bolt.
 func style_for() -> String:
 	var id: String = Save.shot_style
@@ -589,7 +600,7 @@ func _add_shot(kind: String, P: Dictionary, p: Vector3, dir: Vector3, k: float, 
 			add_child(node)
 	var side := dir.cross(Vector3.UP)
 	side = side.normalized() if side.length_squared() > 1e-6 else Vector3.RIGHT
-	var speed: float = P.speed * k
+	var speed: float = P.speed * reach_k()
 	if kind == "rocket":
 		speed *= 0.15  # it starts slow and speeds up
 	var s := {"kind": kind, "node": node, "p": p, "v": dir * speed, "dir": dir, "t": 0.0, "r": P.r * k,
@@ -1234,7 +1245,7 @@ func _beam_reach(p: Vector3, dir: Vector3, far: float, R: float) -> float:
 ## stopping at a wall; a glowing line that fades.
 func _laser(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
 	var R: float = P.r * k
-	var end := _beam_reach(p, dir, P.range * k, R)
+	var end := _beam_reach(p, dir, P.range * reach_k(), R)
 	var cur := 0.0
 	var hits := 0
 	var seen: Array = []
@@ -1279,7 +1290,7 @@ func _laser(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
 	_credit("laser", hits)
 	if hits >= int(P.pierce):
 		end = cur  # the beam stops in the last one
-	elif not blocked and end < P.range * k - 1e-3:
+	elif not blocked and end < P.range * reach_k() - 1e-3:
 		impact(p + dir * end, -dir, col)
 	var intro = host.get("intro")
 	if intro and intro.active:
@@ -1294,7 +1305,7 @@ func _lightning(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
 	var all := targets()
 	var first := {}
 	var best := INF
-	var far: float = P.range * k
+	var far: float = P.range * reach_k()
 	for t in all:
 		var to: Vector3 = (t.p as Vector3) - p
 		var d := to.length()
@@ -1339,7 +1350,7 @@ func _lightning(p: Vector3, dir: Vector3, k: float, P: Dictionary) -> void:
 			break
 		from = at
 		var nxt := {}
-		var nd: float = P.hop * k
+		var nd: float = P.hop * reach_k()
 		for t in all:
 			if done.any(func(x): return is_same(x, t.ref)):
 				continue
@@ -1431,7 +1442,8 @@ static func _seg_xf(a: Vector3, b: Vector3, w: float) -> Transform3D:
 
 ## How a shot moves this step (before it meets anything).
 func _move(s: Dictionary, P: Dictionary, dt: float, k: float) -> void:
-	var G := REAL_G * k
+	var rk := reach_k()
+	var G := REAL_G * rk
 	match String(s.kind):
 		"rocket":
 			s.seek_t -= dt
@@ -1439,7 +1451,7 @@ func _move(s: Dictionary, P: Dictionary, dt: float, k: float) -> void:
 			if tp == null and s.seek_t <= 0.0:
 				s.seek_t = 0.1
 				var fwd0: Vector3 = (s.v as Vector3).normalized() if (s.v as Vector3).length_squared() > 1e-10 else s.dir
-				s.target = _seek(s.p, fwd0, P.seek * k, s)
+				s.target = _seek(s.p, fwd0, P.seek * rk, s)
 				tp = target_at(s.target)
 			var fwd: Vector3 = (s.v as Vector3).normalized() if (s.v as Vector3).length_squared() > 1e-10 else s.dir
 			# It locks on after a moment and turns toward its target.
@@ -1448,7 +1460,7 @@ func _move(s: Dictionary, P: Dictionary, dt: float, k: float) -> void:
 				var ang := fwd.angle_to(want)
 				if ang > 1e-4:
 					fwd = fwd.slerp(want, minf(1.0, float(P.turn) * dt / ang)).normalized()
-			var sp: float = lerpf(0.15, 1.0, smoothstep(0.0, 0.5, float(s.t))) * P.speed * k
+			var sp: float = lerpf(0.15, 1.0, smoothstep(0.0, 0.5, float(s.t))) * P.speed * rk
 			s.v = fwd * sp
 			s.p += s.v * dt
 		"boomerang":
@@ -1456,8 +1468,8 @@ func _move(s: Dictionary, P: Dictionary, dt: float, k: float) -> void:
 			if not s.ret:
 				var u := clampf(float(s.t) / T, 0.0, 1.0)
 				var back: Vector3 = _hand_at(s) - (s.o as Vector3)
-				var want: Vector3 = (s.o as Vector3) + (s.dir as Vector3) * (P.reach * k * sin(PI * u)) \
-					+ (s.side as Vector3) * (P.swing * k * sin(TAU * u)) + Vector3.UP * (0.25 * k * sin(PI * u)) + back * u
+				var want: Vector3 = (s.o as Vector3) + (s.dir as Vector3) * (P.reach * rk * sin(PI * u)) \
+					+ (s.side as Vector3) * (P.swing * rk * sin(TAU * u)) + Vector3.UP * (0.25 * k * sin(PI * u)) + back * u
 				s.v = (want - (s.p as Vector3)) / dt if dt > 0.0 else Vector3.ZERO
 				s.p = want
 				if u >= 1.0:
@@ -1467,8 +1479,8 @@ func _move(s: Dictionary, P: Dictionary, dt: float, k: float) -> void:
 				var to: Vector3 = _hand_at(s) - (s.p as Vector3)
 				if to.length() < float(s.r) * 3.0 or s.t > T + 2.0:
 					s.caught = true
-				s.v = to.normalized() * P.speed * k
-				s.p += s.v * minf(dt, to.length() / maxf(1e-6, P.speed * k))
+				s.v = to.normalized() * P.speed * rk
+				s.p += s.v * minf(dt, to.length() / maxf(1e-6, P.speed * rk))
 		_:
 			s.v.y -= G * P.grav * dt
 			if s.kind == "bubble":
@@ -1826,13 +1838,13 @@ func step_blast(dt: float) -> void:
 					# It never settles: every bounce at least BOUNCY_HOP high, on along the floor.
 					s.p.y = floor_y + R
 					if s.v.y < 0.0:
-						var up: float = maxf(-s.v.y * 0.8, BOUNCY_HOP * k)
+						var up: float = maxf(-s.v.y * 0.8, BOUNCY_HOP * reach_k())
 						host.sfx("bricks_tink", clampf(-s.v.y / (8.0 * k), 0.0, 1.0), s.p)
 						s.v.y = up
 						s.bounces += 1
 					var flat := Vector2(s.v.x, s.v.z)
-					if flat.length() < BOUNCY_ROLL * k:
-						flat = (flat.normalized() if flat.length() > 1e-4 else Vector2(rnd() - 0.5, rnd() - 0.5).normalized()) * BOUNCY_ROLL * k
+					if flat.length() < BOUNCY_ROLL * reach_k():
+						flat = (flat.normalized() if flat.length() > 1e-4 else Vector2(rnd() - 0.5, rnd() - 0.5).normalized()) * BOUNCY_ROLL * reach_k()
 						s.v.x = flat.x
 						s.v.z = flat.y
 				"boomerang":

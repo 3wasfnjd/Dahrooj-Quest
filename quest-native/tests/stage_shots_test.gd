@@ -66,6 +66,8 @@ class TargetStage:
 	var hit_log: Array = []
 	var targets: Array = []
 	var sturdy := false
+	var fan := 1
+	func shot_fan() -> int: return fan
 	func add_target(p: Vector3, r: float) -> MeshInstance3D:
 		var mi := MeshInstance3D.new()
 		var s := SphereMesh.new()
@@ -364,6 +366,21 @@ static func _rocket(check: Callable, rig: Dictionary) -> void:
 		wb.step_blast(DT)
 	check.call(not (r1.target as Dictionary).is_empty() and not (r2.target as Dictionary).is_empty() and not is_same(r1.target.ref, r2.target.ref),
 		"rocket: two in the air pick different targets")
+	# The triple shot: its three rockets share out the targets too.
+	_reset(rig)
+	var fs := _stage(rig)
+	fs.fan = 3
+	for x: float in [-1.2, 0.0, 1.2]:
+		fs.add_target(O + Vector3(x, 0, -5), 0.15)
+	wb.fire("right", O, FWD)
+	for i in int(0.4 / DT):
+		wb.step_blast(DT)
+	var refs := []
+	for o: Dictionary in wb.shots:
+		if o.kind == "rocket" and not (o.target as Dictionary).is_empty() and not refs.any(func(r) -> bool: return is_same(r, o.target.ref)):
+			refs.append(o.target.ref)
+	check.call(refs.size() == 3, "rocket: the triple shot's three rockets go for three targets (%d)" % refs.size())
+	fs.fan = 1
 
 
 static func _boomerang(check: Callable, rig: Dictionary) -> void:
@@ -483,12 +500,17 @@ static func _bouncy(check: Callable, rig: Dictionary) -> void:
 	_reset(rig)
 	wb.fire("right", O, Vector3(0.3, -0.2, -1).normalized())
 	var first: Dictionary = wb.shots[0]
-	_run(wb, 20.0)
+	_run(wb, 6.0)
 	var hops := false
 	for i in int(2.0 / DT):
 		wb.step_blast(DT)
 		hops = hops or (first.v as Vector3).y > 0.5
-	check.call(wb.shots.has(first) and hops, "bouncy: still bouncing about after 20 s")
+	check.call(wb.shots.has(first) and hops, "bouncy: still bouncing about after 6 s")
+	_run(wb, 3.0)
+	check.call(not wb.shots.has(first), "bouncy: gone after its ten seconds")
+	_reset(rig)
+	wb.fire("right", O, Vector3(0.3, -0.2, -1).normalized())
+	first = wb.shots[0]
 	for i in WorldBalls.BOUNCY_MAX + 3:
 		wb.last_shot = {}
 		wb.fire("right", O, Vector3(0, 0.2, -1).normalized())
