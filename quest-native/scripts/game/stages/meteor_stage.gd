@@ -1247,6 +1247,7 @@ func _draw_labels() -> void:
 		banner_sub.position = at + Vector3(0, -1.05 * bk, 0) + Vector3.UP * out * 0.35 * bk
 		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5) * bk
 		banner_sub.modulate.a = 1.0 - out
+		BannerFit.fit([banner, banner_sub])  # the same distance in every mode
 	var ct: float = F.combo_show_t
 	combo_label.visible = ct > 0.0
 	if combo_label.visible:

@@ -2202,6 +2202,7 @@ func restart_in_view(m: String) -> void:
 ## under the table, half sunk into a chair), every Dahrooj and enemy alike (RoomColliders.occlude).
 func _hide_behind_room() -> void:
 	room.occlude_head = head_transform().origin
+	BannerFit.eye = room.occlude_head  # every mode's round banner the same distance off
 	room.occlude(room_active())
 
 
