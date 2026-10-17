@@ -31,7 +31,7 @@ const THROWS := [["trigger", "شحن", "Charge"], ["hand", "يد", "Hand"], ["sl
 const SHOTS := [
 	["bolt", "برق", "Bolt"], ["mini", "دحروج", "Dahrooj"], ["bubble", "فقاعة", "Bubble"], ["firework", "ألعاب نارية", "Firework"],
 	["confetti", "قصاصات", "Confetti"], ["bouncy", "نطّاطة", "Bouncy"], ["laser", "ليزر", "Laser"], ["boomerang", "بوميرانغ", "Boomerang"],
-	["glob", "جلي", "Jelly"], ["rocket", "صاروخ", "Rocket"], ["lightning", "صاعقة", "Lightning"], ["dallah", "دلّة", "Dallah"],
+	["glob", "ماء", "Water"], ["rocket", "صاروخ", "Rocket"], ["lightning", "صاعقة", "Lightning"], ["dallah", "دلّة", "Dallah"],
 ]
 const TIMES := [["auto", "تلقائي", "Auto"], ["day", "نهار", "Day"], ["dusk", "غروب", "Dusk"], ["night", "ليل", "Night"], ["dawn", "فجر", "Dawn"]]
 const WEATHERS := [["auto", "تلقائي", "Auto"], ["clear", "صافي", "Clear"], ["rain", "مطر", "Rain"], ["snow", "ثلج", "Snow"]]

@@ -105,6 +105,9 @@ var spots_provider: Callable
 ## Mixed reality: (p, r, prev, goal, mem) -> p kept out of the real furniture (main.furniture_push), game
 ## units; unset in VR.
 var furniture: Callable
+## His clock against the game's (main: the same calm real-time pace in VR and mixed reality,
+## where the game's time runs fast for the small falling balls).
+var pace := 1.0
 ## Game units per metre (main: the court's scale), for the distance kept from the player.
 var unit := 2.0
 ## Size of the little ones, props and effects (mixed reality wants them bigger; main: 2).
@@ -1955,6 +1958,7 @@ func deactivate() -> void:
 func update(_b: Ball, dt: float) -> void:
 	if not visible or paused:
 		return
+	dt *= pace
 	time += dt
 	if F.state == "idle":
 		start()

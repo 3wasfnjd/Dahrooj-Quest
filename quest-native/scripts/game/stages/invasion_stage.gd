@@ -12,7 +12,7 @@ extends Node3D
 ##   little ones.
 ## - quick successive pops build a combo (×2 .. ×5).
 ## - popped ones may drop a power-up (a floating bubble): shoot or hit it to collect:
-##   triple shot (shot_fan() = 3), slow motion (time_scale 0.4 for 4 s; main multiplies it into
+##   triple shot (shot_fan() = 3), slow motion (time_scale 0.4 for SLOW_T real seconds; main multiplies it into
 ##   the game dt and may lower the audio pitch with audio_pitch()), bomb (pops everything near).
 ## - open-ended: no hearts, no game over, no score board. One that reaches the line around you
 ##   just pops there (a red flash around the head, a buzz, the combo broken; the boss leaps
@@ -50,7 +50,8 @@ const BANNER_T := 2.4
 const COMBO_T := 1.5
 const COMBO_STEPS := [3, 6, 10, 15]  # combo counts where the multiplier steps up (×2 .. ×5)
 const TRIPLE_T := 8.0
-const SLOW_T := 4.0
+## Real seconds (the game's clock runs fast in mixed reality: see `clock`).
+const SLOW_T := 7.0
 const SLOW_SCALE := 0.4
 const BOMB_R := 5.5
 const PU_LIFE := 7.5
@@ -105,6 +106,8 @@ var auto_spawn := true
 var buzz: Callable
 ## Slow motion: main multiplies this into the game dt.
 var time_scale := 1.0
+## Game seconds per real second (main: its time_k): slow motion lasts SLOW_T real seconds.
+var clock := 1.0
 ## Main holds the game while the menu is open or the court is being placed.
 var paused := false
 var time := 0.0
@@ -1517,7 +1520,7 @@ func update(_b: Ball, dt: float) -> void:
 	time += dt
 	_goal_s = _goal_s.lerp(Vector3(viewer.x, 0, viewer.z), 1.0 - exp(-rdt * 3.0))
 	F.triple_t = maxf(0.0, F.triple_t - rdt)
-	F.slow_t = maxf(0.0, F.slow_t - rdt)
+	F.slow_t = maxf(0.0, F.slow_t - rdt / maxf(clock, 0.05))
 	var target := SLOW_SCALE if F.slow_t > 0.0 else 1.0
 	time_scale = move_toward(time_scale, target, rdt * 3.0)
 	F.flash_t = maxf(0.0, F.flash_t - rdt)

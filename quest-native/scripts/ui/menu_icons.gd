@@ -1062,22 +1062,17 @@ static func shapes(id: String) -> Array:
 			d.s(arc(8, 0, 40, -1.05, 1.35), false, 4.0)
 			d.s(P([[23.6, 33.1], [16.8, 39.0], [25.4, 41.5]]), false, 4.0)
 		"glob":
-			# The jelly glob: a gooey wobbling blob with drips, droplets and a shine.
-			var blob := PackedVector2Array()
-			for i in 48:
-				var t := TAU * i / 48.0
-				var r := 28.0 + 4.0 * sin(5.0 * t + 0.6) + 2.0 * sin(3.0 * t)
-				blob.append(Vector2(cos(t) * r * 1.1, -4.0 + sin(t) * r * 0.9))
-			d.sf(rr(-14, 8, 10, 34, 5), 4.5)
-			d.sf(rr(10, 8, 9, 26, 4.5), 4.5)
-			d.cut(blob, 0.0)
-			d.sf(blob)
-			d.ink(ell(-14, -16, 6, 3.5, 16))
-			d.cut(ell(-8, 0, 3.5, 5, 16))
-			d.cut(ell(8, 0, 3.5, 5, 16))
-			d.ink(ell(-44, -30, 4, 4, 16))
-			d.ink(ell(42, -36, 3, 3, 16))
-			d.ink(ell(-38, 30, 3, 3, 16))
+			# The water shot: a big drop (pointed top, round bottom) with a shine and two droplets.
+			var drop := PackedVector2Array([Vector2(0, -44)])
+			for k in 41:
+				var a := -0.62 + (PI + 1.24) * k / 40.0
+				drop.append(Vector2(cos(a) * 27.0, 12.0 + sin(a) * 27.0))
+			d.cut(drop, 3.0)
+			d.sf(drop)
+			d.ink(P([[-12, 6], [-15, 16], [-10, 26]]))
+			d.s(P([[-12, 6], [-15, 16], [-10, 26]]), false, 4.0)
+			d.sf(ell(36, -26, 5, 6.5, 16), 3.5)
+			d.sf(ell(-36, -14, 3.5, 4.5, 16), 3.5)
 		"rocket":
 			# The homing rocket: nose up and to the right, fins, a window and its flame.
 			d.xf = Transform2D(PI / 4.0, Vector2(-2, 4))

@@ -11,7 +11,7 @@ extends Node3D
 ## - a pop spreads to the same-coloured bubbles touching it (chain reaction; same colours
 ##   drift together into little clusters); big bubbles hold little Dahroojs that spill out; a
 ##   rare rainbow bubble pops everything of the chain's colour.
-## - 10 in a chain: FRENZY. Everything turns gold, time slows (time_scale 0.5 for 6 s; main
+## - 10 in a chain: FRENZY. Everything turns gold, time slows (time_scale 0.5 for FRENZY_T real seconds; main
 ##   multiplies it into the game dt and lowers the audio pitch with audio_pitch()), every pop
 ##   counts for the chain and is worth double, the blaster fires a fan of three (shot_fan()),
 ##   fireworks burst all around.
@@ -48,7 +48,8 @@ const GOLD := Color("ffc93a")
 const GOLD_BODY := Color("ffe27a")  # the Dahroojs' gold (their shaders deepen the colour)
 const CHAIN_STEPS := [3, 6, 10, 15]  # chain lengths where the multiplier steps up (×2 .. ×5)
 const FRENZY_AT := 10
-const FRENZY_T := 6.0
+## Real seconds (the game's clock runs fast in mixed reality: see `clock`).
+const FRENZY_T := 10.0
 const FRENZY_SCALE := 0.5
 const CHAIN_T := 7.0  # a chain fades if nothing is popped for this long (real seconds)
 const TOUCH_K := 1.22  # same colours closer than (ra + rb) × this pop together
@@ -90,6 +91,8 @@ var hands := {}
 var buzz: Callable
 ## FRENZY's slow motion: main multiplies this into the game dt.
 var time_scale := 1.0
+## Game seconds per real second (main: its time_k): the frenzy lasts FRENZY_T real seconds.
+var clock := 1.0
 ## Main holds the game while the menu is open or the court is being placed.
 var paused := false
 ## New ones float in on their own (tests turn it off and call spawn()).
@@ -1184,7 +1187,7 @@ func update(_b: Ball, dt: float) -> void:
 		fill()
 	# FRENZY: real seconds; time eases down to half speed and back.
 	if F.frenzy_t > 0.0:
-		F.frenzy_t = maxf(0.0, F.frenzy_t - rdt)
+		F.frenzy_t = maxf(0.0, F.frenzy_t - rdt / maxf(clock, 0.05))
 		if F.frenzy_t <= 0.0:
 			_end_frenzy()
 	var fz := frenzy()

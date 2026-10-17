@@ -352,6 +352,18 @@ static func _rocket(check: Callable, rig: Dictionary) -> void:
 	check.call(st.hits == 1 and wb.rests.is_empty(), "rocket: explodes with a radius")
 	var host: FakeHost = rig.host
 	check.call(host.runtime.credited("rocket") >= 2, "rocket: what its blast hits counts toward rocket20 (%d)" % host.runtime.credited("rocket"))
+	# Two rockets one after the other each go for their own Dahrooj.
+	_reset(rig)
+	_rest(rig, O + Vector3(-1.5, 0, -5))
+	_rest(rig, O + Vector3(1.5, 0, -5))
+	wb.fire("right", O, FWD)
+	wb.fire("left", O, FWD)
+	var r1: Dictionary = wb.shots[0]
+	var r2: Dictionary = wb.shots[1]
+	for i in int(0.4 / DT):
+		wb.step_blast(DT)
+	check.call(not (r1.target as Dictionary).is_empty() and not (r2.target as Dictionary).is_empty() and not is_same(r1.target.ref, r2.target.ref),
+		"rocket: two in the air pick different targets")
 
 
 static func _boomerang(check: Callable, rig: Dictionary) -> void:
@@ -467,6 +479,21 @@ static func _bouncy(check: Callable, rig: Dictionary) -> void:
 	check.call(wb.rests.is_empty(), "bouncy: pops on through more than one")
 	var host: FakeHost = rig.host
 	check.call(host.runtime.best("bouncy3") >= 2, "bouncy: the hits of one ball count toward bouncy3 (%d)" % host.runtime.best("bouncy3"))
+	# It never wears out (still hopping long after), and at most BOUNCY_MAX at once: the oldest goes.
+	_reset(rig)
+	wb.fire("right", O, Vector3(0.3, -0.2, -1).normalized())
+	var first: Dictionary = wb.shots[0]
+	_run(wb, 20.0)
+	var hops := false
+	for i in int(2.0 / DT):
+		wb.step_blast(DT)
+		hops = hops or (first.v as Vector3).y > 0.5
+	check.call(wb.shots.has(first) and hops, "bouncy: still bouncing about after 20 s")
+	for i in WorldBalls.BOUNCY_MAX + 3:
+		wb.last_shot = {}
+		wb.fire("right", O, Vector3(0, 0.2, -1).normalized())
+	var n := wb.shots.filter(func(o: Dictionary) -> bool: return o.kind == "bouncy").size()
+	check.call(n == WorldBalls.BOUNCY_MAX and not wb.shots.has(first), "bouncy: at most %d at once, the oldest makes way (%d)" % [WorldBalls.BOUNCY_MAX, n])
 
 
 static func _glob(check: Callable, rig: Dictionary) -> void:

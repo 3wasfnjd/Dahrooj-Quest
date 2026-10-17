@@ -22,6 +22,15 @@ const REST_ROOM := 26.0
 const REAL_G := 9.8
 const SPARKS_MAX := 320
 const SHOTS_MAX := 40
+## Bouncy balls never wear out: they bounce about the room for good, at most this many at once
+## (a new one takes the place of the oldest; the headset keeps its frame rate).
+const BOUNCY_MAX := 12
+## They keep hopping and rolling (metres a second, × blast_k): at least this high a bounce and
+## this fast along the floor; past BOUNCY_ROAM metres from you (VR's open park, a room with no
+## scan) they turn back toward you.
+const BOUNCY_HOP := 3.2
+const BOUNCY_ROLL := 1.6
+const BOUNCY_ROAM := 6.0
 const ARCS_MAX := 24
 const BEAM_SEGS_MAX := 512
 ## Angle between the shots of a fan (radians): Dahrooj Attack's triple shot.
@@ -37,7 +46,7 @@ const SHOT_STYLE := {
 	"bubble": {"speed": 4.2, "grav": -0.06, "life": 3.6, "r": 0.06, "cool": 0.16, "sk": 0.18},
 	"firework": {"speed": 20.0, "grav": 0.35, "life": 0.85, "r": 0.025, "cool": 0.2, "burst": 0.55, "sk": 0.18},
 	"confetti": {"speed": 24.0, "grav": 0.45, "life": 0.9, "r": 0.018, "cool": 0.3, "pellets": 5, "cone": 0.12, "sk": 0.5},
-	"bouncy": {"speed": 15.0, "grav": 1.0, "life": 3.5, "r": 0.03, "cool": 0.22, "bounces": 6, "pops": 3, "sk": 1.35},
+	"bouncy": {"speed": 15.0, "grav": 1.0, "life": INF, "r": 0.03, "cool": 0.22, "bounces": 1000000000, "pops": 1000000000, "sk": 1.35},
 	"laser": {"speed": 0.0, "grav": 0.0, "life": 0.25, "r": 0.015, "cool": 0.32, "range": 30.0, "pierce": 3, "sk": 0.5},
 	"boomerang": {"speed": 10.0, "grav": 0.0, "life": 1.5, "r": 0.06, "cool": 0.55, "reach": 6.0, "swing": 1.6, "sk": 0.5},
 	"glob": {"speed": 12.0, "grav": 1.0, "life": 2.5, "r": 0.045, "cool": 0.35, "splat": 0.4, "sk": 0.7},
@@ -53,7 +62,7 @@ const CONFETTI_COLS := ["ff5c8a", "ffd23f", "3ec7ff", "7ee05a", "b98cff", "ff8a3
 const BOUNCY_COLS := ["ff4f9a", "4fd1ff", "b6f03c", "ffb02e", "a77bff"]
 ## Arabic coffee beans: lightly roasted, golden to brown, a green cardamom now and then.
 const BEAN_COLS := ["b07a3c", "8a5a2b", "c99a5a", "6f8f3a"]
-const MUZZLE := {"laser": "ff6b8f", "lightning": "cfe8ff", "glob": "b8f58a", "confetti": "fff2c2", "rocket": "ffb347", "dallah": "ffe3a0"}
+const MUZZLE := {"laser": "ff6b8f", "lightning": "cfe8ff", "glob": "9fe3ff", "confetti": "fff2c2", "rocket": "ffb347", "dallah": "ffe3a0"}
 ## Mini shots are little eyeless Dahroojs: every style character.js draws, each shot in the next style
 ## and a colour from the player's colour choices (appearance.ts) or the style's own (palette.js).
 const MINI_STYLES := ["jelly", "fur", "bubble", "clay", "fabric"]
@@ -530,10 +539,25 @@ static func cone_dir(d: Vector3, ang: float, az: float) -> Vector3:
 	return (d * cos(ang) + (u * cos(az) + w * sin(az)) * sin(ang)).normalized()
 
 
+## A shot taken out of the air (the oldest bouncy ball when a new one comes): a little pop.
+func _drop_shot(o: Dictionary) -> void:
+	var at := _index_of(shots, o)
+	if at < 0:
+		return
+	impact(o.p, Vector3.UP, o.color)
+	if o.node:
+		o.node.queue_free()
+	shots.remove_at(at)
+
+
 ## One shot in flight (j: its place in a fan or a cannon's spray).
 func _add_shot(kind: String, P: Dictionary, p: Vector3, dir: Vector3, k: float, j: int, hand := "") -> Dictionary:
 	# Reuse the bounded flight budget instead of stalling a held trigger (a dallah's
 	# beans only take free places).
+	if kind == "bouncy":
+		var mine := shots.filter(func(o: Dictionary) -> bool: return o.kind == "bouncy")
+		if mine.size() >= BOUNCY_MAX:
+			_drop_shot(mine[0])
 	if shots.size() >= SHOTS_MAX:
 		if kind == "bean":
 			return {}
@@ -586,7 +610,7 @@ const MATS := {
 	"trail": ["ffe9a8", 0.95, "add"], "head": ["ffffff", 1.0, "flat"], "bolt_glow": ["ffb547", 0.55, "add"],
 	"rocket": ["ffb347", 1.0, "flat"], "fw_glow": ["ff9a3c", 0.5, "add"], "flame": ["ffcf6a", 0.85, "add"],
 	"rk_body": ["e8473c", 1.0, "lit"], "rk_nose": ["f4efe6", 1.0, "lit"], "rk_fin": ["3a6fd8", 1.0, "lit"],
-	"glob": ["7ee05a", 0.8, "alpha"], "glob_core": ["d4ff9e", 0.55, "add"],
+	"glob": ["3fb4ff", 0.75, "alpha"], "glob_core": ["c9f1ff", 0.55, "add"],
 	"brass": ["dcaa48", 1.0, "metal"], "brass_dark": ["9c6b22", 1.0, "metal"], "dallah_glow": ["ffd98a", 0.3, "add"],
 }
 
@@ -918,12 +942,12 @@ func explosion(p: Vector3) -> void:
 	host.sfx("boom", 1.0, p)
 
 
-## The jelly glob's splat: green drops every way.
+## The water shot's splash: blue drops every way.
 func splat(p: Vector3, n: Vector3) -> void:
 	var k := blast_k()
 	for i in 16:
 		var d := (Vector3(rnd() - 0.5, rnd() - 0.5, rnd() - 0.5).normalized() + n).normalized() * ((1.0 + rnd() * 2.0) * k)
-		_spark(p, d, 0.4 + rnd() * 0.3, Color("7ee05a") if i % 3 else Color("d4ff9e"), (0.012 + rnd() * 0.014) * k)
+		_spark(p, d, 0.4 + rnd() * 0.3, Color("3fb4ff") if i % 3 else Color("c9f1ff"), (0.012 + rnd() * 0.014) * k)
 	host.sfx("splash", 0.75, p)
 	host.sfx("squeak", 0.7, p)
 
@@ -1148,10 +1172,17 @@ func _proxy_radius(m: MeshInstance3D) -> float:
 	return m.mesh.get_aabb().size.length() * 0.35 * xf.basis.get_scale().x
 
 
-## The nearest target ahead of a rocket (within `far`, in front of it), or {}.
-func _seek(p: Vector3, fwd: Vector3, far: float) -> Dictionary:
+## The nearest target ahead of a rocket (within `far`, in front of it), or {}. Each rocket picks
+## its own: one another rocket in the air is already after is passed over while there are others.
+func _seek(p: Vector3, fwd: Vector3, far: float, me := {}) -> Dictionary:
+	var taken := []
+	for o: Dictionary in shots:
+		if o.kind == "rocket" and not is_same(o, me) and not (o.target as Dictionary).is_empty():
+			taken.append(o.target.ref)
 	var best := {}
 	var best_score := INF
+	var spare := {}
+	var spare_score := INF
 	for t in targets():
 		var to: Vector3 = (t.p as Vector3) - p
 		var d := to.length()
@@ -1161,10 +1192,15 @@ func _seek(p: Vector3, fwd: Vector3, far: float) -> Dictionary:
 		if facing < 0.3:
 			continue
 		var score := d * (1.6 - facing)
+		if taken.any(func(r) -> bool: return is_same(r, t.ref)):
+			if score < spare_score:
+				spare_score = score
+				spare = t
+			continue
 		if score < best_score:
 			best_score = score
 			best = t
-	return best
+	return best if not best.is_empty() else spare
 
 
 func _floor_y() -> float:
@@ -1403,7 +1439,7 @@ func _move(s: Dictionary, P: Dictionary, dt: float, k: float) -> void:
 			if tp == null and s.seek_t <= 0.0:
 				s.seek_t = 0.1
 				var fwd0: Vector3 = (s.v as Vector3).normalized() if (s.v as Vector3).length_squared() > 1e-10 else s.dir
-				s.target = _seek(s.p, fwd0, P.seek * k)
+				s.target = _seek(s.p, fwd0, P.seek * k, s)
 				tp = target_at(s.target)
 			var fwd: Vector3 = (s.v as Vector3).normalized() if (s.v as Vector3).length_squared() > 1e-10 else s.dir
 			# It locks on after a moment and turns toward its target.
@@ -1477,7 +1513,7 @@ func _trail(s: Dictionary, k: float, dt: float) -> void:
 					Color("bdb8b0"), (0.012 + rnd() * 0.01) * k, true)
 		"glob":
 			if rnd() < 0.25:
-				_spark(p, v * 0.2, 0.4, Color("7ee05a"), 0.008 * k)
+				_spark(p, v * 0.2, 0.4, Color("3fb4ff"), 0.008 * k)
 		"boomerang":
 			if rnd() < 0.35:
 				_spark(p, Vector3.ZERO, 0.22, Color(1, 1, 1, 0.6), 0.008 * k, true)
@@ -1762,22 +1798,43 @@ func step_blast(dt: float) -> void:
 					impact(s.p, -dir_n)
 					var wn: Vector3 = ((rh.p as Vector3) - s.p).normalized() if (rh.p as Vector3).distance_to(s.p) > 1e-6 else -dir_n
 					done = _on_solid(s, P, rh.p, wn, false)
+		# A bouncy ball too far from you (no wall out there) turns back your way.
+		if not done and s.kind == "bouncy":
+			var eye: Vector3 = host.eye_game()
+			var off := Vector2(s.p.x - eye.x, s.p.z - eye.z)
+			var roam: float = BOUNCY_ROAM * float(host.scale_now)
+			if off.length() > roam and Vector2(s.v.x, s.v.z).dot(off) > 0.0:
+				var nrm := off.normalized()
+				var fv := Vector2(s.v.x, s.v.z)
+				fv -= nrm * 2.0 * fv.dot(nrm)
+				s.v.x = fv.x
+				s.v.z = fv.y
 		# The floor: the room's floor during the opening and the rain, the court's ground otherwise.
 		var floor_y := _floor_y()
 		if not done and s.p.y < floor_y + R:
 			match String(s.kind):
-				"mini", "bouncy":
+				"mini":
 					s.p.y = floor_y + R
 					if s.v.y < -0.8 * k:
-						s.v.y *= -0.45 if s.kind == "mini" else -0.8
-						if s.kind == "bouncy":
-							s.bounces += 1
-							host.sfx("bricks_tink", clampf(-s.v.y / (8.0 * k), 0.0, 1.0), s.p)
+						s.v.y *= -0.45
 					else:
 						s.v.y = 0.0
-					var f := pow(0.55 if s.kind == "mini" else 0.8, dt)
+					var f := pow(0.55, dt)
 					s.v.x *= f
 					s.v.z *= f
+				"bouncy":
+					# It never settles: every bounce at least BOUNCY_HOP high, on along the floor.
+					s.p.y = floor_y + R
+					if s.v.y < 0.0:
+						var up: float = maxf(-s.v.y * 0.8, BOUNCY_HOP * k)
+						host.sfx("bricks_tink", clampf(-s.v.y / (8.0 * k), 0.0, 1.0), s.p)
+						s.v.y = up
+						s.bounces += 1
+					var flat := Vector2(s.v.x, s.v.z)
+					if flat.length() < BOUNCY_ROLL * k:
+						flat = (flat.normalized() if flat.length() > 1e-4 else Vector2(rnd() - 0.5, rnd() - 0.5).normalized()) * BOUNCY_ROLL * k
+						s.v.x = flat.x
+						s.v.z = flat.y
 				"boomerang":
 					s.p.y = floor_y + R
 					s.ret = true

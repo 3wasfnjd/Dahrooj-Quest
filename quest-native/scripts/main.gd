@@ -26,6 +26,8 @@ const AR_TABLE := 16.0
 const AR_ZOOM_MIN := 0.35
 const AR_ZOOM_MAX := 1.8  # bigger and the goal court (2.5 m at 1×) runs out of most rooms
 const REAL_G := 9.8
+## The giant's pace against VR's game clock (he felt hurried).
+const GIANT_PACE := 0.8
 const GAIN := 2.0
 const MIN_THROW := 1.0
 const MAX_SPEED := 46.0
@@ -882,6 +884,11 @@ func _game_step(delta: float) -> void:
 	AudioServer.playback_speed_scale = 1.0 - (1.0 - slow) * 0.5
 	if not paused:
 		var gdt := dt * time_k() * slow
+		if "clock" in stage:
+			stage.set("clock", time_k())  # timed effects (frenzy, slow motion) in real seconds
+		if stage is GiantStage:
+			# The giant keeps one unhurried pace in real time, VR or mixed reality.
+			stage.pace = GIANT_PACE * sqrt(REAL_G * VR_SCALE / Ball.GRAV) / time_k()
 		runtime.step(gdt)
 		world_balls.step_rests(gdt, dt)
 		world_balls.step_contacts(gdt)
