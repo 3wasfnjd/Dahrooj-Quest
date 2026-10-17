@@ -102,7 +102,7 @@ var planes_provider: Callable
 ## only says the game is played in the room (no scan: the sky drop at the court). Unset or
 ## empty, and no planes: the court (VR).
 var spots_provider: Callable
-## Mixed reality: (p, r, prev) -> p kept out of the real furniture (main.furniture_push), game
+## Mixed reality: (p, r, prev, goal, mem) -> p kept out of the real furniture (main.furniture_push), game
 ## units; unset in VR.
 var furniture: Callable
 ## Game units per metre (main: the court's scale), for the distance kept from the player.
@@ -1291,6 +1291,7 @@ func _spit_one(b: Dictionary) -> void:
 	mi.bounces = 0
 	mi.best = INF
 	mi.stuck_t = 0.0
+	mi.nav = {}
 	mi.flash = 0.0
 	mi.zig = _rng.randf() * TAU
 	mi.hop_p = _rng.randf_range(0.42, 0.56)
@@ -1476,13 +1477,19 @@ func _step_minion(mi: Dictionary, dt: float) -> void:
 			var was: Vector3 = mi.p
 			mi.p += (dir * sp + side * sin(float(mi.t) * 4.0 + mi.zig) * 1.0 * size) * dt
 			# Round the real furniture; one that gets no nearer for a while goes on through it.
+			if not mi.has("nav"):
+				mi.nav = {}
 			if d < float(mi.get("best", INF)) - 0.1 * r:
 				mi.best = d
 				mi.stuck_t = 0.0
 			else:
 				mi.stuck_t = float(mi.get("stuck_t", 0.0)) + dt
-			if furniture.is_valid() and float(mi.stuck_t) < 4.0:
-				var q: Vector3 = furniture.call(Vector3(mi.p.x, fl + r, mi.p.z), r, Vector3(was.x, fl + r, was.z))
+				if float(mi.stuck_t) >= 4.0:
+					mi.nav["ghost"] = true
+					mi.stuck_t = 0.0
+					mi.best = INF
+			if furniture.is_valid():
+				var q: Vector3 = furniture.call(Vector3(mi.p.x, fl + r, mi.p.z), r, Vector3(was.x, fl + r, was.z), Vector3(goal.x, fl + r, goal.z), mi.nav)
 				mi.p = Vector3(q.x, mi.p.y, q.z)
 			var u: float = mi.t / (mi.hop_p / sqrt(k))
 			mi.p.y = fl + r + absf(sin(u * PI)) * r * 2.6
@@ -1493,6 +1500,8 @@ func _step_minion(mi: Dictionary, dt: float) -> void:
 				mi.bounces += 1
 				mi.v = -dir * 4.5 * size + Vector3.UP * 8.0 * sqrt(size) + side * _rng.randf_range(-2.0, 2.0) * size
 				mi.flash = 1.0
+				mi.best = INF
+				mi.stuck_t = 0.0
 				F.bounced += 1
 				_break_combo()
 				_burst(mi.p, Color("7fe8ff"), 10, 0.6)

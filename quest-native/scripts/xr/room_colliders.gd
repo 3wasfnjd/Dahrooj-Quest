@@ -20,6 +20,11 @@ var _shown := false
 var _lines: MeshInstance3D = null
 var _occluder: MeshInstance3D = null
 var _occluding := false
+var _occ_t := 0.0
+var _occ_sig := ""
+## The head (world): the piece of furniture you sit in is left out of the mask, or it would
+## hide your own hands and the Dahrooj you hold.
+var occlude_head := Vector3(0, 1e6, 0)
 
 ## How far the hiding surfaces sit back from the real ones (metres): what lies on a table or
 ## sticks to a wall (a stain, a target, a resting Dahrooj) stays in front and is not cut.
@@ -74,7 +79,7 @@ func _refresh() -> void:
 		if SKIP.has(bx.label):
 			continue
 		var xf: Transform3D = bx.xform
-		_boxes.append({"xf": xf, "inv": xf.affine_inverse(), "h": (bx.size as Vector3) / 2.0, "label": bx.label})
+		_boxes.append({"xf": xf, "inv": xf.affine_inverse(), "h": (bx.size as Vector3) / 2.0, "label": bx.label, "up": up_axis(xf.basis)})
 
 
 ## Sphere of radius r that moved prev -> p with velocity v (all world space) against
@@ -154,42 +159,76 @@ func collide(p: Vector3, v: Vector3, r: float, prev: Vector3) -> Dictionary:
 	return {"hit_speed": hit, "p": p, "v": v}
 
 
+## The axis (0 x, 1 y, 2 z) of a box's basis that points most up or down: Meta's volumes
+## may stand on local Z (their table-top plane's normal); the tests use Y.
+static func up_axis(b: Basis) -> int:
+	var u := 0
+	for a in 3:
+		if absf(b[a].normalized().y) > absf(b[u].normalized().y):
+			u = a
+	return u
+
+
 ## Something walking or hopping on the floor (world space: a sphere of radius r now at p, at
-## prev a step ago) kept out of the furniture: pushed back out of any volume it ran into, and
-## sent sideways round it (toward the nearer end) so it does not stall against the sofa.
-## Only the volumes, sideways (x/z of the box): the walls are where they come in from.
-func push_out(p: Vector3, r: float, prev: Vector3) -> Vector3:
+## prev a step ago, heading for goal) kept out of the furniture: pushed back out of a volume it
+## ran or landed into and sent along its side round it, the way that is shorter to the goal
+## (kept until it is clear of that piece, so it never dithers in the middle of a sofa).
+## mem: the walker's own memory (an empty Dictionary at first): "side" per piece and "ghost",
+## which the stage sets when it got no nearer for a while: then it goes through, hidden, until
+## it is out of every piece. A piece with the goal itself in it (the sofa you sit on) or that
+## it stands on top of (a court on a table) is left out. Only the volumes, sideways.
+func push_out(p: Vector3, r: float, prev: Vector3, goal: Vector3, mem: Dictionary) -> Vector3:
 	_refresh()
-	for e in _boxes:
+	if not mem.has("side"):
+		mem["side"] = {}
+	var sides: Dictionary = mem.side
+	var touched := {}
+	var inside_any := false
+	for bi in _boxes.size():
+		var e: Dictionary = _boxes[bi]
 		var inv: Transform3D = e.inv
 		var xf: Transform3D = e.xf
 		var h: Vector3 = e.h
+		var u: int = e.up
+		var a := (u + 1) % 3
+		var b := (u + 2) % 3
 		var lp := inv * p
-		if lp.y - r >= h.y or lp.y + r <= -h.y:
+		var up_k := signf(xf.basis[u].y) if xf.basis[u].y != 0.0 else 1.0
+		var hu := lp[u] * up_k
+		if hu - r >= h[u] - maxf(0.02, 0.5 * r) or hu + r <= -h[u]:
 			continue  # over it (on the table) or under it
-		var hr := Vector2(h.x + r, h.z + r)
-		if absf(lp.x) >= hr.x or absf(lp.z) >= hr.y:
+		var ha := h[a] + r
+		var hb := h[b] + r
+		if absf(lp[a]) >= ha or absf(lp[b]) >= hb:
 			continue
+		var lg := inv * goal
+		if absf(lg[a]) < ha and absf(lg[b]) < hb:
+			continue  # what it is after is in there (you sit on that sofa)
+		inside_any = true
+		if mem.get("ghost", false):
+			continue
+		touched[bi] = true
 		var lq := inv * prev
-		var step := Vector2(lp.x - lq.x, lp.z - lq.z)
-		# Out through the side it is least deep in.
-		var pen := Vector2(hr.x - absf(lp.x), hr.y - absf(lp.z))
+		var step := Vector2(lp[a] - lq[a], lp[b] - lq[b]).length()
 		var out := lp
-		var tang := Vector2.ZERO
-		# Round it: along the face the way the step already leans (where it is heading), else
-		# toward the nearer end.
-		if pen.x < pen.y:
-			out.x = signf(lp.x if lp.x != 0.0 else 1.0) * hr.x
-			var lean := step.y if absf(step.y) > 0.15 * step.length() else lp.z
-			tang = Vector2(0.0, signf(lean if lean != 0.0 else 1.0))
-		else:
-			out.z = signf(lp.z if lp.z != 0.0 else 1.0) * hr.y
-			var lean := step.x if absf(step.x) > 0.15 * step.length() else lp.x
-			tang = Vector2(signf(lean if lean != 0.0 else 1.0), 0.0)
-		var slide := tang * step.length()
-		out.x += slide.x
-		out.z += slide.y
+		# Out through the side it is least deep in; then along that side, round the shorter end.
+		var t := b if ha - absf(lp[a]) < hb - absf(lp[b]) else a
+		var n := a if t == b else b
+		out[n] = signf(lp[n] if lp[n] != 0.0 else 1.0) * (h[n] + r)
+		var ht := h[t] + r
+		var sd: float = sides.get(bi, 0.0)
+		if sd == 0.0:
+			var cost_pos := absf(lp[t] - ht) + absf(lg[t] - ht)
+			var cost_neg := absf(lp[t] + ht) + absf(lg[t] + ht)
+			sd = 1.0 if cost_pos <= cost_neg else -1.0
+			sides[bi] = sd
+		out[t] += sd * step
 		p = xf * out
+	for k in sides.keys():
+		if not touched.has(k):
+			sides.erase(k)
+	if mem.get("ghost", false) and not inside_any:
+		mem["ghost"] = false
 	return p
 
 
@@ -279,7 +318,9 @@ func _process(_dt: float) -> void:
 	if _shown:
 		_draw_lines()
 	if _occluding:
-		_draw_occluder()
+		_occ_t -= _dt
+		if _occ_t <= 0.0:
+			_draw_occluder()
 
 
 ## Mixed reality: the real walls and furniture hide what is behind them (an invisible mask
@@ -302,7 +343,7 @@ func occlude(on: bool) -> void:
 	if _occluder != null:
 		_occluder.visible = on
 		_occluder.global_transform = Transform3D.IDENTITY
-	if on:
+	if on and _occ_sig == "":
 		_draw_occluder()
 
 
@@ -310,6 +351,23 @@ func occlude(on: bool) -> void:
 ## its face, and every volume shrunk by it.
 func _draw_occluder() -> void:
 	_refresh()
+	_occ_t = 0.25  # anchors drift only a little: a few times a second is plenty
+	# Unchanged room, same seat: keep the mesh (no new GPU buffer every frame).
+	var sig := "%d|%d" % [_planes.size(), _boxes.size()]
+	for e in _planes:
+		sig += "|" + str((e.xf as Transform3D).origin.snapped(Vector3.ONE * 0.005))
+	var skip := {}
+	for bi in _boxes.size():
+		var e: Dictionary = _boxes[bi]
+		var lh: Vector3 = (e.inv as Transform3D) * occlude_head
+		var u: int = e.up
+		var hh: Vector3 = e.h
+		if absf(lh[(u + 1) % 3]) < hh[(u + 1) % 3] + 0.1 and absf(lh[(u + 2) % 3]) < hh[(u + 2) % 3] + 0.1:
+			skip[bi] = true
+		sig += "|%s%s" % [str((e.xf as Transform3D).origin.snapped(Vector3.ONE * 0.005)), "s" if skip.has(bi) else ""]
+	if sig == _occ_sig and _occluder.mesh != null:
+		return
+	_occ_sig = sig
 	var verts := PackedVector3Array()
 	for e in _planes:
 		var xf: Transform3D = e.xf
@@ -318,7 +376,10 @@ func _draw_occluder() -> void:
 		var z := -OCCLUDE_INSET
 		var c := [xf * Vector3(-hx, -hy, z), xf * Vector3(hx, -hy, z), xf * Vector3(hx, hy, z), xf * Vector3(-hx, hy, z)]
 		verts.append_array([c[0], c[1], c[2], c[0], c[2], c[3]])
-	for e in _boxes:
+	for bi in _boxes.size():
+		if skip.has(bi):
+			continue
+		var e: Dictionary = _boxes[bi]
 		var xf: Transform3D = e.xf
 		var h: Vector3 = (e.h as Vector3) - Vector3.ONE * OCCLUDE_INSET
 		h = h.max(Vector3.ONE * 0.005)

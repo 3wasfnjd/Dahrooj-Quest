@@ -90,7 +90,7 @@ var ctx: GameCtx
 ## units (RoomSpots: in front of the player, far). Every wave then comes out of the room there
 ## (and hops toward the player).
 var spots_provider: Callable
-## Mixed reality: (p, r, prev) -> p kept out of the real furniture (main.furniture_push), game
+## Mixed reality: (p, r, prev, goal, mem) -> p kept out of the real furniture (main.furniture_push), game
 ## units; unset in VR.
 var furniture: Callable
 ## Seconds an invader may get no nearer before it stops going round the furniture.
@@ -540,6 +540,7 @@ func spawn(kind: String, spot := {}) -> int:
 	m.v = Vector3.ZERO
 	m.best = INF
 	m.stuck_t = 0.0
+	m.nav = {}
 	match kind:
 		"fast":
 			m.style = "jelly"
@@ -794,6 +795,14 @@ func _reach(m: Dictionary) -> void:
 		m.act_t = 0.0
 		m.from = m.p
 		m.to = Vector3(m.p.x * 0.5, 0, SPAWN_Z + 2.0)
+		# Mixed reality: back to a spot in the room in front of you (the far end of the VR court
+		# would be through the wall).
+		var room := _spots()
+		if not room.is_empty():
+			var sp: Vector3 = room[_rng.randi() % room.size()].pos
+			m.to = Vector3(sp.x, 0, sp.z)
+		m.best = INF
+		m.stuck_t = 0.0
 		return
 	m.on = false
 	(m.proxy as MeshInstance3D).visible = false
@@ -941,19 +950,23 @@ func _step_invader(m: Dictionary, dt: float) -> void:
 ## or landed into, sent along its side). One that gets no nearer for STUCK_T (boxed in between
 ## a sofa and the wall) goes on through it, hidden there, so a wave always ends.
 func _round_furniture(m: Dictionary, was: Vector3, dt: float) -> void:
-	if not furniture.is_valid():
-		return
+	if not furniture.is_valid() or m.act != "":
+		return  # the boss's jumps and leaps go over it
 	var g := goal()
 	var near := Vector2(g.x - m.p.x, g.z - m.p.z).length()
+	if not m.has("nav"):
+		m.nav = {}
 	if near < float(m.best) - 0.1 * float(m.r):
 		m.best = near
 		m.stuck_t = 0.0
 	else:
 		m.stuck_t = float(m.stuck_t) + dt
-	if float(m.stuck_t) >= STUCK_T:
-		return
+		if float(m.stuck_t) >= STUCK_T:
+			m.nav["ghost"] = true
+			m.stuck_t = 0.0
+			m.best = INF
 	var r: float = m.r
-	var q: Vector3 = furniture.call(Vector3(m.p.x, r, m.p.z), r, Vector3(was.x, r, was.z))
+	var q: Vector3 = furniture.call(Vector3(m.p.x, r, m.p.z), r, Vector3(was.x, r, was.z), Vector3(g.x, r, g.z), m.nav)
 	m.p = Vector3(q.x, m.p.y, q.z)
 	m.c = Vector3(q.x, m.c.y, q.z)
 
@@ -964,6 +977,8 @@ func _land(m: Dictionary) -> void:
 	m.c = Vector3(m.c.x, r, m.c.z)
 	m.v = Vector3.ZERO
 	m.phase = "march"
+	m.best = INF
+	m.stuck_t = 0.0
 	m.land_t = 0.25
 	m.hop_u = 0.0
 	m.y = 0.0

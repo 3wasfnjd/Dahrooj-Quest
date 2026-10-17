@@ -54,18 +54,37 @@ static func run(check: Callable) -> void:
 	check.call(rc.blocked(eye, Vector3(0, 1.0, -3.0), 0.05), "room: one beyond the wall is out of sight")
 	check.call(not rc.blocked(eye, Vector3(0, 1.2, -0.3), 0.05) and not rc.blocked(eye, Vector3(1.0, 0.1, 0.3), 0.05),
 		"room: in the open (or on the floor in front) it stays in sight")
-	# Walkers go round the couch (x 2.1..2.9, z -1..1), not through it; over a table they pass.
-	var wk := Vector3(1.9, 0.05, 0.1)
-	for i in 120:
-		wk = rc.push_out(wk + Vector3(0.02, 0, 0), 0.05, wk)
-	check.call(wk.x > 2.95 or absf(wk.z) > 1.0, "room: a walker heading into the couch goes round it (%s)" % wk)
-	var inside := false
-	wk = Vector3(1.9, 0.05, 0.3)
-	for i in 120:
-		wk = rc.push_out(wk + Vector3(0.02, 0, 0), 0.05, wk)
-		inside = inside or (absf(wk.x - 2.5) < 0.4 and absf(wk.z) < 1.0)
-	check.call(not inside, "room: and is never inside it")
-	check.call(rc.push_out(Vector3(2.5, 0.9, 0), 0.05, Vector3(2.45, 0.9, 0)) == Vector3(2.5, 0.9, 0), "room: on top of it, it is left alone")
+	# Walkers go round the couch (x 2.1..2.9, z -1..1), never through it, and get to the goal
+	# on its far side; over a table they pass; the sofa you sit on is not in their way.
+	var walk := func(from: Vector3, goal: Vector3, secs: float) -> Dictionary:
+		var wk := from
+		var mem := {}
+		var inside := false
+		for i in int(secs * 60.0):
+			var to := goal - wk
+			to.y = 0.0
+			if to.length() < 0.05:
+				return {"at": true, "inside": inside, "p": wk}
+			wk = rc.push_out(wk + to.normalized() * 0.8 / 60.0, 0.05, wk, goal, mem)
+			for bx in s.boxes():
+				var l: Vector3 = (bx.xform as Transform3D).affine_inverse() * wk
+				inside = inside or (absf(l.x) < bx.size.x * 0.5 and absf(l.z) < bx.size.z * 0.5 and absf(l.y) < bx.size.y * 0.5)
+		return {"at": false, "inside": inside, "p": wk}
+	var w1: Dictionary = walk.call(Vector3(3.3, 0.05, 0.05), Vector3(1.0, 0.05, -0.1), 12.0)
+	check.call(w1.at and not w1.inside, "room: a walker behind the couch goes round it to you (%s)" % [w1])
+	var w2: Dictionary = walk.call(Vector3(3.3, 0.05, 0.9), Vector3(1.0, 0.05, 0.9), 12.0)
+	check.call(w2.at and not w2.inside, "room: from near its end too (%s)" % [w2])
+	var w3: Dictionary = walk.call(Vector3(1.5, 0.05, 0.0), Vector3(2.5, 0.6, 0.0), 6.0)
+	check.call(w3.at, "room: a goal on the sofa itself (you sit there) is reached (%s)" % [w3])
+	check.call(rc.push_out(Vector3(2.5, 0.85, 0), 0.05, Vector3(2.45, 0.85, 0), Vector3.ZERO, {}) == Vector3(2.5, 0.85, 0), "room: standing on top of it, it is left alone")
+	# Meta's volumes may stand on local Z: the same couch, turned so, is gone round the same way.
+	var sz := SceneSurfaces.new()
+	sz.add_test_box(Transform3D(Basis(Vector3.RIGHT, -PI / 2.0), Vector3(2.5, 0.4, 0)), Vector3(0.8, 2.0, 0.8), "couch")
+	var rz := RoomColliders.new(sz)
+	var wz := rz.push_out(Vector3(2.2, 0.05, 0.1), 0.05, Vector3(2.0, 0.05, 0.1), Vector3(3.5, 0.05, 0.1), {})
+	check.call(RoomColliders.up_axis(sz.boxes()[0].xform.basis) == 2 and wz.x < 2.06 and absf(wz.y - 0.05) < 1e-4, "room: a Z-up volume is a sofa on the floor too (%s)" % wz)
+	rz.free()
+	sz.free()
 	# What hides it on the headset: a mask of every wall, table and volume but the floor.
 	rc.occlude(true)
 	check.call(rc.occluder_triangles() == 2 * 2 + 12, "room: the hiding mask covers the wall, the table and the couch (%d)" % rc.occluder_triangles())

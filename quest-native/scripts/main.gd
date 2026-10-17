@@ -1978,13 +1978,14 @@ func _setup_slime() -> void:
 	slime.planes_provider = room_planes_game.bind(true)
 
 
-## Mixed reality: a walker or hopper (game units: now at p, radius r, at prev a step ago) kept
-## out of the real furniture (RoomColliders.push_out); anywhere else it goes on as it was.
-func furniture_push(p: Vector3, r: float, prev: Vector3) -> Vector3:
+## Mixed reality: a walker or hopper (game units: now at p, radius r, at prev a step ago, heading
+## for goal; mem its own Dictionary) kept out of the real furniture (RoomColliders.push_out);
+## anywhere else it goes on as it was.
+func furniture_push(p: Vector3, r: float, prev: Vector3, goal: Vector3, mem: Dictionary) -> Vector3:
 	if not room_active():
 		return p
 	var gt := game_root.global_transform
-	return gt.affine_inverse() * room.push_out(gt * p, r * gt.basis.get_scale().x, gt * prev)
+	return gt.affine_inverse() * room.push_out(gt * p, r * gt.basis.get_scale().x, gt * prev, gt * goal, mem)
 
 
 ## The scanned room in game units (the format the newer stages take: SlimeStage's).
@@ -2012,9 +2013,9 @@ func room_planes_game(with_boxes := false) -> Array:
 		var e := [x.basis.x.normalized(), x.basis.y.normalized(), x.basis.z.normalized()]
 		for i in 3:
 			for sgn in [-1.0, 1.0]:
-				if i == 1 and sgn < 0.0:
-					continue
 				var n: Vector3 = e[i] * sgn
+				if n.y < -0.7:
+					continue  # the underside (Meta's volumes may stand on local Z or Y)
 				add.call(x.origin + n * sz[i] * 0.5, n, e[(i + 1) % 3] * sz[(i + 1) % 3] * 0.5, e[(i + 2) % 3] * sz[(i + 2) % 3] * 0.5, bx.label, true)
 	return out
 
@@ -2200,6 +2201,7 @@ func restart_in_view(m: String) -> void:
 ## Mixed reality: the real walls and furniture hide whatever is behind them (behind the sofa,
 ## under the table, half sunk into a chair), every Dahrooj and enemy alike (RoomColliders.occlude).
 func _hide_behind_room() -> void:
+	room.occlude_head = head_transform().origin
 	room.occlude(room_active())
 
 
