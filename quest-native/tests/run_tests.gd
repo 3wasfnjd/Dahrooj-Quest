@@ -479,6 +479,22 @@ func _room_play(main: Node) -> void:
 	main._setup_stage()
 	check(absf(float(ratios[0]) - float(ratios[1])) < 1e-3, "MR zoom: meteors and shots shrink together (%s)" % [ratios])
 	check(scales[0] == scales[1], "MR zoom: the room stays the room's size, only the Dahroojs shrink (%s)" % [scales])
+	# The shots reach as far (in metres) at any zoom, in every mode (the fort's and the gallery's
+	# targets come from the room's real walls).
+	var reach_bad := []
+	for md in ["castle", "gallery", "meteor", "invasion", "giant", "frenzy", "mole", "slime", "goal"]:
+		var r_m := []
+		for z in [1.0, 0.35]:
+			main.ar_zoom = z
+			main._choose_mode(md)
+			main.state = "play"
+			main.place()
+			r_m.append(main.world_balls.reach_k() / main.scale_now)
+		if absf(float(r_m[0]) - float(r_m[1])) > 1e-4:
+			reach_bad.append("%s %s" % [md, r_m])
+	main.ar_zoom = 1.0
+	main.place()
+	check(reach_bad.is_empty(), "MR zoom: every mode's shots reach as far at any zoom %s" % [reach_bad])
 	main._choose_mode("mole")
 	main.state = "play"
 	check(main.room_play() and main.scale_now == 8.0, "MR room play: whack-a-Dahrooj is played out in the room")

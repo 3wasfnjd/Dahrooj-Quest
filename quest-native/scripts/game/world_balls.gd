@@ -469,13 +469,13 @@ func blast_k() -> float:
 
 
 ## How far and fast the shots go (game units per metre of their speeds, ranges, gravity and
-## seeking): blast_k() on a court, but played out in the room the zoom only shrinks how they
-## look, never how far they reach (the room stays the room: the far targets stay far).
+## seeking). In mixed reality the pinning zoom only shrinks how they look, never how far they
+## reach: the room stays the room (the fort's walkers and the gallery's targets come from its
+## real walls), so the far targets stay in reach at any zoom.
 func reach_k() -> float:
 	var k := blast_k()
-	if host.get("mode") == "mr" and host.has_method("room_play") and host.room_play():
-		var z := float(host.get("ar_zoom")) if host.get("ar_zoom") != null else 1.0
-		k /= maxf(z, 0.05)
+	if host.get("mode") == "mr" and host.get("ar_zoom") != null:
+		k /= maxf(float(host.get("ar_zoom")), 0.05)
 	return k
 
 
@@ -1810,8 +1810,9 @@ func step_blast(dt: float) -> void:
 					impact(s.p, -dir_n)
 					var wn: Vector3 = ((rh.p as Vector3) - s.p).normalized() if (rh.p as Vector3).distance_to(s.p) > 1e-6 else -dir_n
 					done = _on_solid(s, P, rh.p, wn, false)
-		# A bouncy ball too far from you (no wall out there) turns back your way.
-		if not done and s.kind == "bouncy":
+		# Mixed reality with no scanned wall out there: a bouncy ball too far off turns back your
+		# way (in VR it flies on to the horizon, to the far targets).
+		if not done and s.kind == "bouncy" and host.get("mode") == "mr" and not (host.has_method("room_active") and host.room_active()):
 			var eye: Vector3 = host.eye_game()
 			var off := Vector2(s.p.x - eye.x, s.p.z - eye.z)
 			var roam: float = BOUNCY_ROAM * float(host.scale_now)
