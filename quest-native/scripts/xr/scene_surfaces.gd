@@ -18,6 +18,11 @@ extends Node
 signal surfaces_changed
 
 const Probe := preload("res://scripts/xr/scene_anchor_probe.gd")
+## The room's furniture (tables, sofas, beds, volumes...) is not used: most players' scans are
+## old or rough, and a sofa that moved since would look like the game going wrong. Only the
+## walls, floor and ceiling the headset found are listed. Stand-ins (tests) are kept as they are.
+const FURNITURE := false
+const SHELL := ["wall", "floor", "ceiling"]
 const USE_SCENE := "com.oculus.permission.USE_SCENE"
 
 var manager: Node = null
@@ -105,7 +110,7 @@ func _probes() -> Array:
 func planes() -> Array:
 	var out: Array = []
 	for p in _probes():
-		if p.has_plane():
+		if p.has_plane() and (FURNITURE or p.label in SHELL):
 			var xf: Transform3D = p.plane_xform()
 			out.append({"label": p.label, "xform": xf, "size": p.rect.size, "normal": xf.basis.z.normalized()})
 	for t in _tests:
@@ -118,7 +123,7 @@ func planes() -> Array:
 func boxes() -> Array:
 	var out: Array = []
 	for p in _probes():
-		if p.has_box():
+		if p.has_box() and FURNITURE:
 			out.append({"label": p.label, "xform": p.box_xform(), "size": p.box.size})
 	for t in _tests:
 		if t.has("box"):
