@@ -36,6 +36,7 @@ func _ready() -> void:
 	var done_to := float(A.get("progress", "1.0"))
 	for c: Array in GameRuntime.CHALLENGES:
 		Save.challenges[c[0]] = int(ceil(float(c[3]) * done_to))
+	Save.challenges[Finale.SEEN] = 1  # the champion's party already seen (it would cover the shot)
 	# Simulate without drawing until just before the capture (fast at large sizes).
 	RenderingServer.render_loop_enabled = false
 	main = load("res://scenes/main.tscn").instantiate()
