@@ -23,12 +23,12 @@ Dahrooj
 Throw, blast and pop colourful jelly Dahroojs in 20 playful modes, in a sunny VR park or all around your own room in mixed reality.
 ```
 
-## Long description (1394 / 1500)
+## Long description (1379 / 1500)
 
 ```
 Meet Dahrooj: a round, bouncy little friend who loves being thrown, and a whole park full of his friends.
 
-Pick virtual reality and play in a sunny park, or pick mixed reality and play in your own room. In mixed reality, seven arcade modes burst out of your real walls, floor and furniture, all around you.
+Pick virtual reality and play in a sunny park, or pick mixed reality and play in your own room. In mixed reality, seven arcade modes burst out of your real walls and floor, all around you.
 
 20 MODES
 • Throwing courses: goal, hoop, window, cans, bowling, bricks and the fair
@@ -37,7 +37,7 @@ Pick virtual reality and play in a sunny park, or pick mixed reality and play in
 • The Summit climb, and Dahrooj Rain
 
 12 SHOTS
-Bolt, mini Dahrooj, bubble, firework, confetti, bouncy, laser, boomerang, jelly glob, rocket, lightning, and a spinning dallah that sprays coffee beans.
+Bolt, mini Dahrooj, bubble, firework, confetti, bouncy, laser, boomerang, water, rocket, lightning, and a spinning dallah that sprays coffee beans.
 
 YOUR OWN DAHROOJ
 Jelly, fur or bubble, 12 colours and 47 accessories: shemagh & agal, ghutra, taqiyah, a falcon, a jasmine crown, a space helmet and many more.
@@ -59,7 +59,7 @@ MADE FOR EVERYONE
 Use these where the dashboard asks for highlights.
 
 - 20 modes: throwing courses, arcade action, tabletop puzzles, a summit climb and Dahrooj Rain
-- Play in a sunny VR park, or in mixed reality, where targets come from your room's walls, floor and furniture
+- Play in a sunny VR park, or in mixed reality, where targets come from your room's walls and floor
 - 12 shots, from a bolt and a laser to fireworks, lightning and a coffee-spraying dallah
 - 3 styles (jelly, fur, bubble), 12 colours and 47 accessories, including shemagh & agal, ghutra, taqiyah, falcon and jasmine crown
 - 65 challenges, each one unlocking a reward (the last: the World Cup)

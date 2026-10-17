@@ -89,14 +89,14 @@ These are the permissions in the built manifest.
 ### `com.oculus.permission.USE_SCENE`
 
 - **Why it is used:** mixed reality uses the room the player captured in Space Setup.
-  - The walls, floor, ceiling, tables, couch, bed, storage and other furniture labels and
-    sizes are read through `OpenXRFbSceneManager` (`scripts/xr/scene_surfaces.gd`, with
-    `scene_anchor_probe.gd` on each entity).
-  - The court is pinned to the floor or a table.
+  - The scene is read through `OpenXRFbSceneManager` (`scripts/xr/scene_surfaces.gd`, with
+    `scene_anchor_probe.gd` on each entity). Only the walls, floor and ceiling are used;
+    furniture (tables, sofas, beds, volumes) is ignored (`SceneSurfaces.FURNITURE = false`).
+  - The court is pinned to the floor (or in front of a wall).
   - The seven room modes (`ROOM_MODES` in `scripts/main.gd`: Whack-a-Dahrooj, Dahrooj
     Attack, Slime, Meteors, Giant, Pop Frenzy, Gallery) take their spawn spots from these
     surfaces (`RoomSpots`).
-  - Dahrooj bounces off the real walls and furniture (`room_colliders.gd`).
+  - Dahrooj bounces off the real walls, and what is behind a wall is hidden (`room_colliders.gd`).
 - **When it is asked:** a runtime permission, requested at launch in
   `scene_surfaces.gd` `attach()`.
 - **If the user says no:** the game falls back to the floor only (`status = "denied"`).
