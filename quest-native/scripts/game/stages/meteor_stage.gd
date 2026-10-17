@@ -528,7 +528,14 @@ static func multiplier(combo: int) -> int:
 func banner_at() -> Vector3:
 	var to := Vector3(0, 0, aim_z) - Vector3(viewer.x, 0, viewer.z)
 	var d := to.normalized() if to.length_squared() > 0.01 else Vector3.FORWARD
-	return Vector3(viewer.x, viewer.y + 1.3 * size, viewer.z) + d * 8.0 * size
+	var k := banner_k()
+	return Vector3(viewer.x, viewer.y + 1.3 * size * k, viewer.z) + d * 8.0 * size * k
+
+
+## The banner's distance (and so its size) over the VR one: the room's small meteors would
+## put it half a metre from your face, so it keeps at least 2.6 m away (and grows with it).
+func banner_k() -> float:
+	return maxf(1.0, 2.6 * unit / (8.0 * size))
 
 
 func start() -> void:
@@ -1231,13 +1238,14 @@ func _draw_labels() -> void:
 		var inn := minf(1.0, age / 0.35)
 		var over := 1.0 + 0.35 * sin(inn * PI) * (1.0 - inn * 0.5)
 		var out := clampf((0.45 - bt) / 0.45, 0.0, 1.0)
-		var s := (0.3 + 0.7 * inn) * over * (1.0 + out * 0.4) * size
+		var bk := size * banner_k()
+		var s := (0.3 + 0.7 * inn) * over * (1.0 + out * 0.4) * bk
 		var at := banner_at()
-		banner.position = at + Vector3.UP * out * 0.35 * size
+		banner.position = at + Vector3.UP * out * 0.35 * bk
 		banner.scale = Vector3.ONE * s
 		banner.modulate.a = 1.0 - out
-		banner_sub.position = at + Vector3(0, -1.05 * size, 0) + Vector3.UP * out * 0.35 * size
-		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5) * size
+		banner_sub.position = at + Vector3(0, -1.05 * bk, 0) + Vector3.UP * out * 0.35 * bk
+		banner_sub.scale = Vector3.ONE * minf(1.0, age / 0.5) * bk
 		banner_sub.modulate.a = 1.0 - out
 	var ct: float = F.combo_show_t
 	combo_label.visible = ct > 0.0

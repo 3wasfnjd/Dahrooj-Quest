@@ -534,6 +534,11 @@ func _room_play(main: Node) -> void:
 	check(absf(MoleStage.R * float(main.stage.size) / main.scale_now - main.MR_DAHROOJ_R) < 1e-3, "MR room play: a mole the one natural Dahrooj size")
 	main._choose_mode("meteor")
 	check(main.room_play() and absf(0.85 * float(main.stage.size) / main.scale_now - main.MR_DAHROOJ_R * 1.3) < 1e-3 and main.stage.spots_provider.is_valid(), "MR room play: meteors the natural Dahrooj size (with their fire), from the room's spots")
+	# Its opening banner stands a few metres off, not in your face (the room's meteors are small).
+	main._choose_mode("meteor")
+	var be: Vector3 = main.eye_game()
+	var bb: Vector3 = main.stage.banner_at()
+	check(Vector2(bb.x - be.x, bb.z - be.z).length() / main.scale_now > 2.4, "MR meteors: the banner is %.1f m away" % (Vector2(bb.x - be.x, bb.z - be.z).length() / main.scale_now))
 	# The same natural size in every room mode, the rain too, and the pinning preview shows it.
 	var sizes := {}
 	main._choose_mode("gallery")
