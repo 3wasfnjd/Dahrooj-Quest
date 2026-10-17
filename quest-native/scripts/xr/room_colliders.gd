@@ -176,13 +176,16 @@ func push_out(p: Vector3, r: float, prev: Vector3) -> Vector3:
 		var pen := Vector2(hr.x - absf(lp.x), hr.y - absf(lp.z))
 		var out := lp
 		var tang := Vector2.ZERO
+		# Round it: along the face the way the step already leans (where it is heading), else
+		# toward the nearer end.
 		if pen.x < pen.y:
 			out.x = signf(lp.x if lp.x != 0.0 else 1.0) * hr.x
-			tang = Vector2(0.0, signf(lp.z if lp.z != 0.0 else 1.0))
+			var lean := step.y if absf(step.y) > 0.15 * step.length() else lp.z
+			tang = Vector2(0.0, signf(lean if lean != 0.0 else 1.0))
 		else:
 			out.z = signf(lp.z if lp.z != 0.0 else 1.0) * hr.y
-			tang = Vector2(signf(lp.x if lp.x != 0.0 else 1.0), 0.0)
-		# Round it: the step's length along the face, toward the nearer end.
+			var lean := step.x if absf(step.x) > 0.15 * step.length() else lp.x
+			tang = Vector2(signf(lean if lean != 0.0 else 1.0), 0.0)
 		var slide := tang * step.length()
 		out.x += slide.x
 		out.z += slide.y

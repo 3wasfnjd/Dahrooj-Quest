@@ -109,6 +109,9 @@ var size := 1.0
 var fort_yaw := -PI / 4.0
 ## The room's planes (mixed reality), see the header. Unset or empty: the court.
 var planes_provider: Callable
+## Mixed reality: (p, r, prev) -> p kept out of the real furniture (main.furniture_push), game
+## units; unset in VR. The walkers go round the sofa and the table on their way to the fort.
+var furniture: Callable
 ## The player's eye (game units). Main keeps it current.
 var viewer := Vector3(0, 3.2, 1.0)
 ## Game units per metre (main: the court's scale). Walkers, catapults and the siege tower
@@ -965,6 +968,8 @@ func _new_dude(kind: String, at: Vector3) -> int:
 	d.on = true
 	d.kind = kind
 	d.phase = "walk"
+	d.best = INF
+	d.stuck_t = 0.0
 	d.t = 0.0
 	d.c = at + Vector3.UP * R
 	d.v = Vector3.ZERO
@@ -1695,9 +1700,21 @@ func _step_dude(i: int, d: Dictionary, dt: float) -> void:
 				c.x = target.x
 				c.z = target.z
 				(d.path as Array).pop_front()
+				d.best = INF
 			else:
 				d.dir = flat.normalized()
+				var was := c
 				c += flat.normalized() * step
+				# Round the real furniture; one that gets no nearer for a while goes on through it.
+				if flat.length() < float(d.get("best", INF)) - 0.1 * R:
+					d.best = flat.length()
+					d.stuck_t = 0.0
+				else:
+					d.stuck_t = float(d.get("stuck_t", 0.0)) + dt
+				if furniture.is_valid() and float(d.stuck_t) < 4.0:
+					var q: Vector3 = to_fort(furniture.call(to_game(Vector3(c.x, R, c.z)), R * size, to_game(Vector3(was.x, R, was.z))))
+					c.x = q.x
+					c.z = q.z
 			d.hop = float(d.hop) + dt * 9.0 * spd
 			var b := absf(sin(float(d.hop)))
 			c.y = R + b * R * 0.45

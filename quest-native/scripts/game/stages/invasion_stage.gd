@@ -93,6 +93,8 @@ var spots_provider: Callable
 ## Mixed reality: (p, r, prev) -> p kept out of the real furniture (main.furniture_push), game
 ## units; unset in VR.
 var furniture: Callable
+## Seconds an invader may get no nearer before it stops going round the furniture.
+const STUCK_T := 4.0
 ## Size of the Dahroojs, the line and the power-ups (mixed reality wants them bigger).
 var size := 1.0
 ## The player's eye (game units): they head for it and look at it. Main keeps it current.
@@ -536,6 +538,8 @@ func spawn(kind: String, spot := {}) -> int:
 	m.y = 0.0
 	m.sq = Vector2.ONE
 	m.v = Vector3.ZERO
+	m.best = INF
+	m.stuck_t = 0.0
 	match kind:
 		"fast":
 			m.style = "jelly"
@@ -900,6 +904,7 @@ func _step_invader(m: Dictionary, dt: float) -> void:
 	m.blink = maxf(0.0, m.blink - dt)
 	var r: float = m.r
 	var G := Ball.GRAV * 0.9
+	var was: Vector3 = m.p
 	match m.phase:
 		"emerge":
 			# Out of the wall (or floor) along its normal, then a leap into the room.
@@ -927,7 +932,30 @@ func _step_invader(m: Dictionary, dt: float) -> void:
 				pass
 			else:
 				_hop(m, dt, true)
+	if m.on and m.phase in ["march", "idle"]:
+		_round_furniture(m, was, dt)
 	_place(m)
+
+
+## Mixed reality: on the floor it goes round the real furniture (pushed out of a sofa it ran
+## or landed into, sent along its side). One that gets no nearer for STUCK_T (boxed in between
+## a sofa and the wall) goes on through it, hidden there, so a wave always ends.
+func _round_furniture(m: Dictionary, was: Vector3, dt: float) -> void:
+	if not furniture.is_valid():
+		return
+	var g := goal()
+	var near := Vector2(g.x - m.p.x, g.z - m.p.z).length()
+	if near < float(m.best) - 0.1 * float(m.r):
+		m.best = near
+		m.stuck_t = 0.0
+	else:
+		m.stuck_t = float(m.stuck_t) + dt
+	if float(m.stuck_t) >= STUCK_T:
+		return
+	var r: float = m.r
+	var q: Vector3 = furniture.call(Vector3(m.p.x, r, m.p.z), r, Vector3(was.x, r, was.z))
+	m.p = Vector3(q.x, m.p.y, q.z)
+	m.c = Vector3(q.x, m.c.y, q.z)
 
 
 func _land(m: Dictionary) -> void:
@@ -976,11 +1004,7 @@ func _hop(m: Dictionary, dt: float, march: bool) -> void:
 			# Keep to the court in VR.
 			if _room.is_empty() and absf(m.p.x) > SPAWN_X + 1.0:
 				lat = -signf(m.p.x * s.x) * absf(lat)
-			var was: Vector3 = m.p
 			m.p += (d * float(m.speed) + s * lat) * dt / (1.0 - GROUND_FR)
-			if furniture.is_valid():
-				var q: Vector3 = furniture.call(Vector3(m.p.x, r, m.p.z), r, Vector3(was.x, r, was.z))
-				m.p = Vector3(q.x, m.p.y, q.z)
 			m.dir = d
 	if march:
 		var g2 := goal()

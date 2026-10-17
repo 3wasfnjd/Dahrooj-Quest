@@ -1289,6 +1289,8 @@ func _spit_one(b: Dictionary) -> void:
 	mi.t = 0.0
 	mi.life = 0.0
 	mi.bounces = 0
+	mi.best = INF
+	mi.stuck_t = 0.0
 	mi.flash = 0.0
 	mi.zig = _rng.randf() * TAU
 	mi.hop_p = _rng.randf_range(0.42, 0.56)
@@ -1473,7 +1475,13 @@ func _step_minion(mi: Dictionary, dt: float) -> void:
 			var sp := 2.3 * size * k
 			var was: Vector3 = mi.p
 			mi.p += (dir * sp + side * sin(float(mi.t) * 4.0 + mi.zig) * 1.0 * size) * dt
-			if furniture.is_valid():
+			# Round the real furniture; one that gets no nearer for a while goes on through it.
+			if d < float(mi.get("best", INF)) - 0.1 * r:
+				mi.best = d
+				mi.stuck_t = 0.0
+			else:
+				mi.stuck_t = float(mi.get("stuck_t", 0.0)) + dt
+			if furniture.is_valid() and float(mi.stuck_t) < 4.0:
 				var q: Vector3 = furniture.call(Vector3(mi.p.x, fl + r, mi.p.z), r, Vector3(was.x, fl + r, was.z))
 				mi.p = Vector3(q.x, mi.p.y, q.z)
 			var u: float = mi.t / (mi.hop_p / sqrt(k))

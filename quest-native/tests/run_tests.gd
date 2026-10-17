@@ -509,6 +509,27 @@ func _room_play(main: Node) -> void:
 				front = false
 	check(front and secs.size() >= 3, "MR room play: only in front of the player, 2 m away or more, never behind (%d sectors)" % secs.size())
 	check((main.play_forward() as Vector3).is_equal_approx(Vector3.FORWARD) and main.room_spots.forward.is_equal_approx(Vector3.FORWARD), "MR room play: the play direction is the court's forward")
+	# A sofa against the far wall too: the invaders go round the furniture and the waves keep coming.
+	surf.add_test_box(Transform3D(Basis(), c + Vector3(-0.6, 0.4, -2.55)), Vector3(1.8, 0.8, 0.9), "couch")
+	main._refresh_room_spots(true)
+	main._choose_mode("invasion")
+	main.state = "play"
+	var invs: InvasionStage = main.stage
+	var in_box := 0
+	for i in 72 * 40:
+		main._game_step(1.0 / 72.0)
+		for m in invs.invaders:
+			if m.on and m.phase == "march" and float(m.stuck_t) < InvasionStage.STUCK_T:
+				var w: Vector3 = main.game_root.global_transform * Vector3(m.p.x, m.r, m.p.z)
+				for bx in surf.boxes():
+					var l: Vector3 = (bx.xform as Transform3D).affine_inverse() * w
+					if absf(l.x) < bx.size.x * 0.5 - 0.01 and absf(l.z) < bx.size.z * 0.5 - 0.01 and absf(l.y) < bx.size.y * 0.5:
+						in_box += 1
+	check(int(invs.F.wave) >= 4 and in_box == 0, "MR invasion: with a sofa and a table the waves keep coming (wave %d) and nobody walks through them (%d)" % [invs.F.wave, in_box])
+	main.state = "menu"
+	for k in 40:  # let the waves' confetti and cards settle before the next checks
+		main.confetti.step(0.5)
+		main.toast.step(0.5)
 	await _giant_pin(main, c)
 	check(absf(MoleStage.R * float(main.stage.size) / main.scale_now - main.MR_DAHROOJ_R) < 1e-3, "MR room play: a mole the one natural Dahrooj size")
 	main._choose_mode("meteor")
