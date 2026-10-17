@@ -21,10 +21,10 @@ const REST_LIFE := 12.0
 const REST_ROOM := 26.0
 const REAL_G := 9.8
 const SPARKS_MAX := 320
-const SHOTS_MAX := 40
+const SHOTS_MAX := 48
 ## Bouncy balls never wear out: they bounce about the room for good, at most this many at once
 ## (a new one takes the place of the oldest; the headset keeps its frame rate).
-const BOUNCY_MAX := 12
+const BOUNCY_MAX := 20
 ## They keep hopping and rolling (metres a second, × blast_k): at least this high a bounce and
 ## this fast along the floor; past BOUNCY_ROAM metres from you (VR's open park, a room with no
 ## scan) they turn back toward you.
